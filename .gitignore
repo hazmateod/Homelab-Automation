@@ -4,16 +4,17 @@ logs/
 # Generated reports
 reports/
 
+# Retry files
+*.retry
+
 # Python
 __pycache__/
 *.pyc
 
-# Ansible retry files
-*.retry
-
-# VS Code
+# IDE
 .vscode/
+.idea/
 
-# Temporary files
-*.tmp
-*.bak
+# OS
+.DS_Store
+Thumbs.db
