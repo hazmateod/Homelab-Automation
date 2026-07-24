@@ -1,0 +1,7 @@
+---
+
+validation_services:
+
+  - ssh
+
+  - cron

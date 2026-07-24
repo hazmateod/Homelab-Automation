@@ -1,0 +1,20 @@
+---
+- name: Load Technitium plugin
+  ansible.builtin.include_role:
+    name: ../../plugins/technitium
+  when: platform_type == "technitium"
+
+- name: Load Unbound plugin
+  ansible.builtin.include_role:
+    name: ../../plugins/unbound
+  when: platform_type == "unbound"
+
+- name: Load PBS plugin
+  ansible.builtin.include_role:
+    name: ../../plugins/pbs
+  when: platform_type == "pbs"
+
+- name: Load Pi-hole plugin
+  ansible.builtin.include_role:
+    name: ../../plugins/pihole
+  when: platform_type == "pihole"

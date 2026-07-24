@@ -1,0 +1,68 @@
+---
+- name: Verify DNS
+  ansible.builtin.command: getent hosts deb.debian.org
+  register: dnscheck
+  changed_when: false
+  failed_when: false
+
+- name: Record DNS result
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'precheck': {
+            'dns': {
+              'status': 'PASS' if dnscheck.rc == 0 else 'FAIL',
+              'lookup': 'deb.debian.org',
+              'result': dnscheck.stdout
+            }
+          }
+        }, recursive=True)
+      }}
+
+- name: Verify Internet
+  ansible.builtin.command: ping -c 2 8.8.8.8
+  register: internetcheck
+  changed_when: false
+  failed_when: false
+
+- name: Record Internet result
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'precheck': {
+            'internet': {
+              'status': 'PASS' if internetcheck.rc == 0 else 'FAIL',
+              'target': '8.8.8.8'
+            }
+          }
+        }, recursive=True)
+      }}
+
+- name: Verify Disk Space
+  ansible.builtin.command: df -h /
+  register: diskcheck
+  changed_when: false
+  failed_when: false
+
+- name: Record Disk result
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'precheck': {
+            'disk': {
+              'status': 'PASS',
+              'filesystem': diskcheck.stdout_lines
+            }
+          }
+        }, recursive=True)
+      }}
+
+- name: Display Precheck Report
+  ansible.builtin.debug:
+    var: homelab_report.precheck

@@ -1,0 +1,19 @@
+---
+- name: Initialize report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'host': {
+            'hostname': inventory_hostname,
+            'os': ansible_distribution ~ ' ' ~ ansible_distribution_version,
+            'kernel': ansible_kernel,
+            'ip': ansible_default_ipv4.address
+          }
+        }, recursive=True)
+      }}
+
+- name: Show report structure
+  ansible.builtin.debug:
+    var: homelab_report

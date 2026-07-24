@@ -1,0 +1,20 @@
+---
+health_defaults:
+
+  host:
+    score: 100
+
+  updates:
+    score: 100
+
+  validation:
+    score: 100
+
+  plugins:
+    score: 100
+
+health_thresholds:
+
+  healthy: 95
+  warning: 85
+  degraded: 70

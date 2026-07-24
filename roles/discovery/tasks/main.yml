@@ -1,0 +1,20 @@
+---
+- name: Detect Technitium
+  ansible.builtin.stat:
+    path: /opt/technitium
+  register: technitium_dir
+
+- name: Detect Unbound
+  ansible.builtin.stat:
+    path: /etc/unbound
+  register: unbound_dir
+
+- name: Detect PBS
+  ansible.builtin.stat:
+    path: /etc/proxmox-backup
+  register: pbs_dir
+
+- name: Detect Pi-hole
+  ansible.builtin.stat:
+    path: /etc/pihole
+  register: pihole_dir

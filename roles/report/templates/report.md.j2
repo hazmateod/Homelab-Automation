@@ -1,0 +1,83 @@
+# 🏠 Homelab Operations Report
+
+**Generated:** {{ ansible_date_time.iso8601 }}
+
+---
+
+# Overall Status
+
+{% set healthy =
+    homelab_report.precheck.dns.status == 'PASS' and
+    homelab_report.precheck.internet.status == 'PASS' and
+    homelab_report.validation.dns.status == 'PASS'
+%}
+
+{% if healthy %}
+🟢 **HEALTHY**
+{% else %}
+🔴 **ATTENTION REQUIRED**
+{% endif %}
+
+---
+
+# Host Information
+
+| Item | Value |
+|------|-------|
+| Host | {{ homelab_report.host.hostname }} |
+| OS | {{ homelab_report.host.os }} |
+| Kernel | {{ homelab_report.host.kernel }} |
+| IP Address | {{ homelab_report.host.ip }} |
+
+---
+
+# Precheck
+
+| Check | Status |
+|------|------|
+| DNS | {{ homelab_report.precheck.dns.status }} |
+| Internet | {{ homelab_report.precheck.internet.status }} |
+| Disk | {{ homelab_report.precheck.disk.status }} |
+
+---
+
+# Updates
+
+| Item | Value |
+|------|------|
+| Packages Changed | {{ homelab_report.updates.packages_changed }} |
+| Reboot Required | {{ homelab_report.updates.reboot_required }} |
+
+---
+
+# Reboot
+
+| Item | Value |
+|------|------|
+| Required | {{ homelab_report.reboot.required }} |
+| Performed | {{ homelab_report.reboot.performed }} |
+| Successful | {{ homelab_report.reboot.successful }} |
+
+---
+
+# Validation
+
+| Check | Status |
+|------|------|
+| DNS | {{ homelab_report.validation.dns.status }} |
+
+---
+
+# Services
+
+| Service | Running |
+|---------|---------|
+{% for name, svc in homelab_report.validation.services.items() %}
+| {{ name }} | {{ "🟢 Yes" if svc.running else "🔴 No" }} |
+{% endfor %}
+
+---
+
+# Summary
+
+This report was generated automatically by the **Homelab Automation Framework**.

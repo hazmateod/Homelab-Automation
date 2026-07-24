@@ -1,0 +1,4 @@
+---
+report_root: "{{ playbook_dir }}/../reports/current"
+report_history: "{{ playbook_dir }}/../reports/history"
+report_json: "{{ playbook_dir }}/../reports/json"

@@ -1,0 +1,21 @@
+---
+- name: Homelab Maintenance Framework
+  hosts: all
+  serial: 1
+  gather_facts: true
+  become: true
+
+  pre_tasks:
+    - name: Display host
+      ansible.builtin.debug:
+        msg: "========== {{ inventory_hostname }} =========="
+
+  roles:
+    - common
+    - discovery
+    - precheck
+    - update
+    - reboot
+    - validate
+    - health
+    - report

@@ -1,0 +1,45 @@
+---
+- name: Record update start time
+  ansible.builtin.set_fact:
+    update_start: "{{ ansible_date_time.epoch | int }}"
+
+- name: Update package cache
+  ansible.builtin.apt:
+    update_cache: yes
+    cache_valid_time: 3600
+    update_cache_retries: "{{ maintenance.apt_retries }}"
+    update_cache_retry_max_delay: "{{ maintenance.apt_retry_delay }}"
+
+- name: Upgrade packages
+  ansible.builtin.apt:
+    upgrade: dist
+    autoremove: yes
+    autoclean: yes
+  register: apt_upgrade
+
+- name: Check if reboot is required
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_required
+
+- name: Record update end time
+  ansible.builtin.set_fact:
+    update_end: "{{ ansible_date_time.epoch | int }}"
+
+- name: Store update results
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'updates': {
+            'packages_changed': apt_upgrade.changed,
+            'reboot_required': reboot_required.stat.exists,
+            'duration_seconds': (update_end | int) - (update_start | int)
+          }
+        }, recursive=True)
+      }}
+
+- name: Display Update Report
+  ansible.builtin.debug:
+    var: homelab_report.updates

@@ -1,0 +1,27 @@
+---
+- name: Initialize Health Object
+  ansible.builtin.set_fact:
+
+    homelab_health:
+
+      categories:
+
+        host:
+          score: "{{ health_defaults.host.score }}"
+          issues: []
+
+        updates:
+          score: "{{ health_defaults.updates.score }}"
+          issues: []
+
+        validation:
+          score: "{{ health_defaults.validation.score }}"
+          issues: []
+
+        plugins:
+          score: "{{ health_defaults.plugins.score }}"
+          issues: []
+
+- name: Show Health Object
+  ansible.builtin.debug:
+    var: homelab_health

@@ -1,0 +1,19 @@
+# Ansible logs
+logs/
+
+# Generated reports
+reports/
+
+# Python
+__pycache__/
+*.pyc
+
+# Ansible retry files
+*.retry
+
+# VS Code
+.vscode/
+
+# Temporary files
+*.tmp
+*.bak

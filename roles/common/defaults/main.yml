@@ -1,0 +1,8 @@
+---
+homelab_report:
+  host: {}
+  precheck: {}
+  updates: {}
+  reboot: {}
+  validation: {}
+  platform: {}

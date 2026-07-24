@@ -1,0 +1,14 @@
+---
+maintenance:
+
+  dns_test: deb.debian.org
+
+  internet_test: 8.8.8.8
+
+  reboot_timeout: 900
+
+  wait_timeout: 600
+
+  apt_retries: 5
+
+  apt_retry_delay: 30
