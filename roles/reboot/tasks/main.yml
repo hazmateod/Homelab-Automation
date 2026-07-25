@@ -7,12 +7,30 @@
 - name: Reboot host
   ansible.builtin.reboot:
     reboot_timeout: 900
+    connect_timeout: 30
+    post_reboot_delay: 15
   when: reboot_required.stat.exists
   register: reboot_result
 
 - name: Wait for SSH
   ansible.builtin.wait_for_connection:
     timeout: 600
+    delay: 10
+  when: reboot_required.stat.exists
+
+- name: Wait for systemd to finish booting
+  ansible.builtin.command:
+    cmd: systemctl is-system-running
+  register: systemd_status
+  retries: 30
+  delay: 10
+  until: systemd_status.stdout in ['running', 'degraded']
+  changed_when: false
+  failed_when: false
+  when: reboot_required.stat.exists
+
+- name: Refresh Ansible facts
+  ansible.builtin.setup:
   when: reboot_required.stat.exists
 
 - name: Store reboot results
@@ -27,8 +45,12 @@
             'successful': (
               reboot_result is defined and
               reboot_result.failed is not defined
+            ) if reboot_required.stat.exists else true,
+            'system_state': (
+              systemd_status.stdout
+              if reboot_required.stat.exists and systemd_status is defined
+              else 'not_rebooted'
             )
-            if reboot_required.stat.exists else true
           }
         }, recursive=True)
       }}

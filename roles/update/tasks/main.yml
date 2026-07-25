@@ -43,3 +43,20 @@
 - name: Display Update Report
   ansible.builtin.debug:
     var: homelab_report.updates
+
+- name: Publish update health contribution
+  ansible.builtin.set_fact:
+    health_contributors: >-
+      {{
+        (health_contributors | default([]))
+        +
+        [
+          {
+            'name': 'updates',
+            'earned': 20,
+            'possible': 20,
+            'status': 'PASS',
+            'issues': []
+          }
+        ]
+      }}

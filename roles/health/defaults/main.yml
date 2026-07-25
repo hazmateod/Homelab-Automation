@@ -1,20 +1,17 @@
 ---
-health_defaults:
+health_weights:
 
-  host:
-    score: 100
-
-  updates:
-    score: 100
-
-  validation:
-    score: 100
-
-  plugins:
-    score: 100
+  host: 20
+  updates: 20
+  validation: 20
+  services: 20
+  plugins: 20
 
 health_thresholds:
 
   healthy: 95
   warning: 85
   degraded: 70
+  critical: 50
+
+health_contributors: []

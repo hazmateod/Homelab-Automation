@@ -1,27 +1,100 @@
 ---
-- name: Initialize Health Object
+- name: Initialize Health Engine
   ansible.builtin.set_fact:
-
     homelab_health:
+      overall:
+        earned: 0
+        possible: 0
+        score: 0
+        status: UNKNOWN
+      categories: {}
+      issues: []
 
-      categories:
+- name: Aggregate health contributors
+  ansible.builtin.set_fact:
+    homelab_health: >-
+      {{
+        homelab_health |
+        combine({
+          'overall': {
+            'earned': homelab_health.overall.earned + item.earned,
+            'possible': homelab_health.overall.possible + item.possible,
+            'score': homelab_health.overall.score
+          },
+          'categories':
+            homelab_health.categories |
+            combine({
+              item.name: {
+                'earned': item.earned,
+                'possible': item.possible,
+                'status': item.status,
+                'issues': item.issues
+              }
+            }),
+          'issues':
+            homelab_health.issues + item.issues
+        }, recursive=True)
+      }}
+  loop: "{{ health_contributors | default([]) }}"
+  loop_control:
+    label: "{{ item.name }}"
 
-        host:
-          score: "{{ health_defaults.host.score }}"
-          issues: []
+- name: Calculate health percentage
+  ansible.builtin.set_fact:
+    homelab_health: >-
+      {{
+        homelab_health |
+        combine({
+          'overall':
+            homelab_health.overall |
+            combine({
+              'score':
+                (
+                  (
+                    homelab_health.overall.earned | float
+                    /
+                    homelab_health.overall.possible | float
+                  ) * 100
+                ) | round(0, 'floor') | int
+            })
+        }, recursive=True)
+      }}
+  when: homelab_health.overall.possible > 0
 
-        updates:
-          score: "{{ health_defaults.updates.score }}"
-          issues: []
+- name: Set overall health status
+  ansible.builtin.set_fact:
+    homelab_health: >-
+      {{
+        homelab_health |
+        combine({
+          'overall':
+            homelab_health.overall |
+            combine({
+              'status':
+                'HEALTHY'
+                if homelab_health.overall.score >= health_thresholds.healthy
+                else
+                'WARNING'
+                if homelab_health.overall.score >= health_thresholds.warning
+                else
+                'DEGRADED'
+                if homelab_health.overall.score >= health_thresholds.degraded
+                else
+                'CRITICAL'
+            })
+        }, recursive=True)
+      }}
 
-        validation:
-          score: "{{ health_defaults.validation.score }}"
-          issues: []
+- name: Store Health Report
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'health': homelab_health
+        }, recursive=True)
+      }}
 
-        plugins:
-          score: "{{ health_defaults.plugins.score }}"
-          issues: []
-
-- name: Show Health Object
+- name: Display Health Engine
   ansible.builtin.debug:
     var: homelab_health
