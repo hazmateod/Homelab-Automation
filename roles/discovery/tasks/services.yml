@@ -1,0 +1,12 @@
+---
+###############################################################################
+# Service Discovery
+###############################################################################
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Build service discovery
+  ansible.builtin.set_fact:
+    discovery_services:
+      services: "{{ ansible_facts.services }}"

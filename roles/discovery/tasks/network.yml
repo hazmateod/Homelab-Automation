@@ -1,0 +1,12 @@
+---
+###############################################################################
+# Network Discovery
+###############################################################################
+
+- name: Build network discovery
+  ansible.builtin.set_fact:
+    discovery_network:
+      hostname: "{{ ansible_hostname }}"
+      fqdn: "{{ ansible_fqdn }}"
+      default_ipv4: "{{ ansible_default_ipv4 | default({}) }}"
+      interfaces: "{{ ansible_interfaces | default([]) }}"

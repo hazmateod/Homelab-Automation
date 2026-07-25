@@ -1,0 +1,11 @@
+---
+###############################################################################
+# Virtualization Discovery
+###############################################################################
+
+- name: Build virtualization discovery
+  ansible.builtin.set_fact:
+    discovery_virtualization:
+      type: "{{ ansible_virtualization_type | default('unknown') }}"
+      role: "{{ ansible_virtualization_role | default('unknown') }}"
+      architecture: "{{ ansible_architecture }}"

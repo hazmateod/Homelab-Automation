@@ -1,0 +1,10 @@
+---
+###############################################################################
+# Application Discovery
+###############################################################################
+
+- name: Build application discovery
+  ansible.builtin.set_fact:
+    discovery_applications:
+      proxmox_backup_server:
+        installed: "{{ 'proxmox-backup.service' in ansible_facts.services }}"

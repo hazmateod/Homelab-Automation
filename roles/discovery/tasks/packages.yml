@@ -1,0 +1,14 @@
+---
+###############################################################################
+# Package Discovery
+###############################################################################
+
+- name: Gather package facts
+  ansible.builtin.package_facts:
+    manager: auto
+
+- name: Build package discovery
+  ansible.builtin.set_fact:
+    discovery_packages:
+      manager: auto
+      installed: "{{ ansible_facts.packages }}"
