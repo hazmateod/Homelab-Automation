@@ -1,0 +1,126 @@
+---
+###############################################################################
+# Collect Services
+###############################################################################
+
+- name: Collect service facts
+  ansible.builtin.service_facts:
+
+###############################################################################
+# Load service categories
+###############################################################################
+
+- name: Load service categories
+  ansible.builtin.include_vars:
+    file: ../vars/service_categories.yml
+
+
+###############################################################################
+# Initialize services structure
+###############################################################################
+
+- name: Initialize services section
+  ansible.builtin.set_fact:
+    cmdb_services:
+      summary: {}
+      all: "{{ ansible_facts.services }}"
+
+###############################################################################
+# Build summary of enabled services
+###############################################################################
+
+#- name: Add enabled systemd services to summary
+#  ansible.builtin.set_fact:
+#    cmdb_services: >-
+#      {{
+#        cmdb_services | combine(
+#         {
+#            'summary':
+#              cmdb_services.summary | combine(
+#                {
+#                  item.key: {
+#                    'state': item.value.state,
+#                    'status': item.value.status
+#                  }
+#                }
+#              )
+#          },
+#          recursive=True
+#        )
+#      }}
+#  loop: "{{ ansible_facts.services | dict2items }}"
+#  when:
+#    - item.value.source == "systemd"
+#    - item.value.status == "enabled"
+
+
+- name: Initialize empty categorized summary
+  ansible.builtin.set_fact:
+    cmdb_services: >-
+      {{
+        cmdb_services | combine(
+          {
+            'summary': {}
+          },
+          recursive=True
+        )
+      }}
+
+- name: Create service categories
+  ansible.builtin.set_fact:
+    cmdb_services: >-
+      {{
+        cmdb_services | combine(
+          {
+            'summary':
+              cmdb_services.summary | combine(
+                {
+                  item.key: {}
+                }
+              )
+          },
+          recursive=True
+        )
+      }}
+  loop: "{{ service_categories | dict2items }}"
+
+- name: Populate each service category
+  ansible.builtin.include_tasks: populate_category.yml
+  loop: "{{ service_categories | dict2items }}"
+  loop_control:
+    loop_var: service_category
+
+  vars:
+    category_name: "{{ service_category.key }}"
+    category_services: "{{ service_category.value }}"
+
+
+#- name: Add infrastructure services
+#  ansible.builtin.set_fact:
+#    cmdb_services: >-
+#      {{
+#        cmdb_services | combine(
+#          {
+#            'summary':
+#              cmdb_services.summary | combine(
+#                {
+#                  'infrastructure':
+#                    cmdb_services.summary.infrastructure | combine(
+#                      {
+#                        item.key: {
+#                          'state': item.value.state,
+#                          'status': item.value.status
+#                        }
+#                      }
+#                    )
+#                }
+#              )
+#          },
+#          recursive=True
+#        )
+#      }}
+#  loop: "{{ ansible_facts.services | dict2items }}"
+#  when:
+#    - item.key in service_categories.infrastructure
+#    - item.value.source == "systemd"
+#    - item.value.status == "enabled"

@@ -1,0 +1,24 @@
+---
+service_categories:
+
+  infrastructure:
+    ssh.service:
+    chrony.service:
+    rpcbind.service:
+
+  proxmox:
+    proxmox-backup.service:
+    proxmox-backup-proxy.service:
+    proxmox-backup-banner.service:
+
+  storage:
+    zfs-zed.service:
+    zfs-import-cache.service:
+    zfs-mount.service:
+    zfs-share.service:
+
+  mail:
+    postfix.service:
+
+  networking:
+    networking.service:

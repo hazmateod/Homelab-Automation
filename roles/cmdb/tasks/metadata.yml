@@ -9,13 +9,30 @@
       id: "{{ inventory_hostname }}"
       hostname: "{{ inventory_hostname }}"
       fqdn: "{{ ansible_fqdn | default('') }}"
+      himp_version: "{{ himp_version | default('development') }}"
+      schema_version: "{{ schema_version | default('1.0') }}"
+      report_generated: "{{ ansible_date_time.iso8601 }}"
       inventory_group: "{{ group_names }}"
+
       service: "{{ service | default('Unknown') }}"
       role: "{{ role | default('Unknown') }}"
       category: "{{ category | default('General') }}"
+
       vendor: "{{ vendor | default('Unknown') }}"
       platform: "{{ platform | default(ansible_system) }}"
+
+      operating_system: "{{ ansible_system }}"
+      distribution: "{{ ansible_distribution }}"
+      distribution_version: "{{ ansible_distribution_version }}"
+      distribution_major_version: "{{ ansible_distribution_major_version }}"
+      kernel: "{{ ansible_kernel }}"
+      architecture: "{{ ansible_architecture }}"
+
+      virtualization_type: "{{ ansible_virtualization_type | default('unknown') }}"
+      virtualization_role: "{{ ansible_virtualization_role | default('unknown') }}"
+
       environment: "{{ environment | default('Homelab', true) }}"
       site: "{{ site | default('Primary') }}"
       priority: "{{ priority | default('Normal') }}"
+
       icon: "{{ icon | default('🖥️') }}"

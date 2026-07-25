@@ -1,0 +1,30 @@
+---
+- name: Add matching services to category summary
+  ansible.builtin.set_fact:
+    cmdb_services: >-
+      {{
+        cmdb_services | combine(
+          {
+            'summary':
+              cmdb_services.summary | combine(
+                {
+                  category_name:
+                    cmdb_services.summary[category_name] | combine(
+                      {
+                        item.key: {
+                          'state': item.value.state,
+                          'status': item.value.status
+                        }
+                      }
+                    )
+                }
+              )
+          },
+          recursive=True
+        )
+      }}
+  loop: "{{ ansible_facts.services | dict2items }}"
+  when:
+    - item.key in category_services
+    - item.value.source == "systemd"
+    - item.value.status == "enabled"
