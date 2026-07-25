@@ -1,0 +1,5 @@
+---
+- name: Build storage section
+  ansible.builtin.set_fact:
+    cmdb_storage:
+      mounts: "{{ ansible_mounts }}"

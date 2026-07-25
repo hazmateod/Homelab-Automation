@@ -1,0 +1,15 @@
+---
+- name: Build hardware section
+  ansible.builtin.set_fact:
+    cmdb_hardware:
+      architecture: "{{ ansible_architecture }}"
+      cpu:
+        model: "{{ ansible_processor | last | default('Unknown') }}"
+        cores: "{{ ansible_processor_cores | default(0) }}"
+        threads: "{{ ansible_processor_vcpus | default(0) }}"
+      memory:
+        total_mb: "{{ ansible_memtotal_mb }}"
+        free_mb: "{{ ansible_memfree_mb }}"
+      virtualization:
+        type: "{{ ansible_virtualization_type | default('physical') }}"
+        role: "{{ ansible_virtualization_role | default('host') }}"

@@ -4,9 +4,13 @@
     path: reports/json
     state: directory
     mode: "0755"
+  delegate_to: localhost
+  become: false
 
 - name: Export CMDB as JSON
   ansible.builtin.copy:
-    dest: "reports/json/{{ inventory_hostname }}.json"
+    dest: "{{ playbook_dir }}/../reports/json/{{ inventory_hostname }}.json"
     content: "{{ cmdb | to_nice_json }}"
     mode: "0644"
+  delegate_to: localhost
+  become: false

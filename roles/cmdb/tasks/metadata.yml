@@ -6,6 +6,7 @@
 - name: Build metadata section
   ansible.builtin.set_fact:
     cmdb_metadata:
+      id: "{{ inventory_hostname }}"
       hostname: "{{ inventory_hostname }}"
       fqdn: "{{ ansible_fqdn | default('') }}"
       inventory_group: "{{ group_names }}"
@@ -14,7 +15,7 @@
       category: "{{ category | default('General') }}"
       vendor: "{{ vendor | default('Unknown') }}"
       platform: "{{ platform | default(ansible_system) }}"
-      environment: "{{ environment | default('Homelab') }}"
+      environment: "{{ environment | default('Homelab', true) }}"
       site: "{{ site | default('Primary') }}"
       priority: "{{ priority | default('Normal') }}"
       icon: "{{ icon | default('🖥️') }}"
