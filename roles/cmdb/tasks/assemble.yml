@@ -1,0 +1,16 @@
+---
+###############################################################################
+# Assemble CMDB
+###############################################################################
+
+- name: Assemble CMDB object
+  ansible.builtin.set_fact:
+    cmdb:
+      metadata: "{{ cmdb_metadata | default({}) }}"
+      network: "{{ cmdb_network | default({}) }}"
+      hardware: "{{ cmdb_hardware | default({}) }}"
+      storage: "{{ cmdb_storage | default({}) }}"
+      services: "{{ cmdb_services | default({}) }}"
+      security: "{{ cmdb_security | default({}) }}"
+      monitoring: "{{ cmdb_monitoring | default({}) }}"
+      health: "{{ cmdb_health | default({}) }}"

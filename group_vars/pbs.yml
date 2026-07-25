@@ -1,9 +1,9 @@
 ---
 service: "Proxmox Backup Server"
 
-role: "Backup Server"
+role: "Backup"
 
-category: "Backup"
+category: "Infrastructure"
 
 platform: "VM"
 

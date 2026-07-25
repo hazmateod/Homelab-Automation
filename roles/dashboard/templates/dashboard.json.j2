@@ -1,0 +1,16 @@
+{
+  "generated": "{{ ansible_date_time.iso8601 }}",
+  "host_count": {{ dashboard_hosts | length }},
+  "hosts": [
+{% for host in dashboard_hosts %}
+    {
+      "hostname": "{{ host.host.hostname }}",
+      "ip": "{{ host.host.ip }}",
+      "os": "{{ host.host.os }}",
+      "kernel": "{{ host.host.kernel }}",
+      "score": {{ host.health.overall.score }},
+      "status": "{{ host.health.overall.status }}"
+    }{% if not loop.last %},{% endif %}
+{% endfor %}
+  ]
+}

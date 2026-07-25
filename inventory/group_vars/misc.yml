@@ -1,0 +1,14 @@
+---
+service: "Miscellaneous"
+
+role: "Utility"
+
+category: "Utilities"
+
+platform: "Unknown"
+
+vendor: "Various"
+
+priority: "Normal"
+
+icon: "🧰"

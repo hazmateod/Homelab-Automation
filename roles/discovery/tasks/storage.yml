@@ -1,0 +1,9 @@
+---
+###############################################################################
+# Storage Discovery
+###############################################################################
+
+- name: Build filesystem discovery
+  ansible.builtin.set_fact:
+    discovery_storage:
+      filesystems: "{{ ansible_mounts }}"

@@ -1,0 +1,7 @@
+---
+- name: Generate Homelab CMDB Reports
+  hosts: all
+  gather_facts: true
+
+  roles:
+    - report

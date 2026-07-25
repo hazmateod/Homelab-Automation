@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homelab Operations Dashboard</title>
+
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+<header class="hero">
+
+    <div class="hero-left">
+
+        <h1>🏠 Homelab Operations Center</h1>
+
+        <p>
+            Infrastructure Automation • Health Monitoring • Reporting
+        </p>
+
+    </div>
+
+    <div class="hero-right">
+
+        <div class="run-info">
+
+            <div class="label">Last Maintenance Run</div>
+
+            <div class="value">
+                {{ ansible_date_time.date }}
+                {{ ansible_date_time.time }}
+            </div>
+
+        </div>
+
+    </div>
+
+</header>
+<section class="dashboard-title">
+
+    <h2>Infrastructure Summary</h2>
+
+    <p>
+        Real-time operational status for all managed homelab systems.
+    </p>
+
+</section>
+    <section class="summary">
+
+        <div class="card">
+            <h2>{{ dashboard_hosts | length }}</h2>
+<p>🖥 Total Hosts</p>
+        </div>
+
+        <div class="card">
+            <h2>
+            {{
+                dashboard_hosts
+                | selectattr('health.overall.status','equalto','HEALTHY')
+                | list
+                | length
+            }}
+            </h2>
+<p>🟢 Healthy</p>        </div>
+
+        <div class="card">
+            <h2>
+            {{
+                dashboard_hosts
+                | selectattr('health.overall.status','equalto','WARNING')
+                | list
+                | length
+            }}
+            </h2>
+<p>🟡 Warning</p>        </div>
+
+        <div class="card">
+            <h2>
+            {{
+                dashboard_hosts
+                | selectattr('health.overall.status','equalto','CRITICAL')
+                | list
+                | length
+            }}
+            </h2>
+<p>🔴 Critical</p></div><div class="card">
+
+    <h2>
+        {{
+            (
+                dashboard_hosts
+                | map(attribute='health.overall.score')
+                | map('int')
+                | sum
+                /
+                (dashboard_hosts | length)
+            ) | round(0)
+        }}%
+    </h2>
+
+    <p>⭐ Average Health</p>
+
+</div>        
+
+    </section>
+
+    <section>
+
+        <input
+            id="search"
+            type="text"
+            placeholder="Search hosts..."
+        >
+
+    </section>
+
+    <table id="hostTable">
+
+        <thead>
+
+            <tr>
+                <th>Hostname</th>
+                <th>IP Address</th>
+                <th>Operating System</th>
+                <th>Status</th>
+                <th>Score</th>
+                <th>Report</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+{% for host in dashboard_hosts|sort(attribute='host.hostname') %}
+
+<tr>
+
+<td>{{ host.host.hostname }}</td>
+
+<td>{{ host.host.ip }}</td>
+
+<td>{{ host.host.os }}</td>
+
+<td class="{{ host.health.overall.status | lower }}">
+{{ host.health.overall.status }}
+</td>
+
+<td>{{ host.health.overall.score }}%</td>
+
+<td>
+<a href="../current/{{ host.host.hostname }}.md">
+Open
+</a>
+</td>
+
+</tr>
+
+{% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+<script src="dashboard.js"></script>
+
+</body>
+</html>

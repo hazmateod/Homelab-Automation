@@ -1,0 +1,14 @@
+---
+service: "Media"
+
+role: "Media Server"
+
+category: "Applications"
+
+platform: "VM"
+
+vendor: "Open Source"
+
+priority: "Low"
+
+icon: "🎬"

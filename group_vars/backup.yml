@@ -1,0 +1,14 @@
+---
+service: "Backup"
+
+role: "Storage"
+
+category: "Infrastructure"
+
+platform: "NAS"
+
+vendor: "UniFi"
+
+priority: "Critical"
+
+icon: "📦"

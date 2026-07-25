@@ -1,14 +1,14 @@
 ---
-maintenance:
+#
+# Global defaults for every host
+#
 
-  dns_test: deb.debian.org
+priority: "Normal"
 
-  internet_test: 8.8.8.8
+category: "General"
 
-  reboot_timeout: 900
+platform: "Unknown"
 
-  wait_timeout: 600
+vendor: "Unknown"
 
-  apt_retries: 5
-
-  apt_retry_delay: 30
+icon: "🖥️"

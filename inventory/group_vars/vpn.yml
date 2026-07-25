@@ -1,0 +1,14 @@
+---
+service: "WireGuard"
+
+role: "VPN"
+
+category: "Networking"
+
+platform: "LXC"
+
+vendor: "WireGuard"
+
+priority: "High"
+
+icon: "🔐"

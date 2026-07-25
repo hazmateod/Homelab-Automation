@@ -1,54 +1,18 @@
 ---
-- name: Show report paths
-  ansible.builtin.debug:
-    msg:
-      - "Report Root: {{ report_root }}"
-      - "History: {{ report_history }}"
-      - "Report File: {{ report_root }}/{{ inventory_hostname }}.md"
-  delegate_to: localhost
+###############################################################################
+# HIMP Report Pipeline
+###############################################################################
 
-- name: Ensure report directories exist
-  ansible.builtin.file:
-    path: "{{ item }}"
-    state: directory
-    mode: "0755"
-  loop:
-    - "{{ report_root }}"
-    - "{{ report_history }}"
-    - "{{ report_json }}"
-  delegate_to: localhost
-  become: false
+- name: Discover host
+  ansible.builtin.include_role:
+    name: discovery
 
-- name: Generate Markdown report
-  ansible.builtin.template:
-    src: report.md.j2
-    dest: "{{ report_root }}/{{ inventory_hostname }}.md"
-  delegate_to: localhost
-  become: false
-  register: report_template
+- name: Build CMDB data
+  ansible.builtin.include_role:
+    name: cmdb
 
-- name: Generate JSON report
-  ansible.builtin.template:
-    src: report.json.j2
-    dest: "{{ report_json }}/{{ inventory_hostname }}.json"
-  delegate_to: localhost
-  become: false
+- name: Export JSON
+  import_tasks: export_json.yml
 
-- name: Show template result
-  ansible.builtin.debug:
-    var: report_template
-  delegate_to: localhost
-
-- name: Archive report
-  ansible.builtin.copy:
-    src: "{{ report_root }}/{{ inventory_hostname }}.md"
-    dest: "{{ report_history }}/{{ inventory_hostname }}-{{ ansible_date_time.date }}-{{ ansible_date_time.time | replace(':','') }}.md"
-    remote_src: true
-  delegate_to: localhost
-  become: false
-  register: report_archive
-
-- name: Show archive result
-  ansible.builtin.debug:
-    var: report_archive
-  delegate_to: localhost
+- name: Export Markdown
+  import_tasks: export_markdown.yml

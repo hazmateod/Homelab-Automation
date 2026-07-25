@@ -1,0 +1,17 @@
+# 🏠 Homelab Operations Dashboard
+
+**Generated:** {{ ansible_date_time.iso8601 }}
+
+---
+
+# Available Reports
+
+| Host | Report |
+|------|--------|
+{% for report in dashboard_reports %}
+| {{ report | replace('.md','') }} | [{{ report }}](../current/{{ report }}) |
+{% endfor %}
+
+---
+
+Generated automatically by the Homelab Automation Framework.

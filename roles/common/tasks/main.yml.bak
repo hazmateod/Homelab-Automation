@@ -7,15 +7,6 @@
         combine({
           'host': {
             'hostname': inventory_hostname,
-
-            'display_name': service | default(inventory_hostname),
-            'role': role | default('Unknown'),
-            'category': category | default('General'),
-            'platform': platform | default('Unknown'),
-            'vendor': vendor | default('Unknown'),
-            'priority': priority | default('Normal'),
-            'icon': icon | default('🖥'),
-
             'os': ansible_distribution ~ ' ' ~ ansible_distribution_version,
             'kernel': ansible_kernel,
             'ip': ansible_default_ipv4.address

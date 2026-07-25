@@ -1,0 +1,20 @@
+---
+###############################################################################
+# CMDB Metadata
+###############################################################################
+
+- name: Build metadata section
+  ansible.builtin.set_fact:
+    cmdb_metadata:
+      hostname: "{{ inventory_hostname }}"
+      fqdn: "{{ ansible_fqdn | default('') }}"
+      inventory_group: "{{ group_names }}"
+      service: "{{ service | default('Unknown') }}"
+      role: "{{ role | default('Unknown') }}"
+      category: "{{ category | default('General') }}"
+      vendor: "{{ vendor | default('Unknown') }}"
+      platform: "{{ platform | default(ansible_system) }}"
+      environment: "{{ environment | default('Homelab') }}"
+      site: "{{ site | default('Primary') }}"
+      priority: "{{ priority | default('Normal') }}"
+      icon: "{{ icon | default('🖥️') }}"

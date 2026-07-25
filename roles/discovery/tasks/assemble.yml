@@ -1,0 +1,17 @@
+---
+###############################################################################
+# Assemble Discovery Object
+###############################################################################
+
+- name: Assemble discovery object
+  ansible.builtin.set_fact:
+    discovery:
+      system: "{{ discovery_system | default({}) }}"
+      network: "{{ discovery_network | default({}) }}"
+      storage: "{{ discovery_storage | default({}) }}"
+      services: "{{ discovery_services | default({}) }}"
+      applications: "{{ discovery_applications | default({}) }}"
+      virtualization: "{{ discovery_virtualization | default({}) }}"
+      packages: "{{ discovery_packages | default({}) }}"
+
+

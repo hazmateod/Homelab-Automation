@@ -1,0 +1,23 @@
+---
+###############################################################################
+# System Discovery
+###############################################################################
+
+- name: Build system discovery
+  ansible.builtin.set_fact:
+    discovery_system:
+      hostname: "{{ inventory_hostname }}"
+      fqdn: "{{ ansible_fqdn }}"
+      os:
+        distribution: "{{ ansible_distribution }}"
+        version: "{{ ansible_distribution_version }}"
+        family: "{{ ansible_os_family }}"
+      kernel: "{{ ansible_kernel }}"
+      architecture: "{{ ansible_architecture }}"
+      virtualization:
+        type: "{{ ansible_virtualization_type | default('unknown') }}"
+        role: "{{ ansible_virtualization_role | default('unknown') }}"
+      cpu:
+        cores: "{{ ansible_processor_vcpus }}"
+      memory:
+        total_mb: "{{ ansible_memtotal_mb }}"

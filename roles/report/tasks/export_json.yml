@@ -1,0 +1,12 @@
+---
+- name: Ensure JSON report directory exists
+  ansible.builtin.file:
+    path: reports/json
+    state: directory
+    mode: "0755"
+
+- name: Export CMDB as JSON
+  ansible.builtin.copy:
+    dest: "reports/json/{{ inventory_hostname }}.json"
+    content: "{{ cmdb | to_nice_json }}"
+    mode: "0644"

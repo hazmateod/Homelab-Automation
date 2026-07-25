@@ -1,0 +1,20 @@
+---
+###############################################################################
+# CMDB Network Discovery
+###############################################################################
+
+- name: Build network section
+  ansible.builtin.set_fact:
+    cmdb_network:
+
+      hostname: "{{ inventory_hostname }}"
+
+      fqdn: "{{ ansible_fqdn | default('') }}"
+
+      primary_ip: "{{ ansible_default_ipv4.address | default('Unknown') }}"
+
+      gateway: "{{ ansible_default_ipv4.gateway | default('Unknown') }}"
+
+      interface: "{{ ansible_default_ipv4.interface | default('Unknown') }}"
+
+      mac: "{{ ansible_default_ipv4.macaddress | default('Unknown') }}"

@@ -1,0 +1,4 @@
+---
+- name: Markdown export placeholder
+  ansible.builtin.debug:
+    msg: "Markdown export will be implemented next."

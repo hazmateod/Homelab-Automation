@@ -1,3 +1,14 @@
 ---
-validation_services:
-  - technitium
+service: "Technitium DNS"
+
+role: "Authoritative DNS"
+
+category: "DNS"
+
+platform: "LXC"
+
+vendor: "Technitium"
+
+priority: "High"
+
+icon: "🌍"

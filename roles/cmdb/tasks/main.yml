@@ -1,14 +1,15 @@
 ---
 ###############################################################################
-# HIMP Discovery Engine
+# HIMP CMDB Builder
 ###############################################################################
 
-- import_tasks: system.yml
+- import_tasks: metadata.yml
 - import_tasks: network.yml
+- import_tasks: hardware.yml
 - import_tasks: storage.yml
 - import_tasks: services.yml
-- import_tasks: applications.yml
-- import_tasks: virtualization.yml
-- import_tasks: packages.yml
+- import_tasks: security.yml
+- import_tasks: monitoring.yml
+- import_tasks: health.yml
 
 - import_tasks: assemble.yml
