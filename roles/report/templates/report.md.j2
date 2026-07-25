@@ -1,21 +1,35 @@
 # 🏠 Homelab Operations Report
 
 **Generated:** {{ ansible_date_time.iso8601 }}
+---
+# Health Summary
+
+| Item | Value |
+|------|-------|
+| Overall Score | **{{ homelab_report.health.overall.score }}%** |
+| Status | **{{ homelab_report.health.overall.status }}** |
+| Points | {{ homelab_report.health.overall.earned }} / {{ homelab_report.health.overall.possible }} |
 
 ---
 
-# Overall Status
+# Health Contributors
 
-{% set healthy =
-    homelab_report.precheck.dns.status == 'PASS' and
-    homelab_report.precheck.internet.status == 'PASS' and
-    homelab_report.validation.dns.status == 'PASS'
-%}
+| Component | Status | Score |
+|-----------|--------|-------|
+{% for name, component in homelab_report.health.categories.items() %}
+| {{ name | title }} | {{ component.status }} | {{ component.earned }} / {{ component.possible }} |
+{% endfor %}
 
-{% if healthy %}
-🟢 **HEALTHY**
+---
+
+# Health Issues
+
+{% if homelab_report.health.issues | length == 0 %}
+No issues detected.
 {% else %}
-🔴 **ATTENTION REQUIRED**
+{% for issue in homelab_report.health.issues %}
+- {{ issue }}
+{% endfor %}
 {% endif %}
 
 ---
