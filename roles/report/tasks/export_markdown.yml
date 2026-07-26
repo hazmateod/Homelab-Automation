@@ -1,4 +1,109 @@
 ---
-- name: Markdown export placeholder
-  ansible.builtin.debug:
-    msg: "Markdown export will be implemented next."
+###############################################################################
+# HIMP Markdown Report Export
+###############################################################################
+
+- name: Ensure Markdown report directory exists
+  ansible.builtin.file:
+    path: "{{ playbook_dir }}/../reports/current/cmdb"
+    state: directory
+    mode: "0755"
+  delegate_to: localhost
+  become: false
+
+
+- name: Export CMDB Markdown
+  ansible.builtin.copy:
+    dest: "{{ playbook_dir }}/../reports/current/cmdb/{{ inventory_hostname }}.md"
+    mode: "0644"
+    content: |
+      # {{ inventory_hostname }} Infrastructure Report
+
+      Generated:
+      {{ ansible_date_time.date }} {{ ansible_date_time.time }}
+
+      ---
+
+      ## Health Summary
+
+      Status:
+      {{ cmdb.health.services.status | default('Unknown') }}
+
+      Failed Services:
+      {{ cmdb.health.services.failed | default('Unknown') }}
+
+      ---
+
+      ## CPU
+
+      Model:
+      {{ cmdb.health.cpu.model | default('Unknown') }}
+
+      Cores:
+      {{ cmdb.health.cpu.cores | default('Unknown') }}
+
+      Load:
+      {{ cmdb.health.cpu.load_1m | default('Unknown') }}
+
+      ---
+
+      ## Memory
+
+      Total:
+      {{ cmdb.health.memory.total_mb | default('Unknown') }} MB
+
+      Used:
+      {{ cmdb.health.memory.used_percent | default('Unknown') }}%
+
+      Available:
+      {{ cmdb.health.memory.available_mb | default('Unknown') }} MB
+
+      ---
+
+      ## Storage
+
+      {% for disk in cmdb.health.disk %}
+      Device:
+      {{ disk.device }}
+
+      Mount:
+      {{ disk.mount }}
+
+      Usage:
+      {{ disk.used_percent }}%
+
+      Status:
+      {{ disk.status }}
+
+      {% endfor %}
+
+      ---
+
+      ## Backup
+
+      Status:
+      {{ cmdb.health.backup.status | default('Unknown') }}
+
+      Details:
+      {{ cmdb.health.backup.details | default('None') }}
+
+      ---
+
+      ## Updates
+
+      Available:
+      {{ cmdb.health.updates.available | default('Unknown') }}
+
+      ---
+
+      ## Recommendations
+
+      {% if cmdb.health.recommendations %}
+      {% for item in cmdb.health.recommendations %}
+      - {{ item }}
+      {% endfor %}
+      {% else %}
+      No recommendations.
+      {% endif %}
+  delegate_to: localhost
+  become: false

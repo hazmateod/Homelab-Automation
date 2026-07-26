@@ -1,0 +1,13 @@
+proxmox:
+  pve01:
+    host: 10.10.37.50
+  pve02:
+    host: 10.10.37.51
+
+pbs:
+  primary:
+    host: 10.10.37.52
+
+dns:
+  technitium:
+    host: 10.10.37.9

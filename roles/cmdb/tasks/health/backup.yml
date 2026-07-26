@@ -1,0 +1,55 @@
+---
+###############################################################################
+# Backup Health Collection
+###############################################################################
+
+- name: Check for backup directories
+  ansible.builtin.shell: |
+    if [ -d /backup ]; then
+      du -sh /backup
+    elif [ -d /var/lib/vz/dump ]; then
+      du -sh /var/lib/vz/dump
+    else
+      echo "NO_BACKUP_FOUND"
+    fi
+  register: backup_check
+  changed_when: false
+  failed_when: false
+
+
+- name: Set backup health when found
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            "backup":
+            {
+              "status": "OK",
+              "details": backup_check.stdout
+            }
+          },
+          recursive=True
+        )
+      }}
+  when:
+    - backup_check.stdout != "NO_BACKUP_FOUND"
+
+
+- name: Set backup health when missing
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            "backup":
+            {
+              "status": "UNKNOWN",
+              "details": "No local backup storage detected"
+            }
+          },
+          recursive=True
+        )
+      }}
+  when:
+    - backup_check.stdout == "NO_BACKUP_FOUND"

@@ -1,0 +1,35 @@
+---
+###############################################################################
+# Disk Health
+###############################################################################
+
+- name: Initialize disk health list
+  ansible.builtin.set_fact:
+    disk_summary: []
+
+- name: Build disk health entries
+  ansible.builtin.set_fact:
+    disk_summary: "{{ disk_summary + [disk_entry] }}"
+  loop: "{{ cmdb_storage.mounts }}"
+  vars:
+    used_percent: "{{ ((item.block_used * 100.0 / item.block_total) | round(1)) }}"
+    disk_entry:
+      mount: "{{ item.mount }}"
+      device: "{{ item.device }}"
+      filesystem: "{{ item.fstype }}"
+      size_total: "{{ item.size_total }}"
+      size_available: "{{ item.size_available }}"
+      used_percent: "{{ used_percent }}"
+      status: "{{ 'Critical' if used_percent | float >= health.disk.critical_percent else 'Warning' if used_percent | float >= health.disk.warning_percent else 'OK' }}"  
+
+- name: Save disk health
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            'disk': disk_summary
+          },
+          recursive=True
+        )
+      }}

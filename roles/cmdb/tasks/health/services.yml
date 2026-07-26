@@ -1,0 +1,34 @@
+---
+###############################################################################
+# Service Health
+###############################################################################
+
+- name: Count failed systemd services
+  ansible.builtin.shell: |
+    systemctl --failed --no-legend --no-pager | wc -l
+  register: failed_services
+  changed_when: false
+
+- name: Save service health
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            'services': {
+              'failed': failed_services.stdout | int,
+              'status':
+                (
+                  'Critical'
+                  if (failed_services.stdout | int) >= health.services.critical_failed
+                  else
+                  'Warning'
+                  if (failed_services.stdout | int) >= health.services.warning_failed
+                  else
+                  'OK'
+                )
+            }
+          },
+          recursive=True
+        )
+      }}

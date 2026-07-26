@@ -3,6 +3,10 @@
 # HIMP CMDB Builder
 ###############################################################################
 
+- name: Load health configuration
+  ansible.builtin.include_vars:
+    file: ../vars/health.yml
+
 - import_tasks: metadata.yml
 - import_tasks: network.yml
 - import_tasks: hardware.yml

@@ -12,3 +12,5 @@ platform: "Unknown"
 vendor: "Unknown"
 
 icon: "🖥️"
+
+report_mode: selective

@@ -1,0 +1,46 @@
+---
+###############################################################################
+# HIMP Health Thresholds
+# Central location for all health scoring and alert thresholds.
+###############################################################################
+
+health:
+
+  scoring:
+    perfect: 100
+
+    deductions:
+      warning: 5
+      critical: 15
+
+  disk:
+    warning_percent: 80
+    critical_percent: 90
+
+  memory:
+    warning_percent: 85
+    critical_percent: 95
+
+  cpu:
+    warning_percent: 85
+    critical_percent: 95
+
+  updates:
+    warning_count: 10
+    critical_count: 50
+
+  backup:
+    warning_hours: 24
+    critical_hours: 48
+
+  services:
+    warning_failed: 1
+    critical_failed: 3
+
+  certificates:
+    warning_days: 30
+    critical_days: 14
+
+  dns:
+    warning_latency_ms: 100
+    critical_latency_ms: 250

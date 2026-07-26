@@ -1,0 +1,210 @@
+---
+all:
+  vars:
+    ansible_connection: ssh
+    ansible_python_interpreter: /usr/bin/python3
+
+  children:
+
+    #########################################
+    # Recursive DNS
+    #########################################
+
+    unbound:
+      hosts:
+
+        unbound107:
+          ansible_host: 10.10.37.7
+          ansible_user: root
+
+        unbound108:
+          ansible_host: 10.10.37.8
+          ansible_user: lou
+          ansible_become: true
+
+        unbound37100:
+          ansible_host: 192.168.37.100
+          ansible_user: root
+
+        unbound37101:
+          ansible_host: 192.168.37.101
+          ansible_user: root
+
+        unbound1007:
+          ansible_host: 192.168.10.7
+          ansible_user: root
+
+        unbound1008:
+          ansible_host: 192.168.10.8
+          ansible_user: root
+
+    #########################################
+    # Technitium DNS
+    #########################################
+
+    technitium:
+      hosts:
+
+        dns1009:
+          ansible_host: 10.10.37.9
+          ansible_user: root
+
+        dns1011:
+          ansible_host: 10.10.37.11
+          ansible_user: root
+
+        dns1012:
+          ansible_host: 10.10.37.12
+          ansible_user: root
+
+        dns1013:
+          ansible_host: 10.10.37.13
+          ansible_user: root
+
+        dns3748:
+          ansible_host: 192.168.37.48
+          ansible_user: root
+
+        dns3749:
+          ansible_host: 192.168.37.49
+          ansible_user: root
+
+    #########################################
+    # Pi-hole
+    #########################################
+
+    pihole:
+      hosts:
+
+        pihole3710:
+          ansible_host: 192.168.37.10
+          ansible_user: root
+
+        pihole3712:
+          ansible_host: 192.168.37.12
+          ansible_user: pi
+          ansible_become: true
+
+        pihole1010:
+          ansible_host: 192.168.10.10
+          ansible_user: root
+
+        pihole1011:
+          ansible_host: 192.168.10.11
+          ansible_user: root
+
+        pihole1012:
+          ansible_host: 192.168.10.12
+          ansible_user: root
+
+        pihole1013:
+          ansible_host: 192.168.10.13
+          ansible_user: root
+
+        pihole1014:
+          ansible_host: 192.168.10.14
+          ansible_user: root
+
+        pihole1016:
+          ansible_host: 192.168.10.16
+          ansible_user: root
+
+        pihole1017:
+          ansible_host: 192.168.10.17
+          ansible_user: root
+
+    #########################################
+    # Infrastructure
+    #########################################
+
+    infrastructure:
+      hosts:
+
+        aptcache:
+          ansible_host: 192.168.10.15
+          ansible_user: root
+
+        postgres:
+          ansible_host: 192.168.37.34
+          ansible_user: root
+
+        mailarchiver:
+          ansible_host: 192.168.10.30
+          ansible_user: root
+
+        urbackup:
+          ansible_host: 10.10.37.55
+          ansible_user: root
+
+        uptimekuma:
+          ansible_host: 192.168.10.21
+          ansible_user: root
+
+    #########################################
+    # VPN
+    #########################################
+
+    vpn:
+      hosts:
+
+        wireguard37:
+          ansible_host: 192.168.37.17
+          ansible_user: root
+
+        wireguard10:
+          ansible_host: 192.168.10.26
+          ansible_user: root
+
+    #########################################
+    # Backup
+    #########################################
+
+    backup:
+      hosts:
+
+        pbs01:
+          ansible_host: 10.10.37.52
+          ansible_user: root
+
+        pbs02:
+          ansible_host: 10.10.37.53
+          ansible_user: root
+
+    #########################################
+    # Media
+    #########################################
+
+    media:
+      hosts:
+
+        emby:
+          ansible_host: 192.168.10.20
+          ansible_user: lou
+          ansible_become: true
+
+        jellyfin:
+          ansible_host: 192.168.37.240
+          ansible_user: lou
+          ansible_become: true
+
+        dockerhost:
+          ansible_host: 192.168.10.40
+          ansible_user: lou
+          ansible_become: true
+
+        plex:
+          ansible_host: 192.168.10.50
+          ansible_user: lou
+          ansible_become: true
+
+    #########################################
+    # Misc
+    #########################################
+
+    misc:
+      hosts:
+
+        dnsbalancer:
+          ansible_host: 192.168.37.13
+          ansible_user: lou
+          ansible_become: true

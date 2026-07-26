@@ -1,0 +1,34 @@
+---
+###############################################################################
+# Health Collection
+###############################################################################
+
+- name: Initialize health object
+  ansible.builtin.set_fact:
+    cmdb_health:
+      overall: {}
+      disk: []
+      memory: {}
+      cpu: {}
+      services: {}
+      updates: {}
+      backup: {}
+      recommendations: []
+
+- name: Collect disk health
+  ansible.builtin.import_tasks: health/disk.yml
+
+- name: Collect memory health
+  ansible.builtin.import_tasks: health/memory.yml
+
+- name: Collect CPU health
+  ansible.builtin.import_tasks: health/cpu.yml
+
+- name: Collect package update health
+  ansible.builtin.import_tasks: health/updates.yml
+
+- name: Collect service health
+  ansible.builtin.import_tasks: health/services.yml
+
+- name: Collect backup health
+  ansible.builtin.import_tasks: health/backup.yml

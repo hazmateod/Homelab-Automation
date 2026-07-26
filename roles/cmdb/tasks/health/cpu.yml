@@ -1,0 +1,36 @@
+---
+###############################################################################
+# CPU Health
+###############################################################################
+
+- name: Calculate CPU health
+  ansible.builtin.set_fact:
+    cpu_load: "{{ ansible_loadavg['1m'] | float }}"
+    cpu_cores: "{{ ansible_processor_vcpus }}"
+    cpu_model: "{{ ansible_processor[2] }}"
+
+- name: Save CPU health
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            'cpu': {
+              'model': cpu_model,
+              'cores': cpu_cores,
+              'load_1m': cpu_load,
+              'status':
+                (
+                  'Critical'
+                  if cpu_load >= (cpu_cores | float)
+                  else
+                  'Warning'
+                  if cpu_load >= ((cpu_cores | float) * 0.75)
+                  else
+                  'OK'
+                )
+            }
+          },
+          recursive=True
+        )
+      }}

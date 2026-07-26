@@ -12,3 +12,6 @@ vendor: "Technitium"
 priority: "High"
 
 icon: "🌍"
+
+technitium_port: 5380
+technitium_service: "Technitium DNS"

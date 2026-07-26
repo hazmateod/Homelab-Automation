@@ -1,0 +1,40 @@
+---
+###############################################################################
+# Package Update Health
+###############################################################################
+
+- name: Refresh apt cache
+  ansible.builtin.apt:
+    update_cache: true
+    cache_valid_time: 3600
+  changed_when: false
+
+- name: Count available package updates
+  ansible.builtin.shell: |
+    apt list --upgradable 2>/dev/null | tail -n +2 | wc -l
+  register: update_count
+  changed_when: false
+
+- name: Save package update health
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            'updates': {
+              'available': update_count.stdout | int,
+              'status':
+              (
+                  'Critical'
+                  if (update_count.stdout | int) >= health.updates.critical_count
+                  else
+                  'Warning'
+                  if (update_count.stdout | int) >= health.updates.warning_count
+                  else
+                  'OK'
+              )
+            }
+          },
+          recursive=True
+        )
+      }}

@@ -1,0 +1,43 @@
+---
+###############################################################################
+# Memory Health
+###############################################################################
+
+- name: Calculate memory usage
+  ansible.builtin.set_fact:
+    memory_total: "{{ ansible_memtotal_mb }}"
+    memory_available: "{{ ansible_memory_mb.real.free }}"
+    memory_used_percent: >-
+      {{
+        (
+          ((ansible_memtotal_mb - ansible_memory_mb.real.free)
+          / ansible_memtotal_mb)
+          * 100
+        ) | round(1)
+      }}
+
+- name: Save memory health
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            'memory': {
+              'total_mb': memory_total,
+              'available_mb': memory_available,
+              'used_percent': memory_used_percent,
+              'status':
+                (
+                  'Critical'
+                  if memory_used_percent | float >= health.memory.critical_percent
+                  else
+                  'Warning'
+                  if memory_used_percent | float >= health.memory.warning_percent
+                  else
+                  'OK'
+                )
+            }
+          },
+          recursive=True
+        )
+      }}

@@ -1,0 +1,69 @@
+---
+###############################################################################
+# Backup Health
+###############################################################################
+
+- name: Get newest backup timestamp
+  ansible.builtin.shell: |
+    if [ -d /backup ]; then
+      find /backup -type f -printf '%T@\n' 2>/dev/null | sort -nr | head -1
+    fi
+  register: backup_timestamp
+  changed_when: false
+  failed_when: false
+
+- name: Calculate backup age
+  ansible.builtin.set_fact:
+    backup_age_hours: >-
+      {{
+        (
+          (
+            ansible_date_time.epoch | int
+          ) -
+          (
+            backup_timestamp.stdout | default('0') | float | int
+          )
+        ) // 3600
+      }}
+  when: backup_timestamp.stdout != ""
+
+- name: Save backup health
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            'backup': {
+              'last_backup_hours': backup_age_hours,
+              'status':
+                (
+                  'Critical'
+                  if backup_age_hours >= health.backup.critical_hours
+                  else
+                  'Warning'
+                  if backup_age_hours >= health.backup.warning_hours
+                  else
+                  'OK'
+                )
+            }
+          },
+          recursive=True
+        )
+      }}
+  when: backup_timestamp.stdout != ""
+
+- name: No backups found
+  ansible.builtin.set_fact:
+    cmdb_health: >-
+      {{
+        cmdb_health | combine(
+          {
+            'backup': {
+              'last_backup_hours': null,
+              'status': 'Unknown'
+            }
+          },
+          recursive=True
+        )
+      }}
+  when: backup_timestamp.stdout == ""

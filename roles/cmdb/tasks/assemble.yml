@@ -3,6 +3,10 @@
 # Assemble CMDB
 ###############################################################################
 
+- name: Debug cmdb_health before assemble
+  ansible.builtin.debug:
+    var: cmdb_health
+
 - name: Assemble CMDB object
   ansible.builtin.set_fact:
     cmdb:
