@@ -1,20 +1,5 @@
 ---
-- name: Load Technitium plugin
-  ansible.builtin.include_role:
-    name: ../../plugins/technitium
-  when: platform_type == "technitium"
-
-- name: Load Unbound plugin
-  ansible.builtin.include_role:
-    name: ../../plugins/unbound
-  when: platform_type == "unbound"
-
-- name: Load PBS plugin
-  ansible.builtin.include_role:
-    name: ../../plugins/pbs
-  when: platform_type == "pbs"
-
-- name: Load Pi-hole plugin
-  ansible.builtin.include_role:
-    name: ../../plugins/pihole
-  when: platform_type == "pihole"
+- name: Execute plugin
+  ansible.builtin.include_tasks:
+    file: "{{ playbook_dir }}/../plugins/{{ plugin }}/tasks/main.yml"
+  when: plugin is defined

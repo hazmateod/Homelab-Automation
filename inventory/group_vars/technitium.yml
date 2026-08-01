@@ -9,6 +9,9 @@ platform: "LXC"
 
 vendor: "Technitium"
 
+plugin: technitium
+
+
 priority: "High"
 
 icon: "🌍"

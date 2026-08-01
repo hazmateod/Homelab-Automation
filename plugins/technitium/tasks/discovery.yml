@@ -1,0 +1,25 @@
+---
+###############################################################################
+# Technitium Discovery
+###############################################################################
+
+- name: Gather Technitium version
+  ansible.builtin.command:
+    cmd: /usr/bin/dotnet /opt/technitium/dns/DnsServerApp.dll --version
+  register: technitium_version
+  changed_when: false
+  failed_when: false
+
+- name: Store Technitium discovery data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report
+        | combine({
+            'plugins': {
+              'technitium': {
+                'version': technitium_version.stdout
+              }
+            }
+          }, recursive=True)
+      }}

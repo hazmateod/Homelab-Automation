@@ -1,0 +1,8 @@
+---
+###############################################################################
+# Technitium Health
+###############################################################################
+
+- name: Technitium health checks
+  ansible.builtin.debug:
+    msg: "Technitium health plugin executed."

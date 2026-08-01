@@ -18,3 +18,13 @@
       security: "{{ cmdb_security | default({}) }}"
       monitoring: "{{ cmdb_monitoring | default({}) }}"
       health: "{{ cmdb_health | default({}) }}"
+
+- name: Merge plugin data into CMDB
+  ansible.builtin.set_fact:
+    cmdb: >-
+      {{
+        cmdb |
+        combine({
+          'plugins': homelab_report.plugins | default({})
+        }, recursive=True)
+      }}
