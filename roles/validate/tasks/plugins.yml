@@ -1,0 +1,17 @@
+---
+###############################################################################
+# Plugin Validation
+###############################################################################
+
+- name: Check if plugin validation exists
+  ansible.builtin.stat:
+    path: "{{ playbook_dir }}/../plugins/{{ plugin }}/tests/validate.yml"
+  register: plugin_validation_file
+  when: plugin is defined
+
+- name: Execute plugin validation
+  ansible.builtin.include_tasks:
+    file: "{{ playbook_dir }}/../plugins/{{ plugin }}/tests/validate.yml"
+  when:
+    - plugin is defined
+    - plugin_validation_file.stat.exists

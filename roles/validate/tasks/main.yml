@@ -61,3 +61,7 @@
           }
         ]
       }}
+
+- name: Run plugin validation
+  ansible.builtin.include_tasks:
+    file: plugins.yml
