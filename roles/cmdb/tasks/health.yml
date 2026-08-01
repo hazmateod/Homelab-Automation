@@ -6,7 +6,7 @@
 - name: Initialize health object
   ansible.builtin.set_fact:
     cmdb_health:
-      overall: {}
+      overall: "{{ homelab_health.overall | default({}) }}"
       disk: []
       memory: {}
       cpu: {}

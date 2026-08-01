@@ -1,0 +1,26 @@
+---
+###############################################################################
+# Technitium DNS Discovery
+###############################################################################
+
+- name: Discover Technitium service
+  ansible.builtin.include_tasks: technitium/service.yml
+
+- name: Assemble Technitium discovery
+  ansible.builtin.set_fact:
+    discovery_applications_technitium:
+      technitium:
+        installed: "{{ discovery_applications_technitium_service.installed }}"
+
+        service:
+          running: "{{ discovery_applications_technitium_service.running }}"
+
+        version: {}
+
+        process: {}
+
+        ports: {}
+
+        configuration: {}
+
+        statistics: {}
