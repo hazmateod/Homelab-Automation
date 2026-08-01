@@ -1,5 +1,5 @@
 """
-Dashboard Commands
+Update Commands
 """
 
 from himp.config import config
@@ -10,15 +10,20 @@ from himp.lib.output import error, info, success
 
 def run(args):
 
-    info("Generating dashboard...")
+    if not args.target:
+        error("Host or group is required.")
+        return
+
+    info(f"Updating {args.target}...")
     print()
 
     ok, elapsed = run_playbook(
-        config.dashboard_playbook,
+        config.maintenance_playbook,
+        args.target,
     )
 
     log(
-        "dashboard",
+        f"update {args.target}",
         ok,
         elapsed,
     )
@@ -26,8 +31,8 @@ def run(args):
     print()
 
     if ok:
-        success("Dashboard generation completed successfully.")
+        success("Update completed successfully.")
     else:
-        error("Dashboard generation failed.")
+        error("Update failed.")
 
     info(f"Execution time: {elapsed:.2f} seconds")

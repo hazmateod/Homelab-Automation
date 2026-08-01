@@ -3,17 +3,35 @@ Shared Ansible helper functions.
 """
 
 import subprocess
+import time
+
+from himp.config import config
 
 
-def run_playbook(playbook, inventory=None, limit=None):
-    cmd = ["ansible-playbook"]
-
-    if inventory:
-        cmd.extend(["-i", inventory])
+def run_playbook(playbook, limit=None):
+    cmd = [
+        "ansible-playbook",
+        "-i",
+        config.inventory,
+        playbook,
+    ]
 
     if limit:
-        cmd.extend(["--limit", limit])
+        cmd.extend([
+            "--limit",
+            limit,
+        ])
 
-    cmd.append(playbook)
+    start = time.perf_counter()
 
-    return subprocess.run(cmd)
+    result = subprocess.run(
+        cmd,
+        check=False,
+    )
+
+    elapsed = time.perf_counter() - start
+
+    return (
+        result.returncode == 0,
+        elapsed,
+    )

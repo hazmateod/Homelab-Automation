@@ -3,7 +3,9 @@ Status Commands
 """
 
 from pathlib import Path
-import json
+from himp.models.dashboard import Dashboard
+
+from himp.lib.git import current_branch, is_clean
 
 
 def run(args):
@@ -14,30 +16,22 @@ def run(args):
         print("Run: ./bin/himp dashboard")
         return
 
-    with dashboard.open() as f:
-        data = json.load(f)
-
-    healthy = 0
-    warning = 0
-    critical = 0
-
-    for host in data["hosts"]:
-
-        status = host["status"]
-
-        if status == "HEALTHY":
-            healthy += 1
-        elif status == "WARNING":
-            warning += 1
-        elif status == "CRITICAL":
-            critical += 1
+    dashboard = Dashboard.load()
 
     print("HIMP Status")
     print("===========")
     print()
 
-    print(f"Generated : {data['generated']}")
-    print(f"Hosts     : {data['host_count']}")
-    print(f"Healthy   : {healthy}")
-    print(f"Warning   : {warning}")
-    print(f"Critical  : {critical}")
+    print(f"Generated : {dashboard.generated}")
+    print(f"Branch    : {current_branch()}")
+    print(f"Git Status: {'Clean' if is_clean() else 'Dirty'}")
+
+    print()
+
+    print(f"Hosts     : {len(dashboard.hosts)}")
+    print(f"Healthy   : {dashboard.healthy_count()}")
+    print(f"Warning   : {dashboard.warning_count()}")
+    print(f"Critical  : {dashboard.critical_count()}")
+    print(f"Unknown   : {dashboard.unknown_count()}")
+
+

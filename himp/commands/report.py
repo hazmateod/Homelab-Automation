@@ -2,22 +2,33 @@
 Reporting Commands
 """
 
+from himp.config import config
 from himp.lib.ansible import run_playbook
+from himp.lib.history import log
+from himp.lib.output import error, info, success
 
 
 def run(args):
-    print("Generating reports...")
+
+    info("Generating reports...")
     print()
 
-    result = run_playbook(
-        "playbooks/generate_reports.yml",
-        "inventory/hosts.yml",
+    ok, elapsed = run_playbook(
+        config.report_playbook,
         args.limit,
     )
 
-    if result.returncode == 0:
-        print()
-        print("Report generation completed successfully.")
+    log(
+        "report",
+        ok,
+        elapsed,
+    )
+
+    print()
+
+    if ok:
+        success("Report generation completed successfully.")
     else:
-        print()
-        print("Report generation failed.")
+        error("Report generation failed.")
+
+    info(f"Execution time: {elapsed:.2f} seconds")
