@@ -42,6 +42,12 @@ def main():
         "report",
         help="Reporting commands",
     )
+
+    report.add_argument(
+        "--limit",
+        help="Limit execution to a host or group",
+    )
+
     report.set_defaults(func=report_command)
 
     health = subparsers.add_parser(

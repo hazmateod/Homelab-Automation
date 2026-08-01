@@ -2,19 +2,16 @@
 Dashboard Commands
 """
 
-import subprocess
+from himp.lib.ansible import run_playbook
 
 
 def run(args):
     print("Generating dashboard...")
     print()
 
-    cmd = [
-        "ansible-playbook",
+    result = run_playbook(
         "playbooks/dashboard.yml",
-    ]
-
-    result = subprocess.run(cmd)
+    )
 
     if result.returncode == 0:
         print()

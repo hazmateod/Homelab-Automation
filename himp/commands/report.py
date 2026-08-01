@@ -2,21 +2,18 @@
 Reporting Commands
 """
 
-import subprocess
+from himp.lib.ansible import run_playbook
 
 
 def run(args):
     print("Generating reports...")
     print()
 
-    cmd = [
-        "ansible-playbook",
-        "-i",
-        "inventory/hosts.yml",
+    result = run_playbook(
         "playbooks/generate_reports.yml",
-    ]
-
-    result = subprocess.run(cmd)
+        "inventory/hosts.yml",
+        args.limit,
+    )
 
     if result.returncode == 0:
         print()
