@@ -1,0 +1,113 @@
+---
+###############################################################################
+# Unbound Health
+###############################################################################
+
+- name: Initialize Unbound health result
+  ansible.builtin.set_fact:
+    unbound_health:
+      name: Unbound
+      earned: 0
+      possible: 10
+      status: CRITICAL
+      issues: []
+
+- name: Check Unbound service health
+  ansible.builtin.set_fact:
+    unbound_health: >-
+      {{
+        unbound_health |
+        combine({
+          'earned': unbound_health.earned + 3
+        })
+      }}
+  when:
+    - unbound_service.status.ActiveState | default('unknown') == "active"
+
+- name: Check Unbound binary health
+  ansible.builtin.set_fact:
+    unbound_health: >-
+      {{
+        unbound_health |
+        combine({
+          'earned': unbound_health.earned + 2
+        })
+      }}
+  when:
+    - unbound_binary.stat.exists | default(false)
+
+- name: Check Unbound configuration health
+  ansible.builtin.set_fact:
+    unbound_health: >-
+      {{
+        unbound_health |
+        combine({
+          'earned': unbound_health.earned + 1
+        })
+      }}
+  when:
+    - unbound_config.stat.exists | default(false)
+
+- name: Validate Unbound configuration
+  ansible.builtin.command:
+    cmd: unbound-checkconf
+  register: unbound_config_check
+  changed_when: false
+  failed_when: false
+
+- name: Add configuration health score
+  ansible.builtin.set_fact:
+    unbound_health: >-
+      {{
+        unbound_health |
+        combine({
+          'earned': unbound_health.earned + 2
+        })
+      }}
+  when:
+    - unbound_config_check.rc == 0
+
+- name: Add DNSSEC health score
+  ansible.builtin.set_fact:
+    unbound_health: >-
+      {{
+        unbound_health |
+        combine({
+          'earned': unbound_health.earned + 1
+        })
+      }}
+  when:
+    - unbound_dnssec | default(false)
+
+- name: Add TCP Fast Open health score
+  ansible.builtin.set_fact:
+    unbound_health: >-
+      {{
+        unbound_health |
+        combine({
+          'earned': unbound_health.earned + 1
+        })
+      }}
+  when:
+    - unbound_tfo | default(false)
+
+- name: Calculate Unbound health status
+  ansible.builtin.set_fact:
+    unbound_health: >-
+      {{
+        unbound_health |
+        combine({
+          'status':
+            'HEALTHY'
+            if unbound_health.earned >= 8
+            else
+            'WARNING'
+        })
+      }}
+
+- name: Add Unbound health contributor
+  ansible.builtin.set_fact:
+    health_contributors: >-
+      {{
+        health_contributors | default([]) + [ unbound_health ]
+      }}

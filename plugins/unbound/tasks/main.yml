@@ -1,0 +1,17 @@
+---
+###############################################################################
+# Unbound Plugin Lifecycle Controller
+###############################################################################
+
+- name: Run Unbound discovery
+  ansible.builtin.include_tasks:
+    file: discovery.yml
+
+- name: Run Unbound health checks
+  ansible.builtin.include_tasks:
+    file: health.yml
+
+- name: Run Unbound report tasks
+  ansible.builtin.include_tasks:
+    file: report.yml
+

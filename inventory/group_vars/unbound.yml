@@ -9,6 +9,8 @@ platform: "LXC"
 
 vendor: "NLnet Labs"
 
+plugin: unbound
+
 priority: "High"
 
 icon: "🛡️"

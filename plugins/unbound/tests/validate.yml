@@ -1,0 +1,44 @@
+---
+###############################################################################
+# Unbound Plugin Validation
+###############################################################################
+
+- name: Validate Unbound plugin metadata
+  ansible.builtin.assert:
+    that:
+      - plugin == "unbound"
+    fail_msg: "Unbound plugin variable is not set correctly."
+
+- name: Validate Unbound binary
+  ansible.builtin.stat:
+    path: /usr/sbin/unbound
+  register: unbound_binary_check
+
+- name: Assert Unbound binary exists
+  ansible.builtin.assert:
+    that:
+      - unbound_binary_check.stat.exists
+    fail_msg: "Unbound installation was not found."
+
+- name: Validate Unbound service
+  ansible.builtin.systemd:
+    name: unbound
+  register: unbound_service_check
+
+- name: Assert Unbound service is running
+  ansible.builtin.assert:
+    that:
+      - unbound_service_check.status.ActiveState == "active"
+    fail_msg: "Unbound service is not active."
+
+- name: Validate Unbound configuration
+  ansible.builtin.command:
+    cmd: unbound-checkconf
+  register: unbound_config_check
+  changed_when: false
+
+- name: Assert Unbound configuration is valid
+  ansible.builtin.assert:
+    that:
+      - unbound_config_check.rc == 0
+    fail_msg: "Unbound configuration validation failed."

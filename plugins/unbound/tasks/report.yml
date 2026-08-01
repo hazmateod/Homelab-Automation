@@ -1,0 +1,35 @@
+---
+###############################################################################
+# Unbound Report
+###############################################################################
+
+- name: Add Unbound health to report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'unbound': {
+              'health':
+                unbound_health.status | default('UNKNOWN'),
+              'health_score':
+                unbound_health.earned | default(0),
+              'health_possible':
+                unbound_health.possible | default(0),
+              'service':
+                'unbound.service',
+              'status':
+                unbound_service.status.ActiveState
+                | default('unknown'),
+              'version':
+                unbound_version.stdout_lines[0]
+                | default('unknown'),
+              'dnssec_validator':
+                unbound_dnssec | default(false),
+              'tcp_fast_open':
+                unbound_tfo | default(false)
+            }
+          }
+        }, recursive=True)
+      }}

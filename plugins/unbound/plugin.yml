@@ -1,0 +1,31 @@
+---
+name: unbound
+
+display_name: Unbound DNS Resolver
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Collects discovery, health, validation,
+  and reporting information for Unbound DNS Resolver.
+
+entrypoint: tasks/main.yml
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+  validation: true
+
+artifacts:
+  - service_status
+  - version
+  - dnssec_status
+  - tcp_fast_open
+  - configuration_path
+  - plugins.unbound
+
+requirements:
+  - systemd
