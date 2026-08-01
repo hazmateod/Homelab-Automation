@@ -2,12 +2,12 @@
 Plugin Commands
 """
 
-from himp.models.plugin_manager import PluginManager
+from himp.plugins.loader import PluginLoader
 
 
 def run(args):
 
-    manager = PluginManager()
+    loader = PluginLoader()
 
     print("HIMP Plugins")
     print("============")
@@ -22,7 +22,7 @@ def run(args):
 
     print("-" * 70)
 
-    for plugin in manager.all():
+    for plugin in loader.plugins():
 
         print(
             f"{plugin.name:<15} "
