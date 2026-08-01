@@ -1,0 +1,179 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+
+    <div>
+
+        <h1 class="display-5">
+
+            Plugins
+
+        </h1>
+
+        <p class="text-secondary">
+
+            Installed plugins available in HIMP.
+
+        </p>
+
+    </div>
+
+</div>
+
+
+<div class="row g-4">
+
+
+{% for plugin in dashboard.plugin_list %}
+
+
+<div class="col-xl-4 col-lg-6">
+
+
+<div class="card bg-secondary text-light h-100 shadow">
+
+
+<div class="card-header">
+
+<strong>
+
+{{ plugin.name }}
+
+</strong>
+
+</div>
+
+
+<div class="card-body">
+
+
+<p>
+
+{{ plugin.description }}
+
+</p>
+
+
+<table class="table table-dark table-sm">
+
+
+<tr>
+
+<th>
+Version
+</th>
+
+<td>
+{{ plugin.version }}
+</td>
+
+</tr>
+
+
+<tr>
+
+<th>
+Status
+</th>
+
+<td>
+
+{% if plugin.enabled %}
+
+<span class="badge bg-success">
+
+Enabled
+
+</span>
+
+{% else %}
+
+<span class="badge bg-danger">
+
+Disabled
+
+</span>
+
+{% endif %}
+
+</td>
+
+</tr>
+
+
+<tr>
+
+<th>
+Requirements
+</th>
+
+<td>
+
+{{ plugin.requirements }}
+
+</td>
+
+</tr>
+
+
+<tr>
+
+<th>
+Artifacts
+</th>
+
+<td>
+
+{{ plugin.artifacts }}
+
+</td>
+
+</tr>
+
+
+</table>
+
+
+</div>
+
+
+<div class="card-footer d-flex justify-content-between">
+
+
+<button
+class="btn btn-primary run-plugin"
+data-plugin="{{ plugin.id }}">
+
+Run Plugin
+
+</button>
+
+
+<a
+href="/plugins/{{ plugin.id }}"
+class="btn btn-outline-light">
+
+Details
+
+</a>
+
+
+</div>
+
+
+</div>
+
+
+</div>
+
+
+{% endfor %}
+
+
+</div>
+
+
+{% endblock %}
+

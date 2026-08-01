@@ -1,0 +1,182 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    {% if plugin %}
+
+    <h1 class="mb-4">
+        {{ plugin.name }}
+    </h1>
+
+
+    <div class="card bg-secondary text-light mb-4">
+
+        <div class="card-body">
+
+            <h5 class="card-title">
+                Plugin Information
+            </h5>
+
+
+            <p>
+                {{ plugin.description }}
+            </p>
+
+
+            <table class="table table-dark">
+
+                <tr>
+                    <th>
+                        Version
+                    </th>
+                    <td>
+                        {{ plugin.version }}
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <th>
+                        Status
+                    </th>
+                    <td>
+
+                        {% if plugin.enabled %}
+
+                        <span class="badge bg-success">
+                            Enabled
+                        </span>
+
+                        {% else %}
+
+                        <span class="badge bg-danger">
+                            Disabled
+                        </span>
+
+                        {% endif %}
+
+                    </td>
+                </tr>
+
+
+                <tr>
+                    <th>
+                        Author
+                    </th>
+                    <td>
+                        {{ plugin.author }}
+                    </td>
+                </tr>
+
+
+            </table>
+
+
+        </div>
+
+    </div>
+
+
+
+    <div class="card bg-secondary text-light mb-4">
+
+        <div class="card-body">
+
+            <h5>
+                Capabilities
+            </h5>
+
+
+            {% for capability, enabled in plugin.supports.items() %}
+
+                {% if enabled %}
+
+                <span class="badge bg-primary me-2">
+                    {{ capability }}
+                </span>
+
+                {% endif %}
+
+            {% endfor %}
+
+
+        </div>
+
+    </div>
+
+
+
+    <div class="card bg-secondary text-light mb-4">
+
+        <div class="card-body">
+
+            <h5>
+                Requirements
+            </h5>
+
+
+            <ul>
+
+            {% for requirement in plugin.requirements %}
+
+                <li>
+                    {{ requirement }}
+                </li>
+
+            {% endfor %}
+
+            </ul>
+
+
+        </div>
+
+    </div>
+
+
+
+    <div class="card bg-secondary text-light mb-4">
+
+        <div class="card-body">
+
+            <h5>
+                Artifacts
+            </h5>
+
+
+            <ul>
+
+            {% for artifact in plugin.artifacts %}
+
+                <li>
+                    {{ artifact }}
+                </li>
+
+            {% endfor %}
+
+            </ul>
+
+
+        </div>
+
+    </div>
+
+
+
+    {% else %}
+
+
+    <div class="alert alert-danger">
+
+        Plugin not found.
+
+    </div>
+
+
+    {% endif %}
+
+
+</div>
+
+{% endblock %}

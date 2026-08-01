@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+
+{% from "components/plugin_card.html" import plugin_card %}
+
+{% block content %}
+
+<div class="row mb-4">
+
+    <div class="col">
+
+        <h1 class="display-5">
+
+            HIMP Dashboard
+
+        </h1>
+
+        <p class="text-secondary">
+
+            Homelab Infrastructure Management Platform
+
+        </p>
+
+    </div>
+
+</div>
+
+<div class="row">
+
+    <div class="col-md-3">
+
+        <div class="card bg-primary text-white mb-4">
+
+            <div class="card-body">
+
+                <h6>Hostname</h6>
+
+                <h3>{{ dashboard.system.hostname }}</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-success text-white mb-4">
+
+            <div class="card-body">
+
+                <h6>Plugins</h6>
+
+                <h3>{{ dashboard.plugins.plugins }}</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-info text-white mb-4">
+
+            <div class="card-body">
+
+                <h6>Enabled</h6>
+
+                <h3>{{ dashboard.plugins.enabled }}</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-warning text-dark mb-4">
+
+            <div class="card-body">
+
+                <h6>Version</h6>
+
+                <h3>{{ dashboard.system.version }}</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+<hr class="border-secondary">
+
+<h2 class="mb-4">
+
+    Installed Plugins
+
+</h2>
+
+<div class="row">
+
+{% for plugin in dashboard.plugin_list %}
+
+    {{ plugin_card(plugin) }}
+
+{% endfor %}
+
+</div>
+
+{% endblock %}

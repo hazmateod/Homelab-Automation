@@ -1,0 +1,4 @@
+---
+- name: Pi-hole plugin placeholder
+  ansible.builtin.debug:
+    msg: "Pi-hole plugin loaded successfully."

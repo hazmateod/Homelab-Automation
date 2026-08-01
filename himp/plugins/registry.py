@@ -36,9 +36,17 @@ class PluginRegistry:
 
     def find(self, name):
 
+        search = name.lower()
+
         for plugin in self._plugins:
 
-            if plugin.name.lower() == name.lower():
+            if plugin.id.lower() == search:
+                return plugin
+
+            if plugin.name.lower() == search:
+                return plugin
+
+            if search in plugin.name.lower():
                 return plugin
 
         return None

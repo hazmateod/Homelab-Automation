@@ -1,0 +1,117 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1 class="mb-4">
+
+    Execution History
+
+</h1>
+
+<div class="card bg-secondary border-secondary shadow">
+
+    <div class="card-header">
+
+        <strong>
+
+            Recent Plugin Executions
+
+        </strong>
+
+    </div>
+
+    <div class="card-body p-0">
+
+        <table class="table table-dark table-hover table-striped mb-0 align-middle">
+
+            <thead>
+
+                <tr>
+
+                    <th>ID</th>
+
+                    <th>Plugin</th>
+
+                    <th>Status</th>
+
+                    <th>Runtime</th>
+
+                    <th>Return Code</th>
+
+                    <th>Executed</th>
+
+                </tr>
+
+            </thead>
+
+            <tbody>
+
+            {% for execution in history %}
+
+                <tr>
+
+                    <td>
+
+                        {{ execution.id }}
+
+                    </td>
+
+                    <td>
+
+                        {{ execution.plugin_name }}
+
+                    </td>
+
+                    <td>
+
+                        {% if execution.success %}
+
+                            <span class="badge bg-success">
+
+                                Success
+
+                            </span>
+
+                        {% else %}
+
+                            <span class="badge bg-danger">
+
+                                Failed
+
+                            </span>
+
+                        {% endif %}
+
+                    </td>
+
+                    <td>
+
+                        {{ "%.3f"|format(execution.elapsed) }} sec
+
+                    </td>
+
+                    <td>
+
+                        {{ execution.return_code }}
+
+                    </td>
+
+                    <td>
+
+                        {{ execution.executed_at }}
+
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+{% endblock %}

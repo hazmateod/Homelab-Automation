@@ -29,9 +29,16 @@ class SDKLoader:
 
             discovered.append(
                 Plugin(
+                    id=data["name"],
                     name=data["display_name"],
                     version=data["version"],
                     description=data["description"].strip(),
+                    author=data.get("author", ""),
+                    entrypoint=data.get("entrypoint", ""),
+                    supports=data.get("supports", {}),
+                    artifacts=data.get("artifacts", []),
+                    requirements=data.get("requirements", []),
+                    manifest=manifest,
                 )
             )
 

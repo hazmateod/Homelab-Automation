@@ -1,6 +1,5 @@
-#!/usr/bin/env python3
 """
-HIMP Command Line Interface
+Command Line Interface
 """
 
 import argparse
@@ -11,47 +10,14 @@ from himp.commands import (
     health,
     history,
     inventory,
+    plugin,
+    plugin_run,
     plugins,
     report,
     status,
     update,
+    validate,
 )
-
-
-def docs_command(args):
-    docs.run(args)
-
-
-def report_command(args):
-    report.run(args)
-
-
-def health_command(args):
-    health.run(args)
-
-
-def dashboard_command(args):
-    dashboard.run(args)
-
-
-def status_command(args):
-    status.run(args)
-
-
-def inventory_command(args):
-    inventory.run(args)
-
-
-def update_command(args):
-    update.run(args)
-
-
-def history_command(args):
-    history.run(args)
-
-
-def plugins_command(args):
-    plugins.run(args)
 
 
 def main():
@@ -61,13 +27,15 @@ def main():
         description="Homelab Infrastructure Management Platform",
     )
 
-    subparsers = parser.add_subparsers(dest="command")
+    subparsers = parser.add_subparsers(
+        dest="command",
+    )
 
     docs_parser = subparsers.add_parser(
         "docs",
         help="Documentation commands",
     )
-    docs_parser.set_defaults(func=docs_command)
+    docs_parser.set_defaults(func=docs.run)
 
     report_parser = subparsers.add_parser(
         "report",
@@ -77,37 +45,35 @@ def main():
         "--limit",
         help="Limit execution to a host or group",
     )
-    report_parser.set_defaults(func=report_command)
+    report_parser.set_defaults(func=report.run)
 
     health_parser = subparsers.add_parser(
         "health",
         help="Health commands",
     )
-    health_parser.set_defaults(func=health_command)
+    health_parser.set_defaults(func=health.run)
 
     dashboard_parser = subparsers.add_parser(
         "dashboard",
         help="Dashboard commands",
     )
-    dashboard_parser.set_defaults(func=dashboard_command)
+    dashboard_parser.set_defaults(func=dashboard.run)
 
     status_parser = subparsers.add_parser(
         "status",
         help="Platform status",
     )
-    status_parser.set_defaults(func=status_command)
+    status_parser.set_defaults(func=status.run)
 
     inventory_parser = subparsers.add_parser(
         "inventory",
         help="Show inventory information",
     )
-
     inventory_parser.add_argument(
         "hostname",
         nargs="?",
         help="Hostname to display",
     )
-
     inventory_parser.add_argument(
         "--status",
         choices=[
@@ -118,34 +84,69 @@ def main():
         ],
         help="Filter hosts by status",
     )
-
-    inventory_parser.set_defaults(func=inventory_command)
+    inventory_parser.set_defaults(
+        func=inventory.run,
+    )
 
     update_parser = subparsers.add_parser(
         "update",
         help="Run maintenance on a host or group",
     )
-
     update_parser.add_argument(
         "target",
         help="Host or inventory group to update",
     )
-
-    update_parser.set_defaults(func=update_command)
+    update_parser.set_defaults(
+        func=update.run,
+    )
 
     history_parser = subparsers.add_parser(
         "history",
         help="Show command history",
     )
-
-    history_parser.set_defaults(func=history_command)
+    history_parser.set_defaults(
+        func=history.run,
+    )
 
     plugins_parser = subparsers.add_parser(
         "plugins",
-        help="Show installed plugins",
+        help="List installed plugins",
+    )
+    plugins_parser.set_defaults(
+        func=plugins.run,
     )
 
-    plugins_parser.set_defaults(func=plugins_command)
+    plugin_parser = subparsers.add_parser(
+        "plugin",
+        help="Show plugin details",
+    )
+    plugin_parser.add_argument(
+        "name",
+        help="Plugin name",
+    )
+    plugin_parser.set_defaults(
+        func=plugin.run,
+    )
+
+    plugin_run_parser = subparsers.add_parser(
+        "plugin-run",
+        help="Execute a plugin",
+    )
+    plugin_run_parser.add_argument(
+        "name",
+        help="Plugin name",
+    )
+    plugin_run_parser.set_defaults(
+        func=plugin_run.run,
+    )
+
+    validate_parser = subparsers.add_parser(
+        "validate",
+        help="Validate installed plugins",
+    )
+    validate_parser.set_defaults(
+        func=validate.run,
+    )
 
     args = parser.parse_args()
 

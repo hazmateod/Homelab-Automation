@@ -9,24 +9,35 @@ def run(args):
 
     loader = PluginLoader()
 
+    plugins = loader.plugins()
+
+    enabled = len(loader.enabled())
+    disabled = len(loader.disabled())
+
     print("HIMP Plugins")
     print("============")
     print()
 
+    print(f"Total Plugins : {len(plugins)}")
+    print(f"Enabled       : {enabled}")
+    print(f"Disabled      : {disabled}")
+
+    print()
+
     print(
-        f"{'Name':<15} "
-        f"{'Version':<10} "
-        f"{'Enabled':<10} "
-        f"Description"
+        f"{'ID':<12} "
+        f"{'Name':<28} "
+        f"{'Version':<8} "
+        f"{'Enabled':<8}"
     )
 
-    print("-" * 70)
+    print("-" * 64)
 
-    for plugin in loader.plugins():
+    for plugin in plugins:
 
         print(
-            f"{plugin.name:<15} "
-            f"{plugin.version:<10} "
-            f"{str(plugin.is_enabled()):<10} "
-            f"{plugin.description}"
+            f"{plugin.id:<12} "
+            f"{plugin.name:<28} "
+            f"{plugin.version:<8} "
+            f"{str(plugin.is_enabled()):<8}"
         )

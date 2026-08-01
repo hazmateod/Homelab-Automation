@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1">
+
+    <title>HIMP</title>
+
+    <link
+        href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/css/bootstrap.min.css"
+        rel="stylesheet">
+
+</head>
+
+<body class="bg-dark text-light">
+
+<div class="d-flex">
+
+    {% include "layout/sidebar.html" %}
+
+    <div class="flex-grow-1">
+
+        {% include "components/navbar.html" %}
+
+        <main class="container-fluid py-4 px-4">
+
+            {% block content %}
+
+            {% endblock %}
+
+        </main>
+
+    </div>
+
+</div>
+
+<script
+    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js">
+</script>
+
+<script
+    src="/static/js/dashboard.js">
+</script>
+
+</body>
+
+</html>
