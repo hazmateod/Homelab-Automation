@@ -1,13 +1,17 @@
 ---
 service: "Proxmox Backup Server"
 
-role: "Backup Server"
+role: "Backup Infrastructure"
 
 category: "Backup"
 
-platform: "VM"
+platform: "Server"
 
 vendor: "Proxmox"
+
+plugin: pbs
+
+pbs_datastore_path: /backup
 
 priority: "Critical"
 

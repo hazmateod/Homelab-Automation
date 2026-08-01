@@ -1,0 +1,35 @@
+---
+###############################################################################
+# PBS Report
+###############################################################################
+
+- name: Add PBS health to report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'pbs': {
+              'health':
+                pbs_health.status | default('UNKNOWN'),
+              'health_score':
+                pbs_health.earned | default(0),
+              'health_possible':
+                pbs_health.possible | default(0),
+              'service':
+                'proxmox-backup.service',
+              'status':
+                pbs_service.status.ActiveState
+                | default('unknown'),
+              'manager_available':
+                pbs_manager.rc == 0,
+              'version':
+                pbs_version.stdout_lines[0]
+                | default('unknown'),
+              'datastores':
+                pbs_datastore_data | default([])
+            }
+          }
+        }, recursive=True)
+      }}

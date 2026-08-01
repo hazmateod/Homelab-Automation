@@ -1,0 +1,45 @@
+---
+###############################################################################
+# PBS Plugin Validation
+###############################################################################
+
+- name: Validate PBS plugin metadata
+  ansible.builtin.assert:
+    that:
+      - plugin == "pbs"
+    fail_msg: "PBS plugin variable is not set correctly."
+
+- name: Validate PBS manager binary
+  ansible.builtin.command:
+    cmd: which proxmox-backup-manager
+  register: pbs_manager_check
+  changed_when: false
+
+- name: Assert PBS manager exists
+  ansible.builtin.assert:
+    that:
+      - pbs_manager_check.rc == 0
+    fail_msg: "Proxmox Backup Manager was not found."
+
+- name: Validate PBS service
+  ansible.builtin.systemd:
+    name: proxmox-backup
+  register: pbs_service_check
+
+- name: Assert PBS service is running
+  ansible.builtin.assert:
+    that:
+      - pbs_service_check.status.ActiveState == "active"
+    fail_msg: "PBS service is not active."
+
+- name: Validate PBS version command
+  ansible.builtin.command:
+    cmd: proxmox-backup-manager version
+  register: pbs_version_check
+  changed_when: false
+
+- name: Assert PBS version is available
+  ansible.builtin.assert:
+    that:
+      - pbs_version_check.rc == 0
+    fail_msg: "PBS version check failed."

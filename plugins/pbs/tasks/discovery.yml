@@ -1,0 +1,68 @@
+---
+###############################################################################
+# PBS Discovery
+###############################################################################
+
+- name: Check PBS service status
+  ansible.builtin.systemd:
+    name: proxmox-backup
+  register: pbs_service
+  changed_when: false
+  failed_when: false
+
+- name: Check PBS manager binary
+  ansible.builtin.command:
+    cmd: which proxmox-backup-manager
+  register: pbs_manager
+  changed_when: false
+  failed_when: false
+
+- name: Gather PBS version
+  ansible.builtin.command:
+    cmd: proxmox-backup-manager version
+  register: pbs_version
+  changed_when: false
+  failed_when: false
+
+- name: Gather PBS datastore list
+  ansible.builtin.command:
+    cmd: proxmox-backup-manager datastore list --output-format json
+  register: pbs_datastores
+  changed_when: false
+  failed_when: false
+
+- name: Parse PBS datastore JSON
+  ansible.builtin.set_fact:
+    pbs_datastore_data: "{{ pbs_datastores.stdout | from_json }}"
+  when:
+    - pbs_datastores.rc == 0
+
+- name: Set empty PBS datastore data on failure
+  ansible.builtin.set_fact:
+    pbs_datastore_data: []
+  when:
+    - pbs_datastores.rc != 0
+
+- name: Store PBS discovery data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'pbs': {
+              'service': 'proxmox-backup.service',
+              'status':
+                pbs_service.status.ActiveState
+                | default('unknown'),
+              'manager_available':
+                pbs_manager.rc == 0,
+              'version':
+                pbs_version.stdout_lines[0]
+                | default('unknown'),
+              'datastores':
+                pbs_datastore_data
+            }
+          }
+        }, recursive=True)
+      }}

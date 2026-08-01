@@ -1,0 +1,16 @@
+---
+###############################################################################
+# PBS Plugin Lifecycle Controller
+###############################################################################
+
+- name: Run PBS discovery
+  ansible.builtin.include_tasks:
+    file: discovery.yml
+
+- name: Run PBS health checks
+  ansible.builtin.include_tasks:
+    file: health.yml
+
+- name: Run PBS report tasks
+  ansible.builtin.include_tasks:
+    file: report.yml
