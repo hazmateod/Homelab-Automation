@@ -3,8 +3,15 @@
 # Application Discovery
 ###############################################################################
 
-- name: Build application discovery
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+- name: Discover Technitium
+  ansible.builtin.include_tasks: applications/technitium.yml
+
+- name: Assemble application discovery
   ansible.builtin.set_fact:
-    discovery_applications:
-      proxmox_backup_server:
-        installed: "{{ 'proxmox-backup.service' in ansible_facts.services }}"
+    discovery_applications: >-
+      {{
+        discovery_applications_technitium | default({})
+      }}

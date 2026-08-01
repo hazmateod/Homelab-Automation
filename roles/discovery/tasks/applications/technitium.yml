@@ -1,0 +1,10 @@
+---
+###############################################################################
+# Technitium DNS Discovery
+###############################################################################
+
+- name: Discover Technitium DNS
+  ansible.builtin.set_fact:
+    discovery_applications_technitium:
+      technitium:
+        installed: "{{ 'technitium.service' in ansible_facts.services }}"
