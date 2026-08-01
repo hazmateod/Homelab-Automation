@@ -69,19 +69,20 @@ def plugin_details(
     plugin_id: str,
 ):
 
-    executions = [
-        execution
-        for execution in himp.execution.history(50)
-        if execution["plugin"] == plugin_id
-    ]
+    plugin = himp.plugins.find(plugin_id)
 
     return templates.TemplateResponse(
         request=request,
         name="plugin_details.html",
         context={
             "dashboard": himp.dashboard.summary(),
-            "plugin": himp.plugins.find(plugin_id),
-            "executions": executions,
+            "plugin": plugin,
+            "executions": [
+                execution
+                for execution in himp.execution.history(50)
+                if execution["plugin"] == plugin_id
+            ],
+            "validation": himp.validation.validate(plugin_id),
         },
     )
 

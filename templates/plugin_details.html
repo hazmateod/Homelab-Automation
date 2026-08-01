@@ -6,21 +6,16 @@
 
 {% if plugin %}
 
-
 <div class="d-flex justify-content-between align-items-center mb-4">
 
     <div>
 
         <h1>
-
             {{ plugin.name }}
-
         </h1>
 
         <p class="text-secondary">
-
             {{ plugin.description }}
-
         </p>
 
     </div>
@@ -34,117 +29,96 @@
 
     </button>
 
-
 </div>
 
 
 
 <div class="card bg-secondary text-light mb-4">
 
-    <div class="card-body">
+<div class="card-body">
+
+<h5>
+Plugin Information
+</h5>
 
 
-        <h5>
+<table class="table table-dark">
 
-            Plugin Information
-
-        </h5>
-
-
-        <table class="table table-dark">
+<tr>
+<th>Version</th>
+<td>{{ plugin.version }}</td>
+</tr>
 
 
-            <tr>
+<tr>
+<th>Status</th>
 
-                <th>
-                    Version
-                </th>
+<td>
 
-                <td>
-                    {{ plugin.version }}
-                </td>
+{% if plugin.enabled %}
 
-            </tr>
+<span class="badge bg-success">
+Enabled
+</span>
 
+{% else %}
 
-            <tr>
+<span class="badge bg-danger">
+Disabled
+</span>
 
-                <th>
-                    Status
-                </th>
+{% endif %}
 
-                <td>
+</td>
 
-                {% if plugin.enabled %}
-
-                    <span class="badge bg-success">
-                        Enabled
-                    </span>
-
-                {% else %}
-
-                    <span class="badge bg-danger">
-                        Disabled
-                    </span>
-
-                {% endif %}
-
-                </td>
-
-            </tr>
+</tr>
 
 
-            <tr>
-
-                <th>
-                    Author
-                </th>
-
-                <td>
-                    {{ plugin.author }}
-                </td>
-
-            </tr>
+<tr>
+<th>Author</th>
+<td>{{ plugin.author }}</td>
+</tr>
 
 
-        </table>
+</table>
 
-
-    </div>
 
 </div>
+
+</div>
+
 
 
 
 
 <div class="card bg-secondary text-light mb-4">
 
-    <div class="card-body">
+<div class="card-body">
 
-        <h5>
-            Capabilities
-        </h5>
-
-
-        {% for capability, enabled in plugin.supports.items() %}
-
-            {% if enabled %}
-
-            <span class="badge bg-primary me-2">
-
-                {{ capability }}
-
-            </span>
-
-            {% endif %}
+<h5>
+Capabilities
+</h5>
 
 
-        {% endfor %}
+{% for capability, enabled in plugin.supports.items() %}
 
+{% if enabled %}
 
-    </div>
+<span class="badge bg-primary me-2">
+
+{{ capability }}
+
+</span>
+
+{% endif %}
+
+{% endfor %}
+
 
 </div>
+
+</div>
+
 
 
 
@@ -157,14 +131,11 @@
 
 <div class="card bg-secondary text-light mb-4">
 
-
 <div class="card-body">
 
 
 <h5>
-
 Requirements
-
 </h5>
 
 
@@ -173,9 +144,7 @@ Requirements
 {% for requirement in plugin.requirements %}
 
 <li>
-
 {{ requirement }}
-
 </li>
 
 {% endfor %}
@@ -189,7 +158,6 @@ Requirements
 
 
 </div>
-
 
 
 
@@ -198,14 +166,11 @@ Requirements
 
 <div class="card bg-secondary text-light mb-4">
 
-
 <div class="card-body">
 
 
 <h5>
-
 Artifacts
-
 </h5>
 
 
@@ -214,9 +179,7 @@ Artifacts
 {% for artifact in plugin.artifacts %}
 
 <li>
-
 {{ artifact }}
-
 </li>
 
 {% endfor %}
@@ -246,9 +209,145 @@ Artifacts
 
 
 <h5>
+Validation Results
+</h5>
 
+
+
+{% if validation %}
+
+
+<p>
+
+{% if validation.passed %}
+
+<span class="badge bg-success">
+Validation Passed
+</span>
+
+{% else %}
+
+<span class="badge bg-danger">
+Validation Failed
+</span>
+
+{% endif %}
+
+
+<span class="ms-2">
+
+Score:
+{{ validation.success_rate() }}%
+
+</span>
+
+
+</p>
+
+
+
+
+<table class="table table-dark">
+
+
+<thead>
+
+<tr>
+
+<th>
+Check
+</th>
+
+<th>
+Result
+</th>
+
+</tr>
+
+</thead>
+
+
+
+<tbody>
+
+
+{% for check in validation.checks %}
+
+
+<tr>
+
+
+<td>
+{{ check.name }}
+</td>
+
+
+<td>
+
+
+{% if check.passed %}
+
+<span class="badge bg-success">
+PASS
+</span>
+
+
+{% else %}
+
+<span class="badge bg-danger">
+FAIL
+</span>
+
+
+{% endif %}
+
+
+</td>
+
+
+</tr>
+
+
+{% endfor %}
+
+
+</tbody>
+
+
+</table>
+
+
+{% else %}
+
+
+<div class="alert alert-secondary">
+
+No validation results available.
+
+</div>
+
+
+{% endif %}
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+<div class="card bg-secondary text-light mb-4">
+
+
+<div class="card-body">
+
+
+<h5>
 Recent Executions
-
 </h5>
 
 
@@ -302,9 +401,7 @@ Executed
 
 
 <td>
-
 {{ execution.id }}
-
 </td>
 
 
@@ -314,19 +411,14 @@ Executed
 {% if execution.success %}
 
 <span class="badge bg-success">
-
 Success
-
 </span>
 
 
 {% else %}
 
-
 <span class="badge bg-danger">
-
 Failed
-
 </span>
 
 
@@ -336,27 +428,18 @@ Failed
 </td>
 
 
-
 <td>
-
 {{ execution.elapsed }} sec
-
 </td>
 
 
-
 <td>
-
 {{ execution.return_code }}
-
 </td>
 
 
-
 <td>
-
 {{ execution.executed_at }}
-
 </td>
 
 
