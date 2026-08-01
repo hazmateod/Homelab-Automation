@@ -5,7 +5,7 @@ HIMP Command Line Interface
 
 import argparse
 
-from himp.commands import docs, report, health, dashboard
+from himp.commands import docs, report, health, dashboard, status
 
 def docs_command(args):
     docs.run(args)
@@ -19,6 +19,9 @@ def health_command(args):
 
 def dashboard_command(args):
     dashboard.run(args)
+
+def status_command(args):
+    status.run(args)
 
 def main():
 
@@ -52,6 +55,12 @@ def main():
         help="Dashboard commands",
     )
     dashboard.set_defaults(func=dashboard_command)
+
+    status = subparsers.add_parser(
+        "status",
+        help="Platform status",
+    )
+    status.set_defaults(func=status_command)
 
     args = parser.parse_args()
 
