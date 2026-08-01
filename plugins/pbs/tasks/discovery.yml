@@ -43,6 +43,15 @@
   when:
     - pbs_datastores.rc != 0
 
+- name: Set PBS datastore path
+  ansible.builtin.set_fact:
+    pbs_datastore_path: >-
+      {{
+        pbs_datastore_data[0].path
+        if pbs_datastore_data | length > 0
+        else ''
+      }}
+
 - name: Store PBS discovery data
   ansible.builtin.set_fact:
     homelab_report: >-

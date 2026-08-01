@@ -11,8 +11,6 @@ vendor: "Proxmox"
 
 plugin: pbs
 
-pbs_datastore_path: /backup
-
 priority: "Critical"
 
 icon: "💾"
