@@ -1,0 +1,32 @@
+---
+###############################################################################
+# Technitium Plugin Validation
+###############################################################################
+
+- name: Validate Technitium plugin metadata
+  ansible.builtin.assert:
+    that:
+      - plugin == "technitium"
+    fail_msg: "Technitium plugin variable is not set correctly."
+
+- name: Validate Technitium installation
+  ansible.builtin.stat:
+    path: /opt/technitium/dns/DnsServerApp.dll
+  register: technitium_binary_check
+
+- name: Assert Technitium binary exists
+  ansible.builtin.assert:
+    that:
+      - technitium_binary_check.stat.exists
+    fail_msg: "Technitium DNS installation was not found."
+
+- name: Validate Technitium service
+  ansible.builtin.systemd:
+    name: technitium
+  register: technitium_service_check
+
+- name: Assert Technitium service is running
+  ansible.builtin.assert:
+    that:
+      - technitium_service_check.status.ActiveState == "active"
+    fail_msg: "Technitium DNS service is not active."

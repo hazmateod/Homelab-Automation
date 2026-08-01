@@ -1,32 +1,16 @@
 ---
-- name: Check Technitium service status
-  ansible.builtin.systemd:
-    name: technitium
-  register: technitium_service
-  changed_when: false
-  failed_when: false
+###############################################################################
+# Technitium Plugin Lifecycle Controller
+###############################################################################
 
-- name: Collect Technitium installation details
-  ansible.builtin.stat:
-    path: /opt/technitium/dns/DnsServerApp.dll
-  register: technitium_binary
+- name: Run Technitium discovery
+  ansible.builtin.include_tasks:
+    file: discovery.yml
 
-- name: Store Technitium plugin data
-  ansible.builtin.set_fact:
-    homelab_report: >-
-      {{
-        homelab_report |
-        combine({
-          'plugins': {
-            'technitium': {
-              'service': 'technitium.service',
-              'status':
-                technitium_service.status.ActiveState
-                | default('unknown'),
-              'install_path': '/opt/technitium/dns',
-              'installed':
-                technitium_binary.stat.exists | default(false)
-            }
-          }
-        }, recursive=True)
-      }}
+- name: Run Technitium health checks
+  ansible.builtin.include_tasks:
+    file: health.yml
+
+- name: Run Technitium report tasks
+  ansible.builtin.include_tasks:
+    file: report.yml

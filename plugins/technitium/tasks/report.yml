@@ -1,0 +1,20 @@
+---
+###############################################################################
+# Technitium Report
+###############################################################################
+
+- name: Add Technitium health to report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'technitium': {
+              'health': technitium_health.status | default('UNKNOWN'),
+              'health_score': technitium_health.earned | default(0),
+              'health_possible': technitium_health.possible | default(0)
+            }
+          }
+        }, recursive=True)
+      }}

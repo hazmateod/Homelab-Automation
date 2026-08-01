@@ -3,6 +3,46 @@
 # Technitium Health
 ###############################################################################
 
-- name: Technitium health checks
-  ansible.builtin.debug:
-    msg: "Technitium health plugin executed."
+- name: Initialize Technitium health result
+  ansible.builtin.set_fact:
+    technitium_health:
+      name: Technitium
+      earned: 0
+      possible: 10
+      status: CRITICAL
+      issues: []
+
+- name: Evaluate Technitium service health
+  ansible.builtin.set_fact:
+    technitium_health: >-
+      {{
+        technitium_health |
+        combine({
+          'earned': 10,
+          'status': 'HEALTHY',
+          'issues': []
+        })
+      }}
+  when:
+    - technitium_service.status.ActiveState | default('unknown') == "active"
+
+- name: Record Technitium health issue
+  ansible.builtin.set_fact:
+    technitium_health: >-
+      {{
+        technitium_health |
+        combine({
+          'issues': [
+            'Technitium DNS service is not active'
+          ]
+        })
+      }}
+  when:
+    - technitium_service.status.ActiveState | default('unknown') != "active"
+
+- name: Add Technitium health contributor
+  ansible.builtin.set_fact:
+    health_contributors: >-
+      {{
+        health_contributors | default([]) + [ technitium_health ]
+      }}

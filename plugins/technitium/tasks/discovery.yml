@@ -3,23 +3,35 @@
 # Technitium Discovery
 ###############################################################################
 
-- name: Gather Technitium version
-  ansible.builtin.command:
-    cmd: /usr/bin/dotnet /opt/technitium/dns/DnsServerApp.dll --version
-  register: technitium_version
+- name: Check Technitium service status
+  ansible.builtin.systemd:
+    name: technitium
+  register: technitium_service
   changed_when: false
   failed_when: false
+
+- name: Check Technitium binary
+  ansible.builtin.stat:
+    path: /opt/technitium/dns/DnsServerApp.dll
+  register: technitium_binary
 
 - name: Store Technitium discovery data
   ansible.builtin.set_fact:
     homelab_report: >-
       {{
-        homelab_report
-        | combine({
-            'plugins': {
-              'technitium': {
-                'version': technitium_version.stdout
-              }
+        homelab_report |
+        combine({
+          'plugins': {
+            'technitium': {
+              'service': 'technitium.service',
+              'status':
+                technitium_service.status.ActiveState
+                | default('unknown'),
+              'install_path': '/opt/technitium/dns',
+              'installed':
+                technitium_binary.stat.exists | default(false)
             }
-          }, recursive=True)
+          }
+        }, recursive=True)
       }}
+

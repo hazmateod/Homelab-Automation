@@ -19,9 +19,10 @@ supports:
   reporting: true
 
 artifacts:
-  - metadata
-  - services
+  - service_status
+  - installation_path
+  - health_score
   - plugins.technitium
 
 requirements:
-  - dotnet
+  - systemd
