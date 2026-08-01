@@ -1,0 +1,15 @@
+---
+###############################################################################
+# Technitium Service Discovery
+###############################################################################
+
+- name: Collect Technitium service information
+  ansible.builtin.set_fact:
+    discovery_applications_technitium_service:
+      installed: "{{ 'technitium.service' in ansible_facts.services }}"
+      running: >-
+        {{
+          ansible_facts.services['technitium.service'].state == 'running'
+          if 'technitium.service' in ansible_facts.services
+          else false
+        }}
