@@ -3,8 +3,14 @@
 # Technitium DNS Discovery
 ###############################################################################
 
-- name: Discover Technitium DNS
+- name: Check if Technitium is installed
   ansible.builtin.set_fact:
     discovery_applications_technitium:
       technitium:
         installed: "{{ 'technitium.service' in ansible_facts.services }}"
+        running: >-
+          {{
+            ansible_facts.services['technitium.service'].state == 'running'
+            if 'technitium.service' in ansible_facts.services
+            else false
+          }}
