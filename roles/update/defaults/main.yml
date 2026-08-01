@@ -1,0 +1,7 @@
+---
+maintenance:
+  apt_retries: 5
+  apt_retry_delay: 12
+
+  # DNS hostname used to validate name resolution
+  dns_test: cloudflare.com

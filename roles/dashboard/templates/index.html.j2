@@ -1,159 +1,125 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Homelab Operations Dashboard</title>
+<meta charset="UTF-8">
+<title>HIMP Dashboard</title>
 
-    <link rel="stylesheet" href="style.css">
+<link rel="stylesheet" href="style.css">
+
+<meta http-equiv="refresh" content="300">
+
 </head>
 
 <body>
 
-<div class="container">
-
-<header class="hero">
-
-    <div class="hero-left">
-
-        <h1>🏠 Homelab Operations Center</h1>
-
-        <p>
-            Infrastructure Automation • Health Monitoring • Reporting
-        </p>
-
-    </div>
-
-    <div class="hero-right">
-
-        <div class="run-info">
-
-            <div class="label">Last Maintenance Run</div>
-
-            <div class="value">
-                {{ ansible_date_time.date }}
-                {{ ansible_date_time.time }}
-            </div>
-
-        </div>
-
-    </div>
-
+<header>
+    <h1>🏠 Homelab Infrastructure Management Platform</h1>
+    <p>Generated {{ ansible_date_time.iso8601 }}</p>
 </header>
-<section class="dashboard-title">
 
-    <h2>Infrastructure Summary</h2>
+{% set stats = namespace(
+    healthy=0,
+    warning=0,
+    critical=0,
+    total_score=0,
+    scored_hosts=0
+) %}
 
-    <p>
-        Real-time operational status for all managed homelab systems.
-    </p>
+{% for host in dashboard_hosts %}
+
+    {% set status = host.health.overall.status | default('UNKNOWN') %}
+
+    {% if status == 'HEALTHY' %}
+        {% set stats.healthy = stats.healthy + 1 %}
+    {% elif status == 'WARNING' %}
+        {% set stats.warning = stats.warning + 1 %}
+    {% elif status == 'CRITICAL' %}
+        {% set stats.critical = stats.critical + 1 %}
+    {% endif %}
+
+    {% if host.health.overall.score is defined %}
+        {% set stats.total_score = stats.total_score + (host.health.overall.score | int) %}
+        {% set stats.scored_hosts = stats.scored_hosts + 1 %}
+    {% endif %}
+
+{% endfor %}
+
+<section class="summary">
+
+<div class="card">
+<h2>{{ dashboard_hosts | length }}</h2>
+<p>🖥 Total Hosts</p>
+</div>
+
+<div class="card">
+<h2>{{ stats.healthy }}</h2>
+<p>🟢 Healthy</p>
+</div>
+
+<div class="card">
+<h2>{{ stats.warning }}</h2>
+<p>🟡 Warning</p>
+</div>
+
+<div class="card">
+<h2>{{ stats.critical }}</h2>
+<p>🔴 Critical</p>
+</div>
+
+<div class="card">
+<h2>
+{% if stats.scored_hosts > 0 %}
+{{ (stats.total_score / stats.scored_hosts) | round(0) }}%
+{% else %}
+0%
+{% endif %}
+</h2>
+
+<p>⭐ Average Health</p>
+</div>
 
 </section>
-    <section class="summary">
 
-        <div class="card">
-            <h2>{{ dashboard_hosts | length }}</h2>
-<p>🖥 Total Hosts</p>
-        </div>
+<section>
 
-        <div class="card">
-            <h2>
-            {{
-                dashboard_hosts
-                | selectattr('health.overall.status','equalto','HEALTHY')
-                | list
-                | length
-            }}
-            </h2>
-<p>🟢 Healthy</p>        </div>
+<table>
 
-        <div class="card">
-            <h2>
-            {{
-                dashboard_hosts
-                | selectattr('health.overall.status','equalto','WARNING')
-                | list
-                | length
-            }}
-            </h2>
-<p>🟡 Warning</p>        </div>
+<thead>
 
-        <div class="card">
-            <h2>
-            {{
-                dashboard_hosts
-                | selectattr('health.overall.status','equalto','CRITICAL')
-                | list
-                | length
-            }}
-            </h2>
-<p>🔴 Critical</p></div><div class="card">
+<tr>
+<th>Hostname</th>
+<th>IP Address</th>
+<th>Operating System</th>
+<th>Status</th>
+<th>Score</th>
+<th>Report</th>
+</tr>
 
-    <h2>
-        {{
-            (
-                dashboard_hosts
-                | map(attribute='health.overall.score')
-                | map('int')
-                | sum
-                /
-                (dashboard_hosts | length)
-            ) | round(0)
-        }}%
-    </h2>
+</thead>
 
-    <p>⭐ Average Health</p>
+<tbody>
 
-</div>        
-
-    </section>
-
-    <section>
-
-        <input
-            id="search"
-            type="text"
-            placeholder="Search hosts..."
-        >
-
-    </section>
-
-    <table id="hostTable">
-
-        <thead>
-
-            <tr>
-                <th>Hostname</th>
-                <th>IP Address</th>
-                <th>Operating System</th>
-                <th>Status</th>
-                <th>Score</th>
-                <th>Report</th>
-            </tr>
-
-        </thead>
-
-        <tbody>
-
-{% for host in dashboard_hosts|sort(attribute='host.hostname') %}
+{% for host in dashboard_hosts | sort(attribute='metadata.hostname') %}
 
 <tr>
 
-<td>{{ host.host.hostname }}</td>
+<td>{{ host.metadata.hostname }}</td>
 
-<td>{{ host.host.ip }}</td>
+<td>{{ host.network.primary_ip | default('Unknown') }}</td>
 
-<td>{{ host.host.os }}</td>
+<td>{{ host.metadata.operating_system }}</td>
 
-<td class="{{ host.health.overall.status | lower }}">
-{{ host.health.overall.status }}
+<td class="{{ host.health.overall.status | default('unknown') | lower }}">
+{{ host.health.overall.status | default('UNKNOWN') }}
 </td>
 
-<td>{{ host.health.overall.score }}%</td>
+<td>
+{{ host.health.overall.score | default(0) }}%
+</td>
 
 <td>
-<a href="../current/{{ host.host.hostname }}.md">
-Open
+<a href="../current/{{ host.metadata.hostname }}.md">
+View
 </a>
 </td>
 
@@ -161,11 +127,11 @@ Open
 
 {% endfor %}
 
-        </tbody>
+</tbody>
 
-    </table>
+</table>
 
-</div>
+</section>
 
 <script src="dashboard.js"></script>
 

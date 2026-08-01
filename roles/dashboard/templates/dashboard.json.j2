@@ -4,12 +4,12 @@
   "hosts": [
 {% for host in dashboard_hosts %}
     {
-      "hostname": "{{ host.host.hostname }}",
-      "ip": "{{ host.host.ip }}",
-      "os": "{{ host.host.os }}",
-      "kernel": "{{ host.host.kernel }}",
-      "score": {{ host.health.overall.score }},
-      "status": "{{ host.health.overall.status }}"
+      "hostname": "{{ host.metadata.hostname }}",
+      "ip": "{{ host.network.primary_ip | default('Unknown') }}",
+      "os": "{{ host.metadata.operating_system }}",
+      "kernel": "{{ host.metadata.kernel }}",
+      "score": {{ host.health.overall.score | default(0) }},
+      "status": "{{ host.health.overall.status | default('UNKNOWN') }}"
     }{% if not loop.last %},{% endif %}
 {% endfor %}
   ]
