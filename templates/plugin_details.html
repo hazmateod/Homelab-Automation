@@ -4,179 +4,412 @@
 
 <div class="container-fluid">
 
-    {% if plugin %}
-
-    <h1 class="mb-4">
-        {{ plugin.name }}
-    </h1>
+{% if plugin %}
 
 
-    <div class="card bg-secondary text-light mb-4">
+<div class="d-flex justify-content-between align-items-center mb-4">
 
-        <div class="card-body">
+    <div>
 
-            <h5 class="card-title">
-                Plugin Information
-            </h5>
+        <h1>
 
+            {{ plugin.name }}
 
-            <p>
-                {{ plugin.description }}
-            </p>
+        </h1>
 
+        <p class="text-secondary">
 
-            <table class="table table-dark">
+            {{ plugin.description }}
 
-                <tr>
-                    <th>
-                        Version
-                    </th>
-                    <td>
-                        {{ plugin.version }}
-                    </td>
-                </tr>
-
-
-                <tr>
-                    <th>
-                        Status
-                    </th>
-                    <td>
-
-                        {% if plugin.enabled %}
-
-                        <span class="badge bg-success">
-                            Enabled
-                        </span>
-
-                        {% else %}
-
-                        <span class="badge bg-danger">
-                            Disabled
-                        </span>
-
-                        {% endif %}
-
-                    </td>
-                </tr>
-
-
-                <tr>
-                    <th>
-                        Author
-                    </th>
-                    <td>
-                        {{ plugin.author }}
-                    </td>
-                </tr>
-
-
-            </table>
-
-
-        </div>
+        </p>
 
     </div>
 
 
+    <button
+        class="btn btn-primary run-plugin"
+        data-plugin="{{ plugin.id }}">
 
-    <div class="card bg-secondary text-light mb-4">
+        Run Plugin
 
-        <div class="card-body">
-
-            <h5>
-                Capabilities
-            </h5>
-
-
-            {% for capability, enabled in plugin.supports.items() %}
-
-                {% if enabled %}
-
-                <span class="badge bg-primary me-2">
-                    {{ capability }}
-                </span>
-
-                {% endif %}
-
-            {% endfor %}
-
-
-        </div>
-
-    </div>
-
-
-
-    <div class="card bg-secondary text-light mb-4">
-
-        <div class="card-body">
-
-            <h5>
-                Requirements
-            </h5>
-
-
-            <ul>
-
-            {% for requirement in plugin.requirements %}
-
-                <li>
-                    {{ requirement }}
-                </li>
-
-            {% endfor %}
-
-            </ul>
-
-
-        </div>
-
-    </div>
-
-
-
-    <div class="card bg-secondary text-light mb-4">
-
-        <div class="card-body">
-
-            <h5>
-                Artifacts
-            </h5>
-
-
-            <ul>
-
-            {% for artifact in plugin.artifacts %}
-
-                <li>
-                    {{ artifact }}
-                </li>
-
-            {% endfor %}
-
-            </ul>
-
-
-        </div>
-
-    </div>
-
-
-
-    {% else %}
-
-
-    <div class="alert alert-danger">
-
-        Plugin not found.
-
-    </div>
-
-
-    {% endif %}
+    </button>
 
 
 </div>
+
+
+
+<div class="card bg-secondary text-light mb-4">
+
+    <div class="card-body">
+
+
+        <h5>
+
+            Plugin Information
+
+        </h5>
+
+
+        <table class="table table-dark">
+
+
+            <tr>
+
+                <th>
+                    Version
+                </th>
+
+                <td>
+                    {{ plugin.version }}
+                </td>
+
+            </tr>
+
+
+            <tr>
+
+                <th>
+                    Status
+                </th>
+
+                <td>
+
+                {% if plugin.enabled %}
+
+                    <span class="badge bg-success">
+                        Enabled
+                    </span>
+
+                {% else %}
+
+                    <span class="badge bg-danger">
+                        Disabled
+                    </span>
+
+                {% endif %}
+
+                </td>
+
+            </tr>
+
+
+            <tr>
+
+                <th>
+                    Author
+                </th>
+
+                <td>
+                    {{ plugin.author }}
+                </td>
+
+            </tr>
+
+
+        </table>
+
+
+    </div>
+
+</div>
+
+
+
+
+<div class="card bg-secondary text-light mb-4">
+
+    <div class="card-body">
+
+        <h5>
+            Capabilities
+        </h5>
+
+
+        {% for capability, enabled in plugin.supports.items() %}
+
+            {% if enabled %}
+
+            <span class="badge bg-primary me-2">
+
+                {{ capability }}
+
+            </span>
+
+            {% endif %}
+
+
+        {% endfor %}
+
+
+    </div>
+
+</div>
+
+
+
+
+<div class="row">
+
+
+<div class="col-lg-6">
+
+
+<div class="card bg-secondary text-light mb-4">
+
+
+<div class="card-body">
+
+
+<h5>
+
+Requirements
+
+</h5>
+
+
+<ul>
+
+{% for requirement in plugin.requirements %}
+
+<li>
+
+{{ requirement }}
+
+</li>
+
+{% endfor %}
+
+</ul>
+
+
+</div>
+
+</div>
+
+
+</div>
+
+
+
+
+<div class="col-lg-6">
+
+
+<div class="card bg-secondary text-light mb-4">
+
+
+<div class="card-body">
+
+
+<h5>
+
+Artifacts
+
+</h5>
+
+
+<ul>
+
+{% for artifact in plugin.artifacts %}
+
+<li>
+
+{{ artifact }}
+
+</li>
+
+{% endfor %}
+
+</ul>
+
+
+</div>
+
+</div>
+
+
+</div>
+
+
+</div>
+
+
+
+
+
+
+<div class="card bg-secondary text-light mb-4">
+
+
+<div class="card-body">
+
+
+<h5>
+
+Recent Executions
+
+</h5>
+
+
+
+{% if executions %}
+
+
+<div class="table-responsive">
+
+
+<table class="table table-dark">
+
+
+<thead>
+
+<tr>
+
+<th>
+ID
+</th>
+
+<th>
+Status
+</th>
+
+<th>
+Runtime
+</th>
+
+<th>
+Return Code
+</th>
+
+<th>
+Executed
+</th>
+
+</tr>
+
+</thead>
+
+
+
+<tbody>
+
+
+{% for execution in executions %}
+
+
+<tr>
+
+
+<td>
+
+{{ execution.id }}
+
+</td>
+
+
+<td>
+
+
+{% if execution.success %}
+
+<span class="badge bg-success">
+
+Success
+
+</span>
+
+
+{% else %}
+
+
+<span class="badge bg-danger">
+
+Failed
+
+</span>
+
+
+{% endif %}
+
+
+</td>
+
+
+
+<td>
+
+{{ execution.elapsed }} sec
+
+</td>
+
+
+
+<td>
+
+{{ execution.return_code }}
+
+</td>
+
+
+
+<td>
+
+{{ execution.executed_at }}
+
+</td>
+
+
+</tr>
+
+
+{% endfor %}
+
+
+</tbody>
+
+
+</table>
+
+
+</div>
+
+
+{% else %}
+
+
+<div class="alert alert-secondary">
+
+No executions recorded.
+
+</div>
+
+
+{% endif %}
+
+
+
+</div>
+
+
+</div>
+
+
+
+{% else %}
+
+
+<div class="alert alert-danger">
+
+Plugin not found.
+
+</div>
+
+
+{% endif %}
+
+
+</div>
+
 
 {% endblock %}
