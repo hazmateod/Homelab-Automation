@@ -10,10 +10,20 @@
   changed_when: false
   failed_when: false
 
+
 - name: Check Technitium binary
   ansible.builtin.stat:
     path: /opt/technitium/dns/DnsServerApp.dll
   register: technitium_binary
+
+
+- name: Check Technitium listeners
+  ansible.builtin.shell:
+    cmd: ss -tulpn | grep -E ':(53|5380)'
+  register: technitium_ports
+  changed_when: false
+  failed_when: false
+
 
 - name: Build Technitium plugin data
   ansible.builtin.set_fact:
@@ -22,8 +32,11 @@
       service: technitium.service
       status: "{{ technitium_service.status.ActiveState | default('unknown') }}"
       install_path: /opt/technitium/dns
+      ports:
+        listening: "{{ technitium_ports.stdout_lines | default([]) }}"
       metadata:
         build_time: "{{ technitium_binary.stat.mtime | default(0) }}"
+
 
 - name: Store Technitium discovery data
   ansible.builtin.set_fact:
