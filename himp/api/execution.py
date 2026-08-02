@@ -1,19 +1,27 @@
 """
-Execution API
+Execution API.
+
+Provides plugin execution operations and history.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from himp.services.execution import ExecutionService
 
-router = APIRouter()
+
+router = APIRouter(
+    tags=["Execution"],
+)
+
 
 execution = ExecutionService()
 
 
 @router.post("/plugins/{plugin}/run")
-def run_plugin(plugin: str):
+def run_plugin(
+    plugin: str,
+):
 
     result = execution.run(plugin)
 
@@ -32,8 +40,60 @@ def run_plugin(plugin: str):
 
 
 @router.get("/executions")
-def execution_history():
+def execution_history(
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=500,
+    ),
+):
 
     return JSONResponse(
-        execution.history()
+        execution.history(limit)
+    )
+
+
+@router.get("/executions/{plugin}")
+def plugin_execution_history(
+    plugin: str,
+):
+
+    history = [
+        item
+        for item in execution.history(500)
+        if item["plugin"] == plugin
+    ]
+
+    if not history:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Execution plugin not found",
+        )
+
+    return JSONResponse(
+        {
+            "plugin": plugin,
+            "count": len(history),
+            "history": history,
+        }
+    )
+
+
+@router.get("/executions/{plugin}/latest")
+def plugin_latest_execution(
+    plugin: str,
+):
+
+    result = execution.latest(plugin)
+
+    if result is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Latest execution not found",
+        )
+
+    return JSONResponse(
+        result
     )
