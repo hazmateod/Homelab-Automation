@@ -11,6 +11,7 @@ from himp.services.health_trends import HealthTrendsService
 from himp.services.inventory import InventoryService
 from himp.services.plugins import PluginService
 from himp.services.reports import ReportService
+from himp.services.settings import SettingsService
 from himp.services.validation import ValidationService
 
 
@@ -37,3 +38,5 @@ class HIMP:
         self.health_trends = HealthTrendsService()
 
         self.reports = ReportService()
+
+        self.settings = SettingsService()

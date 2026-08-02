@@ -196,6 +196,22 @@ def reports(request: Request):
     )
 
 
+@app.get("/settings")
+def settings(request: Request):
+
+    context = dashboard_context()
+
+    context["settings"] = (
+        himp.settings.summary()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="settings.html",
+        context=context,
+    )
+
+
 @app.get("/plugins")
 def plugins(request: Request):
 
@@ -256,6 +272,14 @@ def reports_api():
             "summary": himp.reports.summary(),
             "files": himp.reports.files(),
         }
+    )
+
+
+@app.get("/api/settings")
+def settings_api():
+
+    return JSONResponse(
+        himp.settings.summary()
     )
 
 
