@@ -6,7 +6,7 @@ Provides inventory and CMDB information.
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from himp.services.inventory import InventoryService
 from himp.database.inventory import InventoryRepository
@@ -23,10 +23,30 @@ service = InventoryService()
 repository = InventoryRepository()
 
 
+@router.get("")
 @router.get("/")
 async def inventory_summary():
 
     return service.summary()
+
+
+@router.get("/statistics")
+async def inventory_statistics():
+
+    summary = service.summary()
+
+    return summary.statistics
+
+
+@router.get("/groups")
+async def inventory_groups():
+
+    summary = service.summary()
+
+    return {
+        "groups": summary.statistics.group_counts,
+        "count": summary.statistics.groups,
+    }
 
 
 @router.get("/hosts")
@@ -49,10 +69,13 @@ async def inventory_host(
 
     if host is None:
 
-        return {
-            "error": "Host not found",
-            "hostname": hostname,
-        }
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Host not found",
+                "hostname": hostname,
+            },
+        )
 
     return host
 
