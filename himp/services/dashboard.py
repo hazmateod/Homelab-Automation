@@ -6,6 +6,7 @@ import socket
 
 from himp.services.execution import ExecutionService
 from himp.services.health import HealthService
+from himp.services.health_trends import HealthTrendsService
 from himp.services.inventory import InventoryService
 from himp.services.plugins import PluginService
 
@@ -21,6 +22,8 @@ class DashboardService:
         self.inventory = InventoryService()
 
         self.health = HealthService()
+
+        self.health_trends = HealthTrendsService()
 
     def inventory_summary(self):
 
@@ -99,6 +102,8 @@ class DashboardService:
             "plugin_list": plugin_list,
 
             "health": self.health_summary(),
+
+            "health_trends": self.health_trends.summary(),
 
             "inventory": self.inventory_summary(),
 
