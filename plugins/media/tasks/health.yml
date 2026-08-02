@@ -1,0 +1,102 @@
+---
+###############################################################################
+# Media Health
+###############################################################################
+
+- name: Initialize Media health result
+  ansible.builtin.set_fact:
+    media_health:
+      name: Media Services
+      earned: 0
+      possible: 10
+      status: CRITICAL
+      issues: []
+
+- name: Check media host connectivity
+  ansible.builtin.ping:
+
+- name: Add host availability health
+  ansible.builtin.set_fact:
+    media_health: >-
+      {{
+        media_health |
+        combine({
+          'earned': media_health.earned + 3
+        })
+      }}
+
+- name: Check Emby port
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: 8096
+    timeout: 5
+  register: emby_check
+  failed_when: false
+
+- name: Add Emby health
+  ansible.builtin.set_fact:
+    media_health: >-
+      {{
+        media_health |
+        combine({
+          'earned': media_health.earned + 2
+        })
+      }}
+  when:
+    - emby_check.failed == false
+
+- name: Check Plex port
+  ansible.builtin.wait_for:
+    host: "{{ ansible_host }}"
+    port: 32400
+    timeout: 5
+  register: plex_check
+  failed_when: false
+
+- name: Add Plex health
+  ansible.builtin.set_fact:
+    media_health: >-
+      {{
+        media_health |
+        combine({
+          'earned': media_health.earned + 2
+        })
+      }}
+  when:
+    - plex_check.failed == false
+
+- name: Calculate Media health status
+  ansible.builtin.set_fact:
+    media_health: >-
+      {{
+        media_health |
+        combine({
+          'status':
+            'HEALTHY'
+            if media_health.earned >= 7
+            else
+            'WARNING'
+        })
+      }}
+
+- name: Store Media health
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'media': {
+              'health': media_health
+            }
+          }
+        }, recursive=True)
+      }}
+
+- name: Add Media health contributor
+  ansible.builtin.set_fact:
+    health_contributors: >-
+      {{
+        health_contributors | default([]) +
+        [ media_health ]
+      }}

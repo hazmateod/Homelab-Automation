@@ -1,0 +1,31 @@
+---
+###############################################################################
+# Media Report
+###############################################################################
+
+- name: Add Media report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'media': {
+              'health':
+                media_health.status | default('UNKNOWN'),
+              'health_score':
+                media_health.earned | default(0),
+              'health_possible':
+                media_health.possible | default(0),
+              'services':
+                [
+                  'emby',
+                  'jellyfin',
+                  'plex'
+                ],
+              'host':
+                inventory_hostname
+            }
+          }
+        }, recursive=True)
+      }}

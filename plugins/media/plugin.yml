@@ -1,0 +1,30 @@
+---
+name: media
+
+display_name: Media Services
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Collects discovery, health, and reporting information
+  for media services including Emby, Jellyfin, Plex,
+  and Docker hosts.
+
+entrypoint: tasks/main.yml
+
+inventory_group: media
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+
+artifacts:
+  - services
+  - health_score
+  - media_status
+
+requirements:
+  - systemd

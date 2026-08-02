@@ -1,0 +1,26 @@
+---
+###############################################################################
+# Media Discovery
+###############################################################################
+
+- name: Collect media service facts
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'media': {
+              'metadata': {
+                'hostname': inventory_hostname,
+                'services': [
+                  'emby',
+                  'jellyfin',
+                  'plex',
+                  'docker'
+                ]
+              }
+            }
+          }
+        }, recursive=True)
+      }}
