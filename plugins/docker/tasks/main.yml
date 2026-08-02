@@ -1,0 +1,16 @@
+---
+###############################################################################
+# Docker Plugin Lifecycle Controller
+###############################################################################
+
+- name: Run Docker discovery
+  ansible.builtin.include_tasks:
+    file: discovery.yml
+
+- name: Run Docker health checks
+  ansible.builtin.include_tasks:
+    file: health.yml
+
+- name: Run Docker report tasks
+  ansible.builtin.include_tasks:
+    file: report.yml

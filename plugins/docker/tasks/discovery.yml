@@ -1,0 +1,80 @@
+---
+###############################################################################
+# Docker Discovery
+###############################################################################
+
+- name: Check Docker service
+  ansible.builtin.systemd:
+    name: docker
+  register: docker_service
+  changed_when: false
+  failed_when: false
+
+
+- name: Get Docker version
+  ansible.builtin.command:
+    cmd: docker version --format "{{'{{.Server.Version}}'}}"
+  register: docker_version
+  changed_when: false
+  failed_when: false
+
+
+- name: Get Docker containers
+  ansible.builtin.command:
+    cmd: docker ps -a --format json
+  register: docker_containers
+  changed_when: false
+  failed_when: false
+
+
+- name: Parse Docker containers
+  ansible.builtin.set_fact:
+    docker_container_data: >-
+      {{
+        docker_containers.stdout_lines
+        | map('from_json')
+        | list
+      }}
+  when:
+    - docker_containers.rc == 0
+
+
+- name: Initialize Docker container list
+  ansible.builtin.set_fact:
+    docker_container_data: []
+  when:
+    - docker_containers.rc != 0
+
+
+- name: Build Docker plugin data
+  ansible.builtin.set_fact:
+    docker_plugin:
+
+      installed: "{{ docker_version.rc == 0 }}"
+
+      service:
+        name: docker.service
+        status: "{{ docker_service.status.ActiveState | default('unknown') }}"
+
+      version:
+        "{{ docker_version.stdout | default('unknown') }}"
+
+      containers:
+        "{{ docker_container_data }}"
+
+      metadata:
+        container_count:
+          "{{ docker_container_data | length }}"
+
+
+- name: Store Docker discovery data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'docker': docker_plugin
+          }
+        }, recursive=True)
+      }}

@@ -1,0 +1,106 @@
+---
+###############################################################################
+# Docker Health
+###############################################################################
+
+- name: Initialize Docker health result
+  ansible.builtin.set_fact:
+    docker_health:
+      name: Docker Host
+      earned: 0
+      possible: 10
+      status: CRITICAL
+      issues: []
+
+
+- name: Add Docker installed health
+  ansible.builtin.set_fact:
+    docker_health:
+      "{{ docker_health | combine({
+        'earned': docker_health.earned + 3
+      }) }}"
+  when:
+    - homelab_report.plugins.docker.installed | default(false)
+
+
+- name: Add Docker service health
+  ansible.builtin.set_fact:
+    docker_health:
+      "{{ docker_health | combine({
+        'earned': docker_health.earned + 4
+      }) }}"
+  when:
+    - homelab_report.plugins.docker.service.status == "active"
+
+
+- name: Add container health
+  ansible.builtin.set_fact:
+    docker_health:
+      "{{ docker_health | combine({
+        'earned': docker_health.earned + 3
+      }) }}"
+  when:
+    - homelab_report.plugins.docker.metadata.container_count | int >= 0
+
+
+- name: Calculate Docker health status
+  ansible.builtin.set_fact:
+    docker_health:
+      "{{ docker_health | combine({
+        'status':
+          'HEALTHY'
+          if docker_health.earned >= 8
+          else
+          'WARNING'
+      }) }}"
+
+
+- name: Store Docker health
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'docker': {
+              'health': docker_health
+            }
+          }
+        }, recursive=True)
+      }}
+
+
+- name: Store Docker final report
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'docker': {
+              'health': docker_health,
+              'service': 'docker.service',
+              'status':
+                docker_service.status.ActiveState
+                | default('unknown'),
+              'version':
+                docker_version.stdout
+                | default('unknown'),
+              'containers':
+                docker_container_data
+                | default([]),
+              'metadata':
+                {
+                  'container_count':
+                    docker_container_data | length
+                }
+            }
+          }
+        }, recursive=True)
+      }}
+
+
+- name: Add Docker health contributor
+  ansible.builtin.set_fact:
+    health_contributors:
+      "{{ health_contributors | default([]) + [ docker_health ] }}"

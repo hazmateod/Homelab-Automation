@@ -1,0 +1,46 @@
+---
+###############################################################################
+# Docker Report
+###############################################################################
+
+- name: Add Docker report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'docker': {
+              'health':
+                docker_health.status | default('UNKNOWN'),
+
+              'health_score':
+                docker_health.earned | default(0),
+
+              'health_possible':
+                docker_health.possible | default(0),
+
+              'service':
+                'docker.service',
+
+              'status':
+                docker_service.status.ActiveState
+                | default('unknown'),
+
+              'version':
+                docker_version.stdout
+                | default('unknown'),
+
+              'containers':
+                docker_container_data
+                | default([]),
+
+              'metadata':
+                {
+                  'container_count':
+                    docker_container_data | length
+                }
+            }
+          }
+        }, recursive=True)
+      }}
