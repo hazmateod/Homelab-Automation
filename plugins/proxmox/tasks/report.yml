@@ -1,0 +1,42 @@
+---
+###############################################################################
+# Proxmox Report
+###############################################################################
+
+- name: Add Proxmox report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'proxmox': {
+              'health':
+                proxmox_health.status | default('UNKNOWN'),
+              'health_score':
+                proxmox_health.earned | default(0),
+              'health_possible':
+                proxmox_health.possible | default(0),
+              'service':
+                'pveproxy.service',
+              'status':
+                proxmox_service.status.ActiveState
+                | default('unknown'),
+              'installed':
+                proxmox_pvesh.rc == 0,
+              'version':
+                proxmox_version.stdout_lines[0]
+                | default('unknown'),
+              'cluster':
+                proxmox_cluster_data | default([]),
+              'nodes':
+                proxmox_node_data | default([]),
+              'metadata':
+                {
+                  'node_count':
+                    proxmox_node_data | length
+                }
+            }
+          }
+        }, recursive=True)
+      }}

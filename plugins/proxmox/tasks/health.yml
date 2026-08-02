@@ -1,0 +1,102 @@
+---
+###############################################################################
+# Proxmox Health
+###############################################################################
+
+- name: Initialize Proxmox health result
+  ansible.builtin.set_fact:
+    proxmox_health:
+      name: Proxmox
+      earned: 0
+      possible: 10
+      status: CRITICAL
+      issues: []
+
+- name: Add installation health
+  ansible.builtin.set_fact:
+    proxmox_health: >-
+      {{
+        proxmox_health |
+        combine({
+          'earned': proxmox_health.earned + 3
+        })
+      }}
+  when:
+    - homelab_report.plugins.proxmox.installed | default(false)
+
+- name: Add service health
+  ansible.builtin.set_fact:
+    proxmox_health: >-
+      {{
+        proxmox_health |
+        combine({
+          'earned': proxmox_health.earned + 4
+        })
+      }}
+  when:
+    - homelab_report.plugins.proxmox.status | default('unknown') == 'active'
+
+- name: Add cluster health
+  ansible.builtin.set_fact:
+    proxmox_health: >-
+      {{
+        proxmox_health |
+        combine({
+          'earned': proxmox_health.earned + 3
+        })
+      }}
+  when:
+    - (homelab_report.plugins.proxmox.metadata.node_count | default(0) | int) > 0
+
+- name: Calculate Proxmox health status
+  ansible.builtin.set_fact:
+    proxmox_health: >-
+      {{
+        proxmox_health |
+        combine({
+          'status':
+            'HEALTHY'
+            if proxmox_health.earned >= 8
+            else
+            'WARNING'
+        })
+      }}
+
+- name: Record Proxmox service issue
+  ansible.builtin.set_fact:
+    proxmox_health: >-
+      {{
+        proxmox_health |
+        combine({
+          'issues':
+            proxmox_health.issues +
+            ['pveproxy service is not active']
+        })
+      }}
+  when:
+    - homelab_report.plugins.proxmox.status | default('unknown') != 'active'
+
+- name: Store Proxmox health
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'proxmox': (
+              homelab_report.plugins.proxmox |
+              combine({
+                'health': proxmox_health
+              })
+            )
+          }
+        }, recursive=True)
+      }}
+
+- name: Add Proxmox health contributor
+  ansible.builtin.set_fact:
+    health_contributors: >-
+      {{
+        health_contributors | default([]) +
+        [ proxmox_health ]
+      }}

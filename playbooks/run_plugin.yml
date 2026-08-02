@@ -1,33 +1,28 @@
 ---
 - name: Execute HIMP Plugin
-  hosts: localhost
-  connection: local
+  hosts: "{{ target_group }}"
   gather_facts: false
 
   vars:
 
     plugin: ""
+    target_group: ""
 
   tasks:
 
     - name: Validate plugin parameter
       ansible.builtin.assert:
-
         that:
           - plugin | length > 0
-
-        fail_msg: Plugin parameter was not supplied.
+          - target_group | length > 0
+        fail_msg: Plugin or target_group parameter was not supplied.
 
     - name: Initialize HIMP runtime
       ansible.builtin.set_fact:
-
         homelab_report: {}
-
         homelab_health: {}
-
         homelab_plugin: "{{ plugin }}"
 
     - name: Execute plugin
       ansible.builtin.include_tasks:
-
         file: "../plugins/{{ plugin }}/tasks/main.yml"

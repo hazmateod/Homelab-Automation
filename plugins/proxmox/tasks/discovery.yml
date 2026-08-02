@@ -1,0 +1,86 @@
+---
+###############################################################################
+# Proxmox Discovery
+###############################################################################
+
+- name: Check Proxmox service
+  ansible.builtin.systemd:
+    name: pveproxy
+  register: proxmox_service
+  changed_when: false
+  failed_when: false
+
+- name: Check pvesh availability
+  ansible.builtin.command:
+    cmd: which pvesh
+  register: proxmox_pvesh
+  changed_when: false
+  failed_when: false
+
+- name: Gather Proxmox version
+  ansible.builtin.command:
+    cmd: pveversion --verbose
+  register: proxmox_version
+  changed_when: false
+  failed_when: false
+
+- name: Gather cluster status
+  ansible.builtin.command:
+    cmd: pvesh get /cluster/status --output-format json
+  register: proxmox_cluster
+  changed_when: false
+  failed_when: false
+
+- name: Parse cluster status
+  ansible.builtin.set_fact:
+    proxmox_cluster_data: "{{ proxmox_cluster.stdout | default('[]') | from_json }}"
+  when:
+    - proxmox_cluster.rc == 0
+
+- name: Initialize empty cluster status
+  ansible.builtin.set_fact:
+    proxmox_cluster_data: []
+  when:
+    - proxmox_cluster.rc != 0
+
+- name: Gather node list
+  ansible.builtin.command:
+    cmd: pvesh get /nodes --output-format json
+  register: proxmox_nodes
+  changed_when: false
+  failed_when: false
+
+- name: Parse node list
+  ansible.builtin.set_fact:
+    proxmox_node_data: "{{ proxmox_nodes.stdout | default('[]') | from_json }}"
+  when:
+    - proxmox_nodes.rc == 0
+
+- name: Initialize empty node list
+  ansible.builtin.set_fact:
+    proxmox_node_data: []
+  when:
+    - proxmox_nodes.rc != 0
+
+- name: Build Proxmox plugin data
+  ansible.builtin.set_fact:
+    proxmox_plugin:
+      installed: "{{ proxmox_pvesh.rc == 0 }}"
+      service: pveproxy.service
+      status: "{{ proxmox_service.status.ActiveState | default('unknown') }}"
+      metadata:
+        node_count: "{{ proxmox_node_data | length }}"
+      cluster: "{{ proxmox_cluster_data }}"
+      nodes: "{{ proxmox_node_data }}"
+
+- name: Store Proxmox discovery data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'proxmox': proxmox_plugin
+          }
+        }, recursive=True)
+      }}

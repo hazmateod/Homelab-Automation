@@ -1,0 +1,16 @@
+---
+###############################################################################
+# Proxmox Plugin Lifecycle Controller
+###############################################################################
+
+- name: Run Proxmox discovery
+  ansible.builtin.include_tasks:
+    file: discovery.yml
+
+- name: Run Proxmox health checks
+  ansible.builtin.include_tasks:
+    file: health.yml
+
+- name: Run Proxmox report tasks
+  ansible.builtin.include_tasks:
+    file: report.yml

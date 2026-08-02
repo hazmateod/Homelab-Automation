@@ -1,0 +1,36 @@
+---
+name: proxmox
+
+display_name: Proxmox VE
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Collects discovery, health, reporting,
+  and validation information for Proxmox VE.
+
+entrypoint: tasks/main.yml
+
+inventory_group: proxmox
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+  validation: true
+
+artifacts:
+  - cluster_status
+  - node_status
+  - storage_status
+  - vm_inventory
+  - lxc_inventory
+  - version
+  - health_score
+  - plugins.proxmox
+
+requirements:
+  - systemd
+  - pvesh

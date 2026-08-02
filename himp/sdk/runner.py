@@ -41,6 +41,8 @@ class PluginRunner:
                 "playbooks/run_plugin.yml",
                 "-e",
                 f"plugin={plugin.id}",
+                "-e",
+                f"target_group={plugin.inventory_group}",
             ],
             check=False,
         )
