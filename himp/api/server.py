@@ -197,10 +197,16 @@ def plugin_details(
 @app.get("/history")
 def history(request: Request):
 
+    context = dashboard_context()
+
+    context["history"] = (
+        himp.execution.history(50)
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="history.html",
-        context=dashboard_context(),
+        context=context,
     )
 
 
