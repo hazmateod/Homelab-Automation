@@ -96,6 +96,39 @@ def inventory(request: Request):
     )
 
 
+@app.get("/inventory/hosts/{hostname}")
+def inventory_host(
+    request: Request,
+    hostname: str,
+):
+
+    host = himp.inventory.find_host(
+        hostname
+    )
+
+    context = dashboard_context()
+
+    context["host"] = host
+
+    if host:
+
+        context["changes"] = [
+            dict(change)
+            for change in himp.inventory.changes()
+            if change["hostname"] == hostname
+        ]
+
+    else:
+
+        context["changes"] = []
+
+    return templates.TemplateResponse(
+        request=request,
+        name="inventory_host.html",
+        context=context,
+    )
+
+
 @app.get("/discovery")
 def discovery(request: Request):
 

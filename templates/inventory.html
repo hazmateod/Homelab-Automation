@@ -177,7 +177,11 @@
 
                         <tr>
 
-                            <td>{{ host.hostname }}</td>
+                            <td>
+                                <a href="/inventory/hosts/{{ host.hostname }}">
+                                    {{ host.hostname }}
+                                </a>
+                            </td>
 
                             <td>{{ host.group }}</td>
 
