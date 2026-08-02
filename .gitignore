@@ -4,12 +4,16 @@ logs/
 # Generated reports
 reports/
 
+# Runtime database
+data/*.db
+
 # Retry files
 *.retry
 
 # Python
 __pycache__/
 *.pyc
+*.pyo
 
 # IDE
 .vscode/
@@ -18,11 +22,3 @@ __pycache__/
 # OS
 .DS_Store
 Thumbs.db
-__pycache__/
-*.pyc
-
-
-# Python
-__pycache__/
-*.pyc
-*.pyo
