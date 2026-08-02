@@ -91,6 +91,100 @@ Disabled
 
 
 
+<div class="row mb-4">
+
+<div class="col-lg-6">
+
+<div class="card bg-secondary text-light h-100">
+
+<div class="card-body">
+
+<h5>
+Health
+</h5>
+
+{% if health %}
+
+<p>
+
+{% if health.summary.status.value == "PASS" %}
+
+<span class="badge bg-success">
+PASS
+</span>
+
+{% elif health.summary.status.value == "WARNING" %}
+
+<span class="badge bg-warning text-dark">
+WARNING
+</span>
+
+{% else %}
+
+<span class="badge bg-danger">
+FAIL
+</span>
+
+{% endif %}
+
+</p>
+
+<p>
+Score:
+{{ health.summary.score }}
+/
+{{ health.summary.possible }}
+</p>
+
+{% else %}
+
+<p>
+No health report available.
+</p>
+
+{% endif %}
+
+</div>
+
+</div>
+
+</div>
+
+
+<div class="col-lg-6">
+
+<div class="card bg-secondary text-light h-100">
+
+<div class="card-body">
+
+<h5>
+Discovery
+</h5>
+
+<p>
+Records:
+{{ discovery | length }}
+</p>
+
+{% for record in discovery %}
+
+<div>
+{{ record.category }} :
+{{ record.name }}
+=
+{{ record.value }}
+</div>
+
+{% endfor %}
+
+</div>
+
+</div>
+
+</div>
+
+</div>
+
 <div class="card bg-secondary text-light mb-4">
 
 <div class="card-body">

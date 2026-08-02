@@ -30,11 +30,6 @@ class HealthService:
 
     def execution(self, name):
 
-        execution = self.runner.health(name)
-
-        if not execution.success:
-            return None
-
         return self.repository.plugin(name)
 
     def summary(self):

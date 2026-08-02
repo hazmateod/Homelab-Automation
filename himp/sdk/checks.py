@@ -59,4 +59,7 @@ def artifacts(plugin):
 
 def health(plugin):
 
-    return hasattr(plugin, "health")
+    return (
+        plugin.supports_health()
+        and plugin.has_health()
+    )

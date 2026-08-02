@@ -1,5 +1,5 @@
 """
-Plugin Registry
+Plugin Registry.
 """
 
 from himp.models.plugin import Plugin
@@ -15,6 +15,7 @@ class PluginRegistry:
 
     @property
     def version(self):
+
         return self.VERSION
 
     def register(self, plugin):
@@ -38,15 +39,32 @@ class PluginRegistry:
 
         search = name.lower()
 
+        #
+        # Pass 1: Exact ID match
+        #
         for plugin in self._plugins:
 
             if plugin.id.lower() == search:
                 return plugin
 
+        #
+        # Pass 2: Exact display name match
+        #
+        for plugin in self._plugins:
+
             if plugin.name.lower() == search:
                 return plugin
 
-            if search in plugin.name.lower():
-                return plugin
+        #
+        # Pass 3: Partial display name match
+        #
+        matches = [
+            plugin
+            for plugin in self._plugins
+            if search in plugin.name.lower()
+        ]
+
+        if len(matches) == 1:
+            return matches[0]
 
         return None

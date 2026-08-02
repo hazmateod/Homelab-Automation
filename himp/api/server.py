@@ -100,19 +100,18 @@ def plugin_details(
     plugin_id: str,
 ):
 
-    plugin = himp.plugins.find(plugin_id)
+    details = himp.plugins.details(plugin_id)
 
     context = dashboard_context()
 
-    context["plugin"] = plugin
+    context["details"] = details
 
-    context["executions"] = [
-        execution
-        for execution in himp.execution.history(50)
-        if execution["plugin"] == plugin_id
-    ]
-
-    context["validation"] = himp.validation.validate(plugin_id)
+    if details is not None:
+        context["plugin"] = details["plugin"]
+        context["validation"] = details["validation"]
+        context["health"] = details["health"]
+        context["executions"] = details["executions"]
+        context["discovery"] = details["discovery"]
 
     return templates.TemplateResponse(
         request=request,
