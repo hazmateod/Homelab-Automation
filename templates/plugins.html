@@ -7,15 +7,11 @@
     <div>
 
         <h1 class="display-5">
-
             Plugins
-
         </h1>
 
         <p class="text-secondary">
-
             Installed plugins available in HIMP.
-
         </p>
 
     </div>
@@ -38,9 +34,7 @@
 <div class="card-header">
 
 <strong>
-
 {{ plugin.name }}
-
 </strong>
 
 </div>
@@ -50,9 +44,7 @@
 
 
 <p>
-
 {{ plugin.description }}
-
 </p>
 
 
@@ -60,15 +52,8 @@
 
 
 <tr>
-
-<th>
-Version
-</th>
-
-<td>
-{{ plugin.version }}
-</td>
-
+<th>Version</th>
+<td>{{ plugin.version }}</td>
 </tr>
 
 
@@ -83,17 +68,13 @@ Status
 {% if plugin.enabled %}
 
 <span class="badge bg-success">
-
 Enabled
-
 </span>
 
 {% else %}
 
 <span class="badge bg-danger">
-
 Disabled
-
 </span>
 
 {% endif %}
@@ -104,36 +85,50 @@ Disabled
 
 
 <tr>
-
-<th>
-Requirements
-</th>
-
-<td>
-
-{{ plugin.requirements }}
-
-</td>
-
+<th>Requirements</th>
+<td>{{ plugin.requirements }}</td>
 </tr>
 
 
 <tr>
-
-<th>
-Artifacts
-</th>
-
-<td>
-
-{{ plugin.artifacts }}
-
-</td>
-
+<th>Artifacts</th>
+<td>{{ plugin.artifacts }}</td>
 </tr>
 
 
 </table>
+
+
+<div class="mt-3">
+
+<strong>
+Execution Status:
+</strong>
+
+<span
+id="status-{{ plugin.id }}"
+class="badge bg-secondary">
+
+Ready
+
+</span>
+
+
+</div>
+
+
+<div class="mt-2">
+
+<strong>
+Runtime:
+</strong>
+
+<span id="elapsed-{{ plugin.id }}">
+--
+
+</span>
+
+</div>
 
 
 </div>
@@ -176,4 +171,3 @@ Details
 
 
 {% endblock %}
-
