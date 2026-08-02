@@ -1,0 +1,24 @@
+---
+name: manifesttest
+
+display_name: Manifesttest
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Manifesttest plugin.
+
+entrypoint: tasks/main.yml
+
+inventory_group: manifesttest
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+
+artifacts: []
+
+requirements: []

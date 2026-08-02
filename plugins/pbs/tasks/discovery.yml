@@ -10,47 +10,41 @@
   changed_when: false
   failed_when: false
 
-- name: Check PBS manager binary
+- name: Check PBS manager
   ansible.builtin.command:
     cmd: which proxmox-backup-manager
   register: pbs_manager
   changed_when: false
   failed_when: false
 
-- name: Gather PBS version
-  ansible.builtin.command:
-    cmd: proxmox-backup-manager version
-  register: pbs_version
-  changed_when: false
-  failed_when: false
-
-- name: Gather PBS datastore list
+- name: Gather datastore list
   ansible.builtin.command:
     cmd: proxmox-backup-manager datastore list --output-format json
   register: pbs_datastores
   changed_when: false
   failed_when: false
 
-- name: Parse PBS datastore JSON
+- name: Parse datastore list
   ansible.builtin.set_fact:
-    pbs_datastore_data: "{{ pbs_datastores.stdout | from_json }}"
+    pbs_datastore_data: "{{ pbs_datastores.stdout | default('[]') | from_json }}"
   when:
     - pbs_datastores.rc == 0
 
-- name: Set empty PBS datastore data on failure
+- name: Initialize empty datastore list
   ansible.builtin.set_fact:
     pbs_datastore_data: []
   when:
     - pbs_datastores.rc != 0
 
-- name: Set PBS datastore path
+- name: Build PBS plugin data
   ansible.builtin.set_fact:
-    pbs_datastore_path: >-
-      {{
-        pbs_datastore_data[0].path
-        if pbs_datastore_data | length > 0
-        else ''
-      }}
+    pbs_plugin:
+      installed: "{{ pbs_manager.rc == 0 }}"
+      service: proxmox-backup.service
+      status: "{{ pbs_service.status.ActiveState | default('unknown') }}"
+      metadata:
+        datastore_count: "{{ pbs_datastore_data | length }}"
+      datastores: "{{ pbs_datastore_data }}"
 
 - name: Store PBS discovery data
   ansible.builtin.set_fact:
@@ -59,19 +53,7 @@
         homelab_report |
         combine({
           'plugins': {
-            'pbs': {
-              'service': 'proxmox-backup.service',
-              'status':
-                pbs_service.status.ActiveState
-                | default('unknown'),
-              'manager_available':
-                pbs_manager.rc == 0,
-              'version':
-                pbs_version.stdout_lines[0]
-                | default('unknown'),
-              'datastores':
-                pbs_datastore_data
-            }
+            'pbs': pbs_plugin
           }
         }, recursive=True)
       }}

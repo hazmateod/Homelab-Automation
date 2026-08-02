@@ -1,0 +1,22 @@
+---
+type: test
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+directories:
+
+  - tests
+
+files:
+
+  - template: test/README.md.tpl
+    destination: tests/{{ name }}.md
+
+  - template: test/tests/test.py.tpl
+    destination: tests/test_{{ name }}.py

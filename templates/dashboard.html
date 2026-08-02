@@ -9,20 +9,17 @@
     <div class="col">
 
         <h1 class="display-5">
-
             HIMP Dashboard
-
         </h1>
 
         <p class="text-secondary">
-
             Homelab Infrastructure Management Platform
-
         </p>
 
     </div>
 
 </div>
+
 
 <div class="row">
 
@@ -42,6 +39,7 @@
 
     </div>
 
+
     <div class="col-md-3">
 
         <div class="card bg-success text-white mb-4">
@@ -58,15 +56,16 @@
 
     </div>
 
+
     <div class="col-md-3">
 
         <div class="card bg-info text-white mb-4">
 
             <div class="card-body">
 
-                <h6>Enabled</h6>
+                <h6>Inventory Hosts</h6>
 
-                <h3>{{ dashboard.plugins.enabled }}</h3>
+                <h3>{{ dashboard.inventory.total_hosts }}</h3>
 
             </div>
 
@@ -74,15 +73,16 @@
 
     </div>
 
+
     <div class="col-md-3">
 
         <div class="card bg-warning text-dark mb-4">
 
             <div class="card-body">
 
-                <h6>Version</h6>
+                <h6>Inventory Groups</h6>
 
-                <h3>{{ dashboard.system.version }}</h3>
+                <h3>{{ dashboard.inventory.groups }}</h3>
 
             </div>
 
@@ -92,13 +92,92 @@
 
 </div>
 
+
 <hr class="border-secondary">
 
+
 <h2 class="mb-4">
-
-    Installed Plugins
-
+    Inventory
 </h2>
+
+
+<div class="table-responsive">
+
+<table class="table table-dark table-striped">
+
+<thead>
+
+<tr>
+
+<th>
+Hostname
+</th>
+
+<th>
+Group
+</th>
+
+<th>
+IP Address
+</th>
+
+<th>
+User
+</th>
+
+<th>
+Become
+</th>
+
+</tr>
+
+</thead>
+
+
+<tbody>
+
+{% for host in dashboard.inventory.hosts %}
+
+<tr>
+
+<td>
+{{ host.hostname }}
+</td>
+
+<td>
+{{ host.group }}
+</td>
+
+<td>
+{{ host.ip }}
+</td>
+
+<td>
+{{ host.user }}
+</td>
+
+<td>
+{{ host.become }}
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
+    Installed Plugins
+</h2>
+
 
 <div class="row">
 
@@ -109,5 +188,6 @@
 {% endfor %}
 
 </div>
+
 
 {% endblock %}

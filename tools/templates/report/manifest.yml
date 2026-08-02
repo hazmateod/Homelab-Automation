@@ -1,0 +1,22 @@
+---
+type: report
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+directories:
+
+  - reports
+
+files:
+
+  - template: report/README.md.tpl
+    destination: reports/{{ name }}.md
+
+  - template: report/report/report.py.tpl
+    destination: reports/{{ name }}.py

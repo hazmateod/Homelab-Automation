@@ -6,6 +6,7 @@ import socket
 
 from himp.services.execution import ExecutionService
 from himp.services.plugins import PluginService
+from himp.services.inventory import InventoryService
 
 
 class DashboardService:
@@ -15,6 +16,27 @@ class DashboardService:
         self.plugins = PluginService()
 
         self.execution = ExecutionService()
+
+        self.inventory = InventoryService()
+
+    def inventory_summary(self):
+
+        inventory = self.inventory.summary()
+
+        return {
+            "total_hosts": inventory.total_hosts,
+            "groups": inventory.groups,
+            "hosts": [
+                {
+                    "hostname": host.hostname,
+                    "group": host.group,
+                    "ip": host.ip,
+                    "user": host.user,
+                    "become": host.become,
+                }
+                for host in inventory.hosts
+            ],
+        }
 
     def summary(self):
 
@@ -53,7 +75,7 @@ class DashboardService:
 
             "health": {},
 
-            "inventory": {},
+            "inventory": self.inventory_summary(),
 
             "recent_execution": self.execution.history(10),
         }

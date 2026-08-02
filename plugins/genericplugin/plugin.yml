@@ -1,0 +1,24 @@
+---
+name: genericplugin
+
+display_name: Genericplugin
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Genericplugin plugin.
+
+entrypoint: tasks/main.yml
+
+inventory_group: genericplugin
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+
+artifacts: []
+
+requirements: []

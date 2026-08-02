@@ -1,0 +1,24 @@
+---
+name: servicetest
+
+display_name: Servicetest
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Servicetest plugin.
+
+entrypoint: tasks/main.yml
+
+inventory_group: servicetest
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+
+artifacts: []
+
+requirements: []

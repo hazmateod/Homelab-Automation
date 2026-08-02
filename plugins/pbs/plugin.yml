@@ -8,24 +8,23 @@ version: 1.0.0
 author: Homelab Infrastructure Management Platform
 
 description: >
-  Collects discovery, health, validation,
-  and reporting information for Proxmox Backup Server.
+  Collects discovery, health, and reporting information
+  for Proxmox Backup Server.
 
 entrypoint: tasks/main.yml
+
+inventory_group: backup
 
 supports:
   discovery: true
   health: true
   reporting: true
-  validation: true
 
 artifacts:
   - service_status
-  - version
   - datastores
-  - storage
+  - health_score
   - plugins.pbs
 
 requirements:
   - systemd
-  - proxmox-backup-manager

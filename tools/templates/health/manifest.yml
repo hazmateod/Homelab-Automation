@@ -1,0 +1,22 @@
+---
+type: health
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+directories:
+
+  - himp/health/checks
+
+files:
+
+  - template: health/README.md.tpl
+    destination: himp/health/{{ name }}.md
+
+  - template: health/health/check.py.tpl
+    destination: himp/health/checks/{{ name }}.py

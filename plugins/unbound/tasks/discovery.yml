@@ -15,32 +15,22 @@
     path: /usr/sbin/unbound
   register: unbound_binary
 
-- name: Gather Unbound version
-  ansible.builtin.command:
-    cmd: unbound -V
-  register: unbound_version
-  changed_when: false
-  failed_when: false
-
-- name: Check Unbound configuration directory
+- name: Check Unbound configuration
   ansible.builtin.stat:
     path: /etc/unbound
   register: unbound_config
 
-- name: Detect TCP Fast Open support
+- name: Build Unbound plugin data
   ansible.builtin.set_fact:
-    unbound_tfo: >-
-      {{
-        'enable-tfo-client' in unbound_version.stdout or
-        'enable-tfo-server' in unbound_version.stdout
-      }}
-
-- name: Detect DNSSEC validator support
-  ansible.builtin.set_fact:
-    unbound_dnssec: >-
-      {{
-        'validator' in unbound_version.stdout
-      }}
+    unbound_plugin:
+      installed: "{{ unbound_binary.stat.exists | default(false) }}"
+      service: unbound.service
+      status: "{{ unbound_service.status.ActiveState | default('unknown') }}"
+      binary: /usr/sbin/unbound
+      configuration_path: /etc/unbound
+      metadata:
+        config_present: "{{ unbound_config.stat.exists | default(false) }}"
+        build_time: "{{ unbound_binary.stat.mtime | default(0) }}"
 
 - name: Store Unbound discovery data
   ansible.builtin.set_fact:
@@ -49,27 +39,7 @@
         homelab_report |
         combine({
           'plugins': {
-            'unbound': {
-              'service': 'unbound.service',
-              'status':
-                unbound_service.status.ActiveState
-                | default('unknown'),
-              'installed':
-                unbound_binary.stat.exists | default(false),
-              'binary': '/usr/sbin/unbound',
-              'version':
-                unbound_version.stdout_lines[0]
-                | default('unknown'),
-              'configuration_path':
-                '/etc/unbound',
-              'config_exists':
-                unbound_config.stat.exists | default(false),
-              'dnssec_validator':
-                unbound_dnssec,
-              'tcp_fast_open':
-                unbound_tfo
-            }
+            'unbound': unbound_plugin
           }
         }, recursive=True)
       }}
-

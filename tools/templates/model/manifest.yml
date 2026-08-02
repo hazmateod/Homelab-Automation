@@ -1,0 +1,22 @@
+---
+type: model
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+directories:
+
+  - himp/models
+
+files:
+
+  - template: model/README.md.tpl
+    destination: himp/models/{{ name }}.md
+
+  - template: model/models/model.py.tpl
+    destination: himp/models/{{ name }}.py

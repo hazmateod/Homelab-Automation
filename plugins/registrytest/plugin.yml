@@ -1,0 +1,24 @@
+---
+name: registrytest
+
+display_name: Registrytest
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Registrytest plugin.
+
+entrypoint: tasks/main.yml
+
+inventory_group: registrytest
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+
+artifacts: []
+
+requirements: []

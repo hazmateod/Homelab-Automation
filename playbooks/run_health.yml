@@ -1,0 +1,67 @@
+---
+- name: Execute HIMP Plugin Health
+  hosts: "{{ inventory_group }}"
+  gather_facts: true
+  become: true
+
+  tasks:
+
+    - name: Validate plugin parameter
+      ansible.builtin.assert:
+        that:
+          - plugin is defined
+          - plugin | length > 0
+          - inventory_group is defined
+          - inventory_group | length > 0
+        fail_msg: Plugin or inventory_group parameter was not supplied.
+
+    - name: Initialize HIMP runtime
+      ansible.builtin.set_fact:
+        homelab_report: {}
+        homelab_health: {}
+        health_contributors: []
+        homelab_plugin: "{{ plugin }}"
+
+    - name: Execute plugin discovery
+      ansible.builtin.include_tasks:
+        file: "../plugins/{{ plugin }}/tasks/discovery.yml"
+
+    - name: Execute plugin health
+      ansible.builtin.include_tasks:
+        file: "../plugins/{{ plugin }}/tasks/health.yml"
+
+    - name: Build normalized health document
+      ansible.builtin.set_fact:
+        homelab_health:
+          plugin: "{{ plugin }}"
+          inventory_group: "{{ inventory_group }}"
+          health: >-
+            {{
+              health_contributors[0]
+              if (health_contributors | length) > 0
+              else {}
+            }}
+          report: >-
+            {{
+              homelab_report.plugins[plugin]
+              if plugin in homelab_report.plugins
+              else {}
+            }}
+
+    - name: Create health output directory
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../reports/health"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Write normalized health document
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../reports/health/{{ plugin }}.json"
+        content: "{{ homelab_health | to_nice_json }}"
+        mode: "0644"
+      delegate_to: localhost
+      become: false
+      run_once: true

@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from himp.api.execution import router as execution_router
+from himp.api.dashboard import router as dashboard_router
 from himp.app import HIMP
 
 
@@ -27,6 +28,12 @@ app.mount(
 
 app.include_router(
     execution_router,
+    prefix="/api",
+)
+
+
+app.include_router(
+    dashboard_router,
     prefix="/api",
 )
 
@@ -108,12 +115,4 @@ def api_root():
             "status": "running",
             "version": "1.0.0",
         }
-    )
-
-
-@app.get("/api/dashboard")
-def dashboard():
-
-    return JSONResponse(
-        himp.dashboard.summary()
     )

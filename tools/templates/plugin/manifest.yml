@@ -1,0 +1,44 @@
+---
+type: plugin
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+  - name: inventory_group
+    required: true
+
+directories:
+
+  - plugins/{{ name }}
+
+  - plugins/{{ name }}/tasks
+
+  - plugins/{{ name }}/tests
+
+files:
+
+  - template: plugin/README.md.tpl
+    destination: plugins/{{ name }}/README.md
+
+  - template: plugin/plugin.yml.tpl
+    destination: plugins/{{ name }}/plugin.yml
+
+  - template: plugin/tasks/main.yml.tpl
+    destination: plugins/{{ name }}/tasks/main.yml
+
+  - template: plugin/tasks/discovery.yml.tpl
+    destination: plugins/{{ name }}/tasks/discovery.yml
+
+  - template: plugin/tasks/health.yml.tpl
+    destination: plugins/{{ name }}/tasks/health.yml
+
+  - template: plugin/tasks/report.yml.tpl
+    destination: plugins/{{ name }}/tasks/report.yml
+
+  - template: plugin/tests/validate.yml.tpl
+    destination: plugins/{{ name }}/tests/validate.yml

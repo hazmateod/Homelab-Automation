@@ -12,7 +12,7 @@
       status: CRITICAL
       issues: []
 
-- name: Check PBS service health
+- name: Add installation health
   ansible.builtin.set_fact:
     pbs_health: >-
       {{
@@ -22,97 +22,31 @@
         })
       }}
   when:
-    - pbs_service.status.ActiveState | default('unknown') == "active"
+    - homelab_report.plugins.pbs.installed | default(false)
 
-- name: Check PBS manager health
+- name: Add service health
   ansible.builtin.set_fact:
     pbs_health: >-
       {{
         pbs_health |
         combine({
-          'earned': pbs_health.earned + 1
+          'earned': pbs_health.earned + 4
         })
       }}
   when:
-    - pbs_manager.rc == 0
+    - homelab_report.plugins.pbs.status | default('unknown') == 'active'
 
-- name: Check PBS version health
+- name: Add datastore health
   ansible.builtin.set_fact:
     pbs_health: >-
       {{
         pbs_health |
         combine({
-          'earned': pbs_health.earned + 1
+          'earned': pbs_health.earned + 3
         })
       }}
   when:
-    - pbs_version.rc == 0
-
-- name: Check PBS datastore availability
-  ansible.builtin.set_fact:
-    pbs_health: >-
-      {{
-        pbs_health |
-        combine({
-          'earned': pbs_health.earned + 2
-        })
-      }}
-  when:
-    - pbs_datastores.rc == 0
-
-- name: Check PBS datastore path
-  ansible.builtin.stat:
-    path: "{{ pbs_datastore_path }}"
-  register: pbs_backup_path
-
-- name: Check PBS datastore filesystem usage
-  ansible.builtin.shell:
-    cmd: df -P "{{ pbs_datastore_path }}" | tail -1 | awk '{print $5}' | tr -d '%'
-  register: pbs_storage_usage
-  changed_when: false
-  failed_when: false
-
-- name: Add datastore path health
-  ansible.builtin.set_fact:
-    pbs_health: >-
-      {{
-        pbs_health |
-        combine({
-          'earned': pbs_health.earned + 1
-        })
-      }}
-  when:
-    - pbs_backup_path.stat.exists
-
-- name: Add storage capacity health
-  ansible.builtin.set_fact:
-    pbs_health: >-
-      {{
-        pbs_health |
-        combine({
-          'earned': pbs_health.earned + 1
-        })
-      }}
-  when:
-    - pbs_storage_usage.rc == 0
-    - (pbs_storage_usage.stdout | int) < 90
-
-- name: Check PBS datastore accessibility
-  ansible.builtin.stat:
-    path: "{{ pbs_datastore_path }}"
-  register: pbs_datastore_access
-
-- name: Add datastore accessibility health
-  ansible.builtin.set_fact:
-    pbs_health: >-
-      {{
-        pbs_health |
-        combine({
-          'earned': pbs_health.earned + 1
-        })
-      }}
-  when:
-    - pbs_datastore_access.stat.readable | default(false)
+    - (homelab_report.plugins.pbs.metadata.datastore_count | default(0) | int) > 0
 
 - name: Calculate PBS health status
   ansible.builtin.set_fact:
@@ -123,13 +57,46 @@
           'status':
             'HEALTHY'
             if pbs_health.earned >= 8
-            else 'WARNING'
+            else
+            'WARNING'
         })
+      }}
+
+- name: Record PBS issue
+  ansible.builtin.set_fact:
+    pbs_health: >-
+      {{
+        pbs_health |
+        combine({
+          'issues':
+            pbs_health.issues +
+            ['PBS service is not active']
+        })
+      }}
+  when:
+    - homelab_report.plugins.pbs.status | default('unknown') != 'active'
+
+- name: Store PBS health
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'pbs': (
+              homelab_report.plugins.pbs |
+              combine({
+                'health': pbs_health
+              })
+            )
+          }
+        }, recursive=True)
       }}
 
 - name: Add PBS health contributor
   ansible.builtin.set_fact:
     health_contributors: >-
       {{
-        health_contributors | default([]) + [ pbs_health ]
+        health_contributors | default([]) +
+        [ pbs_health ]
       }}

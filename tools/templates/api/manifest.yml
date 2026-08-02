@@ -1,0 +1,22 @@
+---
+type: api
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+directories:
+
+  - himp/api
+
+files:
+
+  - template: api/README.md.tpl
+    destination: himp/api/{{ name }}.md
+
+  - template: api/routes/api.py.tpl
+    destination: himp/api/{{ name }}.py

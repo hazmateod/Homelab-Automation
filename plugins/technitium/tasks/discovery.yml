@@ -15,6 +15,16 @@
     path: /opt/technitium/dns/DnsServerApp.dll
   register: technitium_binary
 
+- name: Build Technitium plugin data
+  ansible.builtin.set_fact:
+    technitium_plugin:
+      installed: "{{ technitium_binary.stat.exists | default(false) }}"
+      service: technitium.service
+      status: "{{ technitium_service.status.ActiveState | default('unknown') }}"
+      install_path: /opt/technitium/dns
+      metadata:
+        build_time: "{{ technitium_binary.stat.mtime | default(0) }}"
+
 - name: Store Technitium discovery data
   ansible.builtin.set_fact:
     homelab_report: >-
@@ -22,16 +32,7 @@
         homelab_report |
         combine({
           'plugins': {
-            'technitium': {
-              'service': 'technitium.service',
-              'status':
-                technitium_service.status.ActiveState
-                | default('unknown'),
-              'install_path': '/opt/technitium/dns',
-              'installed':
-                technitium_binary.stat.exists | default(false)
-            }
+            'technitium': technitium_plugin
           }
         }, recursive=True)
       }}
-

@@ -17,6 +17,7 @@ VALIDATION_CHECKS = [
     ("Entrypoint File", checks.entrypoint_file),
     ("Requirements", checks.requirements),
     ("Artifacts", checks.artifacts),
+    ("Health Capability", checks.health),
 ]
 
 

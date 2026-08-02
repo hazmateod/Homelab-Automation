@@ -1,0 +1,22 @@
+---
+type: service
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+directories:
+
+  - himp/services
+
+files:
+
+  - template: service/README.md.tpl
+    destination: himp/services/{{ name }}.md
+
+  - template: service/services/service.py.tpl
+    destination: himp/services/{{ name }}.py

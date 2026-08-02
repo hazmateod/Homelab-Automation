@@ -3,6 +3,10 @@
 # Technitium Health
 ###############################################################################
 
+- name: Show normalized Technitium data
+  ansible.builtin.debug:
+    var: homelab_report.plugins.technitium
+
 - name: Initialize Technitium health result
   ansible.builtin.set_fact:
     technitium_health:
@@ -12,37 +16,91 @@
       status: CRITICAL
       issues: []
 
-- name: Evaluate Technitium service health
+- name: Add installation health
   ansible.builtin.set_fact:
     technitium_health: >-
       {{
         technitium_health |
         combine({
-          'earned': 10,
-          'status': 'HEALTHY',
-          'issues': []
+          'earned': technitium_health.earned + 3
         })
       }}
   when:
-    - technitium_service.status.ActiveState | default('unknown') == "active"
+    - homelab_report.plugins.technitium.installed | default(false)
 
-- name: Record Technitium health issue
+- name: Add service health
   ansible.builtin.set_fact:
     technitium_health: >-
       {{
         technitium_health |
         combine({
-          'issues': [
-            'Technitium DNS service is not active'
-          ]
+          'earned': technitium_health.earned + 4
         })
       }}
   when:
-    - technitium_service.status.ActiveState | default('unknown') != "active"
+    - homelab_report.plugins.technitium.status | default('unknown') == 'active'
+
+- name: Add version health
+  ansible.builtin.set_fact:
+    technitium_health: >-
+      {{
+        technitium_health |
+        combine({
+          'earned': technitium_health.earned + 3
+        })
+      }}
+  when:
+    - homelab_report.plugins.technitium.version | default('unknown') != 'unknown'
+
+- name: Calculate Technitium health status
+  ansible.builtin.set_fact:
+    technitium_health: >-
+      {{
+        technitium_health |
+        combine({
+          'status':
+            'HEALTHY'
+            if technitium_health.earned >= 8
+            else
+            'WARNING'
+        })
+      }}
+
+- name: Record Technitium issue
+  ansible.builtin.set_fact:
+    technitium_health: >-
+      {{
+        technitium_health |
+        combine({
+          'issues':
+            technitium_health.issues +
+            ['Technitium service is not active']
+        })
+      }}
+  when:
+    - homelab_report.plugins.technitium.status | default('unknown') != 'active'
+
+- name: Store Technitium health
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'technitium': (
+              homelab_report.plugins.technitium |
+              combine({
+                'health': technitium_health
+              })
+            )
+          }
+        }, recursive=True)
+      }}
 
 - name: Add Technitium health contributor
   ansible.builtin.set_fact:
     health_contributors: >-
       {{
-        health_contributors | default([]) + [ technitium_health ]
+        health_contributors | default([]) +
+        [ technitium_health ]
       }}

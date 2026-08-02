@@ -35,6 +35,10 @@ class SDKLoader:
                     description=data["description"].strip(),
                     author=data.get("author", ""),
                     entrypoint=data.get("entrypoint", ""),
+                    inventory_group=data.get(
+                        "inventory_group",
+                        data["name"],
+                    ),
                     supports=data.get("supports", {}),
                     artifacts=data.get("artifacts", []),
                     requirements=data.get("requirements", []),

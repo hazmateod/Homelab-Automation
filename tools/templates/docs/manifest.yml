@@ -1,0 +1,20 @@
+---
+type: docs
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+directories:
+
+  - docs
+
+files:
+
+  - template: docs/README.md.tpl
+    destination: docs/{{ name }}.md
+

@@ -55,3 +55,8 @@ def requirements(plugin):
 def artifacts(plugin):
 
     return plugin.artifact_count() > 0
+
+
+def health(plugin):
+
+    return hasattr(plugin, "health")

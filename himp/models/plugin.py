@@ -16,6 +16,7 @@ class Plugin:
 
     author: str = ""
     entrypoint: str = ""
+    inventory_group: str = ""
 
     supports: dict = field(default_factory=dict)
     artifacts: list = field(default_factory=list)
@@ -24,6 +25,11 @@ class Plugin:
     manifest: Path | None = None
 
     enabled: bool = True
+
+    def __post_init__(self):
+
+        if not self.inventory_group:
+            self.inventory_group = self.id
 
     def enable(self):
         self.enabled = True
@@ -95,11 +101,43 @@ class Plugin:
             return None
         return self.directory / self.entrypoint
 
+    @property
+    def discovery_path(self):
+        if self.directory is None:
+            return None
+        return self.directory / "tasks" / "discovery.yml"
+
+    @property
+    def health_path(self):
+        if self.directory is None:
+            return None
+        return self.directory / "tasks" / "health.yml"
+
+    def has_discovery(self):
+        return (
+            self.discovery_path is not None
+            and self.discovery_path.exists()
+        )
+
+    def has_health(self):
+        return (
+            self.health_path is not None
+            and self.health_path.exists()
+        )
+
+    def health_ready(self):
+        return (
+            self.supports_health()
+            and self.has_discovery()
+            and self.has_health()
+        )
+
     def summary(self):
         return {
             "id": self.id,
             "name": self.name,
             "version": self.version,
+            "inventory_group": self.inventory_group,
             "enabled": self.enabled,
             "capabilities": self.capability_count(),
             "artifacts": self.artifact_count(),

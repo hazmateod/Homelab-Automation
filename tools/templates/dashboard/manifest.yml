@@ -1,0 +1,22 @@
+---
+type: dashboard
+
+variables:
+
+  - name: name
+    required: true
+
+  - name: display_name
+    required: true
+
+directories:
+
+  - himp/dashboard
+
+files:
+
+  - template: dashboard/README.md.tpl
+    destination: himp/dashboard/{{ name }}.md
+
+  - template: dashboard/dashboard/dashboard.py.tpl
+    destination: himp/dashboard/{{ name }}.py

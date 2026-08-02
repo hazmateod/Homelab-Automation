@@ -1,0 +1,24 @@
+---
+name: testplugin
+
+display_name: Testplugin
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Testplugin plugin.
+
+entrypoint: tasks/main.yml
+
+inventory_group: testplugin
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+
+artifacts: []
+
+requirements: []
