@@ -5,8 +5,9 @@ Dashboard Service.
 import socket
 
 from himp.services.execution import ExecutionService
-from himp.services.plugins import PluginService
+from himp.services.health import HealthService
 from himp.services.inventory import InventoryService
+from himp.services.plugins import PluginService
 
 
 class DashboardService:
@@ -18,6 +19,8 @@ class DashboardService:
         self.execution = ExecutionService()
 
         self.inventory = InventoryService()
+
+        self.health = HealthService()
 
     def inventory_summary(self):
 
@@ -35,6 +38,28 @@ class DashboardService:
                     "become": host.become,
                 }
                 for host in inventory.hosts
+            ],
+        }
+
+    def health_summary(self):
+
+        summary = self.health.summary()
+
+        return {
+            "score": summary.score,
+            "passed": summary.passed,
+            "warnings": summary.warnings,
+            "failed": summary.failed,
+            "unknown": summary.unknown,
+            "plugins": [
+                {
+                    "plugin": plugin.plugin,
+                    "status": plugin.status.value,
+                    "message": plugin.message,
+                    "duration_ms": plugin.duration_ms,
+                    "details": plugin.details,
+                }
+                for plugin in summary.plugins
             ],
         }
 
@@ -73,9 +98,11 @@ class DashboardService:
 
             "plugin_list": plugin_list,
 
-            "health": {},
+            "health": self.health_summary(),
 
             "inventory": self.inventory_summary(),
 
             "recent_execution": self.execution.history(10),
+
+            "recent_inventory_changes": self.inventory.changes(10),
         }

@@ -4,10 +4,14 @@ Inventory Service.
 Business logic layer for HIMP inventory.
 """
 
+from collections import Counter
+
 from himp.collectors.inventory import InventoryCollector
 from himp.database.inventory import InventoryRepository
 from himp.models.inventory import (
+    InventoryGroup,
     InventoryHost,
+    InventoryStatistics,
     InventorySummary,
 )
 
@@ -81,13 +85,11 @@ class InventoryService:
 
         records = self.repository.all_hosts()
 
-        groups = set()
+        groups = Counter()
 
         for item in records:
 
-            groups.add(
-                item["group_name"]
-            )
+            groups[item["group_name"]] += 1
 
             hosts.append(
                 InventoryHost(
@@ -99,8 +101,32 @@ class InventoryService:
                 )
             )
 
+        all_records = self.repository.all_hosts(
+            include_inactive=True
+        )
+
+        statistics = InventoryStatistics(
+            total_hosts=len(all_records),
+            active_hosts=len(records),
+            inactive_hosts=len(all_records) - len(records),
+            groups=len(groups),
+            recent_changes=len(
+                self.repository.changes()
+            ),
+            group_counts=[
+                InventoryGroup(
+                    name=name,
+                    hosts=count,
+                )
+                for name, count in sorted(
+                    groups.items()
+                )
+            ],
+        )
+
         return InventorySummary(
-            total_hosts=len(hosts),
+            total_hosts=len(records),
             groups=len(groups),
             hosts=hosts,
+            statistics=statistics,
         )
