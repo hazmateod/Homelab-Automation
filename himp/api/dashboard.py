@@ -16,7 +16,13 @@ router = APIRouter(
 service = DashboardService()
 
 
-@router.get("/")
+@router.get("")
 async def dashboard_summary():
+
+    return service.summary()
+
+
+@router.get("/")
+async def dashboard_summary_slash():
 
     return service.summary()
