@@ -48,6 +48,30 @@ class Database:
             """
         )
 
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS health_history
+            (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+
+                plugin TEXT NOT NULL,
+
+                status TEXT NOT NULL,
+
+                score INTEGER NOT NULL,
+
+                possible INTEGER NOT NULL,
+
+                issues TEXT,
+
+                metadata TEXT,
+
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+
         self.connection.commit()
 
     def execute(self, sql, parameters=()):

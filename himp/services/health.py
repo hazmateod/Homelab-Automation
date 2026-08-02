@@ -10,6 +10,7 @@ from himp.health.models import (
 from himp.health.repository import HealthRepository
 from himp.plugins.loader import PluginLoader
 from himp.sdk.health import PluginHealthRunner
+from himp.services.health_history import HealthHistoryService
 
 
 class HealthService:
@@ -20,9 +21,21 @@ class HealthService:
         self.loader = PluginLoader()
         self.repository = HealthRepository()
 
+        self.history = HealthHistoryService()
+
     def plugin(self, name):
 
-        return self.runner.health(name)
+        execution = self.runner.health(name)
+
+        report = self.repository.plugin(name)
+
+        if report is not None:
+
+            self.history.record(
+                report
+            )
+
+        return execution
 
     def all(self):
 

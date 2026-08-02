@@ -6,6 +6,7 @@ from himp.services.dashboard import DashboardService
 from himp.services.discovery import DiscoveryService
 from himp.services.execution import ExecutionService
 from himp.services.health import HealthService
+from himp.services.health_history import HealthHistoryService
 from himp.services.inventory import InventoryService
 from himp.services.plugins import PluginService
 from himp.services.validation import ValidationService
@@ -28,3 +29,5 @@ class HIMP:
         self.discovery = DiscoveryService()
 
         self.health = HealthService()
+
+        self.health_history = HealthHistoryService()
