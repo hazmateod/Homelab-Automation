@@ -21,12 +21,62 @@
   changed_when: false
 
 
+- name: Gather listening ports
+  ansible.builtin.shell:
+    cmd: ss -tulpn
+  register: listening_ports
+  changed_when: false
+  failed_when: false
+
+
+- name: Gather OS information
+  ansible.builtin.setup:
+    gather_subset:
+      - distribution
+      - kernel
+
+
+- name: Detect infrastructure role
+  ansible.builtin.set_fact:
+    infrastructure_role: >-
+      {{
+        'aptcache'
+        if inventory_hostname == 'aptcache'
+        else
+        'postgres'
+        if inventory_hostname == 'postgres'
+        else
+        'uptimekuma'
+        if inventory_hostname == 'uptimekuma'
+        else
+        'urbackup'
+        if inventory_hostname == 'urbackup'
+        else
+        'mailarchiver'
+        if inventory_hostname == 'mailarchiver'
+        else
+        'generic'
+      }}
+
+
 - name: Build infrastructure data
   ansible.builtin.set_fact:
     infrastructure_plugin:
 
       hostname:
         "{{ inventory_hostname }}"
+
+      role:
+        "{{ infrastructure_role }}"
+
+      ip:
+        "{{ ansible_default_ipv4.address | default('unknown') }}"
+
+      os:
+        "{{ ansible_distribution | default('unknown') }}"
+
+      kernel:
+        "{{ ansible_kernel | default('unknown') }}"
 
       services:
         "{{ ansible_facts.services | default({}) }}"
@@ -36,6 +86,9 @@
 
       uptime:
         "{{ uptime_info.stdout }}"
+
+      ports:
+        "{{ listening_ports.stdout_lines | default([]) }}"
 
 
 - name: Store infrastructure discovery

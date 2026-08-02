@@ -6,15 +6,10 @@
 - name: Initialize infrastructure health
   ansible.builtin.set_fact:
     infrastructure_health:
-
       name: Infrastructure Services
-
       earned: 0
-
-      possible: 10
-
+      possible: 8
       status: CRITICAL
-
       issues: []
 
 
@@ -23,7 +18,7 @@
     infrastructure_health:
       "{{ infrastructure_health | combine({
         'earned':
-          infrastructure_health.earned + 2
+          infrastructure_health.earned + 1
       }) }}"
 
 
@@ -45,29 +40,106 @@
     - disk_percent.stdout | int < 85
 
 
-- name: Check important services
+- name: Add uptime health
   ansible.builtin.set_fact:
-    infrastructure_services:
-      "{{ ansible_facts.services | default({}) }}"
+    infrastructure_health:
+      "{{ infrastructure_health | combine({
+        'earned':
+          infrastructure_health.earned + 1
+      }) }}"
+  when:
+    - uptime_info.stdout is defined
 
 
-- name: Add service health
+###############################################################################
+# Role based service checks
+###############################################################################
+
+- name: Validate aptcache service
+  ansible.builtin.set_fact:
+    required_service: apt-cacher-ng.service
+  when:
+    - infrastructure_role == "aptcache"
+
+
+- name: Validate postgres service
+  ansible.builtin.set_fact:
+    required_service: postgresql.service
+  when:
+    - infrastructure_role == "postgres"
+
+
+- name: Validate uptimekuma service
+  ansible.builtin.set_fact:
+    required_service: uptime-kuma.service
+  when:
+    - infrastructure_role == "uptimekuma"
+
+
+- name: Validate urbackup service
+  ansible.builtin.set_fact:
+    required_service: urbackupserver.service
+  when:
+    - infrastructure_role == "urbackup"
+
+
+- name: Validate mailarchiver service
+  ansible.builtin.set_fact:
+    required_service: postfix.service
+  when:
+    - infrastructure_role == "mailarchiver"
+
+
+- name: Check required service
+  ansible.builtin.set_fact:
+    infrastructure_service_status:
+      "{{ ansible_facts.services[required_service].state | default('missing') }}"
+  when:
+    - required_service is defined
+
+
+- name: Check required process
+  ansible.builtin.shell:
+    cmd: >-
+      pgrep -f "{{ required_service | regex_replace('.service', '') }}"
+  register: required_process
+  changed_when: false
+  failed_when: false
+  when:
+    - required_service is defined
+
+
+- name: Add required service health
   ansible.builtin.set_fact:
     infrastructure_health:
       "{{ infrastructure_health | combine({
         'earned':
           infrastructure_health.earned + 4
       }) }}"
+  when:
+    - >
+      infrastructure_service_status | default('missing')
+      in ['running','active']
+      or required_process.rc == 0
 
 
-- name: Add uptime health
+- name: Add service issue
   ansible.builtin.set_fact:
     infrastructure_health:
       "{{ infrastructure_health | combine({
-        'earned':
-          infrastructure_health.earned + 2
+        'issues':
+          infrastructure_health.issues +
+          ['Required service unavailable: ' ~ required_service]
       }) }}"
+  when:
+    - required_service is defined
+    - infrastructure_service_status | default('missing') not in ['running','active']
+    - required_process.rc != 0
 
+
+###############################################################################
+# Final scoring
+###############################################################################
 
 - name: Calculate infrastructure status
   ansible.builtin.set_fact:
