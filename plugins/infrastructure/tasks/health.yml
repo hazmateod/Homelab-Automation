@@ -1,0 +1,101 @@
+---
+###############################################################################
+# Infrastructure Health
+###############################################################################
+
+- name: Initialize infrastructure health
+  ansible.builtin.set_fact:
+    infrastructure_health:
+
+      name: Infrastructure Services
+
+      earned: 0
+
+      possible: 10
+
+      status: CRITICAL
+
+      issues: []
+
+
+- name: Add host connectivity
+  ansible.builtin.set_fact:
+    infrastructure_health:
+      "{{ infrastructure_health | combine({
+        'earned':
+          infrastructure_health.earned + 2
+      }) }}"
+
+
+- name: Check disk usage
+  ansible.builtin.shell:
+    cmd: df / --output=pcent | tail -1 | tr -dc '0-9'
+  register: disk_percent
+  changed_when: false
+
+
+- name: Add disk health
+  ansible.builtin.set_fact:
+    infrastructure_health:
+      "{{ infrastructure_health | combine({
+        'earned':
+          infrastructure_health.earned + 2
+      }) }}"
+  when:
+    - disk_percent.stdout | int < 85
+
+
+- name: Check important services
+  ansible.builtin.set_fact:
+    infrastructure_services:
+      "{{ ansible_facts.services | default({}) }}"
+
+
+- name: Add service health
+  ansible.builtin.set_fact:
+    infrastructure_health:
+      "{{ infrastructure_health | combine({
+        'earned':
+          infrastructure_health.earned + 4
+      }) }}"
+
+
+- name: Add uptime health
+  ansible.builtin.set_fact:
+    infrastructure_health:
+      "{{ infrastructure_health | combine({
+        'earned':
+          infrastructure_health.earned + 2
+      }) }}"
+
+
+- name: Calculate infrastructure status
+  ansible.builtin.set_fact:
+    infrastructure_health:
+      "{{ infrastructure_health | combine({
+        'status':
+          'HEALTHY'
+          if infrastructure_health.earned >= 8
+          else
+          'WARNING'
+      }) }}"
+
+
+- name: Store infrastructure health
+  ansible.builtin.set_fact:
+    homelab_report:
+      "{{ homelab_report | combine({
+        'plugins': {
+          'infrastructure': {
+            'health':
+              infrastructure_health
+          }
+        }
+      }, recursive=True) }}"
+
+
+- name: Add infrastructure contributor
+  ansible.builtin.set_fact:
+    health_contributors:
+      "{{ health_contributors | default([]) +
+      [ infrastructure_health ] }}"

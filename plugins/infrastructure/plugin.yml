@@ -1,0 +1,30 @@
+---
+name: infrastructure
+
+display_name: Infrastructure Services
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Collects infrastructure host discovery,
+  service health, and reporting data.
+
+entrypoint: tasks/main.yml
+
+inventory_group: infrastructure
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+
+artifacts:
+  - service_status
+  - system_metrics
+  - health_score
+  - plugins.infrastructure
+
+requirements:
+  - systemd

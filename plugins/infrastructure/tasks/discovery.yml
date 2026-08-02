@@ -1,0 +1,52 @@
+---
+###############################################################################
+# Infrastructure Discovery
+###############################################################################
+
+- name: Gather service facts
+  ansible.builtin.service_facts:
+
+
+- name: Gather disk usage
+  ansible.builtin.shell:
+    cmd: df -h /
+  register: disk_usage
+  changed_when: false
+
+
+- name: Gather uptime
+  ansible.builtin.command:
+    cmd: uptime -p
+  register: uptime_info
+  changed_when: false
+
+
+- name: Build infrastructure data
+  ansible.builtin.set_fact:
+    infrastructure_plugin:
+
+      hostname:
+        "{{ inventory_hostname }}"
+
+      services:
+        "{{ ansible_facts.services | default({}) }}"
+
+      disk:
+        "{{ disk_usage.stdout }}"
+
+      uptime:
+        "{{ uptime_info.stdout }}"
+
+
+- name: Store infrastructure discovery
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'infrastructure':
+              infrastructure_plugin
+          }
+        }, recursive=True)
+      }}

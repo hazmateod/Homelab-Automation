@@ -1,0 +1,18 @@
+---
+###############################################################################
+# Infrastructure Plugin Lifecycle
+###############################################################################
+
+- name: Run infrastructure discovery
+  ansible.builtin.include_tasks:
+    file: discovery.yml
+
+
+- name: Run infrastructure health
+  ansible.builtin.include_tasks:
+    file: health.yml
+
+
+- name: Run infrastructure report
+  ansible.builtin.include_tasks:
+    file: report.yml

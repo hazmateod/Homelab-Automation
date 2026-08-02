@@ -1,0 +1,27 @@
+---
+###############################################################################
+# Infrastructure Report
+###############################################################################
+
+- name: Add infrastructure report data
+  ansible.builtin.set_fact:
+    homelab_report:
+      "{{ homelab_report | combine({
+        'plugins': {
+          'infrastructure': {
+
+            'health':
+              infrastructure_health.status,
+
+            'health_score':
+              infrastructure_health.earned,
+
+            'health_possible':
+              infrastructure_health.possible,
+
+            'metadata':
+              infrastructure_plugin
+
+          }
+        }
+      }, recursive=True) }}"
