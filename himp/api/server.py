@@ -176,6 +176,26 @@ def health(request: Request):
     )
 
 
+@app.get("/reports")
+def reports(request: Request):
+
+    context = dashboard_context()
+
+    context["reports"] = (
+        himp.reports.summary()
+    )
+
+    context["report_files"] = (
+        himp.reports.files()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="reports.html",
+        context=context,
+    )
+
+
 @app.get("/plugins")
 def plugins(request: Request):
 
@@ -225,6 +245,17 @@ def history(request: Request):
         request=request,
         name="history.html",
         context=context,
+    )
+
+
+@app.get("/api/reports")
+def reports_api():
+
+    return JSONResponse(
+        {
+            "summary": himp.reports.summary(),
+            "files": himp.reports.files(),
+        }
     )
 
 

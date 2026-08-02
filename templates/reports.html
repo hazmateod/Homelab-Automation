@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row mb-4">
+
+    <div class="col">
+
+        <h1 class="display-5">
+            Reports
+        </h1>
+
+        <p class="text-secondary">
+            Generated HIMP reports and report inventory.
+        </p>
+
+    </div>
+
+</div>
+
+
+<div class="row mb-4">
+
+{% for name, count in reports.items() if name != "dashboard" %}
+
+<div class="col-md-2">
+
+<div class="card bg-secondary text-light mb-3">
+
+<div class="card-body">
+
+<h6 class="text-uppercase">
+{{ name }}
+</h6>
+
+<h2>
+{{ count }}
+</h2>
+
+</div>
+
+</div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+
+{% if reports.dashboard %}
+
+<hr class="border-secondary">
+
+<h2 class="mb-4">
+Dashboard Report
+</h2>
+
+
+<div class="card bg-secondary text-light mb-4">
+
+<div class="card-body">
+
+
+<table class="table table-dark">
+
+<tr>
+<th>Generated</th>
+<td>{{ reports.dashboard.generated }}</td>
+</tr>
+
+<tr>
+<th>Hosts</th>
+<td>{{ reports.dashboard.hosts }}</td>
+</tr>
+
+<tr>
+<th>Healthy</th>
+<td>{{ reports.dashboard.healthy }}</td>
+</tr>
+
+<tr>
+<th>Warnings</th>
+<td>{{ reports.dashboard.warnings }}</td>
+</tr>
+
+<tr>
+<th>Critical</th>
+<td>{{ reports.dashboard.critical }}</td>
+</tr>
+
+<tr>
+<th>Average Score</th>
+<td>{{ reports.dashboard.average_score }}</td>
+</tr>
+
+</table>
+
+
+</div>
+
+</div>
+
+{% endif %}
+
+
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
+Report Files
+</h2>
+
+
+<div class="table-responsive">
+
+<table class="table table-dark table-striped table-hover">
+
+
+<thead>
+
+<tr>
+
+<th>
+Name
+</th>
+
+<th>
+Type
+</th>
+
+<th>
+Path
+</th>
+
+</tr>
+
+</thead>
+
+
+<tbody>
+
+
+{% for file in report_files[:100] %}
+
+<tr>
+
+<td>
+{{ file.name }}
+</td>
+
+<td>
+{{ file.type }}
+</td>
+
+<td>
+{{ file.path }}
+</td>
+
+</tr>
+
+{% endfor %}
+
+
+</tbody>
+
+
+</table>
+
+</div>
+
+
+{% endblock %}
