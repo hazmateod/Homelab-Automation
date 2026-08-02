@@ -158,6 +158,24 @@ def discovery(request: Request):
 
 
 
+@app.get("/health")
+def health(request: Request):
+
+    context = dashboard_context()
+
+    context["health"] = himp.health.summary()
+
+    context["health_trends"] = (
+        himp.health_trends.summary()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="health.html",
+        context=context,
+    )
+
+
 @app.get("/plugins")
 def plugins(request: Request):
 
