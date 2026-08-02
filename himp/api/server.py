@@ -212,6 +212,22 @@ def settings(request: Request):
     )
 
 
+@app.get("/automation")
+def automation(request: Request):
+
+    context = dashboard_context()
+
+    context["automation"] = (
+        himp.automation.summary()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="automation.html",
+        context=context,
+    )
+
+
 @app.get("/plugins")
 def plugins(request: Request):
 
@@ -280,6 +296,14 @@ def settings_api():
 
     return JSONResponse(
         himp.settings.summary()
+    )
+
+
+@app.get("/api/automation")
+def automation_api():
+
+    return JSONResponse(
+        himp.automation.summary()
     )
 
 

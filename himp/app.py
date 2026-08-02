@@ -2,6 +2,7 @@
 HIMP Application.
 """
 
+from himp.services.automation import AutomationService
 from himp.services.dashboard import DashboardService
 from himp.services.discovery import DiscoveryService
 from himp.services.execution import ExecutionService
@@ -40,3 +41,5 @@ class HIMP:
         self.reports = ReportService()
 
         self.settings = SettingsService()
+
+        self.automation = AutomationService()
