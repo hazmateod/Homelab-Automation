@@ -1,5 +1,5 @@
 """
-HIMP REST API Server
+HIMP REST API Server.
 """
 
 from fastapi import FastAPI
@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from himp.api.dashboard import router as dashboard_router
+from himp.api.discovery import router as discovery_router
 from himp.api.execution import router as execution_router
 from himp.api.inventory import router as inventory_router
 from himp.app import HIMP
@@ -19,13 +20,11 @@ app = FastAPI(
     version="1.0.0",
 )
 
-
 app.mount(
     "/static",
     StaticFiles(directory="static"),
     name="static",
 )
-
 
 app.include_router(
     dashboard_router,
@@ -42,13 +41,23 @@ app.include_router(
     prefix="/api",
 )
 
+app.include_router(
+    discovery_router,
+    prefix="/api",
+)
 
 templates = Jinja2Templates(
     directory="templates"
 )
 
-
 himp = HIMP()
+
+
+def dashboard_context():
+
+    return {
+        "dashboard": himp.dashboard.summary(),
+    }
 
 
 @app.get("/")
@@ -57,9 +66,21 @@ def home(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="dashboard.html",
-        context={
-            "dashboard": himp.dashboard.summary(),
-        },
+        context=dashboard_context(),
+    )
+
+
+@app.get("/inventory")
+def inventory(request: Request):
+
+    context = dashboard_context()
+
+    context["inventory"] = himp.inventory.summary()
+
+    return templates.TemplateResponse(
+        request=request,
+        name="inventory.html",
+        context=context,
     )
 
 
@@ -69,9 +90,7 @@ def plugins(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="plugins.html",
-        context={
-            "dashboard": himp.dashboard.summary(),
-        },
+        context=dashboard_context(),
     )
 
 
@@ -83,19 +102,22 @@ def plugin_details(
 
     plugin = himp.plugins.find(plugin_id)
 
+    context = dashboard_context()
+
+    context["plugin"] = plugin
+
+    context["executions"] = [
+        execution
+        for execution in himp.execution.history(50)
+        if execution["plugin"] == plugin_id
+    ]
+
+    context["validation"] = himp.validation.validate(plugin_id)
+
     return templates.TemplateResponse(
         request=request,
         name="plugin_details.html",
-        context={
-            "dashboard": himp.dashboard.summary(),
-            "plugin": plugin,
-            "executions": [
-                execution
-                for execution in himp.execution.history(50)
-                if execution["plugin"] == plugin_id
-            ],
-            "validation": himp.validation.validate(plugin_id),
-        },
+        context=context,
     )
 
 
@@ -105,9 +127,7 @@ def history(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="history.html",
-        context={
-            "dashboard": himp.dashboard.summary(),
-        },
+        context=dashboard_context(),
     )
 
 
