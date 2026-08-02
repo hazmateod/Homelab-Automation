@@ -54,25 +54,7 @@ class HealthService:
             for report in self.repository.plugins()
         }
 
-        for plugin in self.loader.plugins():
-
-            if not plugin.supports_health():
-                continue
-
-            report = reports.get(plugin.id)
-
-            if report is None:
-
-                summary.plugins.append(
-                    HealthCheckResult(
-                        plugin=plugin.id,
-                        check="health",
-                        status=HealthStatus.UNKNOWN,
-                        message="No health report available.",
-                    )
-                )
-
-                continue
+        for plugin_id, report in reports.items():
 
             summary.plugins.append(
                 HealthCheckResult(
