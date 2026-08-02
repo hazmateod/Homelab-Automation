@@ -1,0 +1,226 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row mb-4">
+
+    <div class="col">
+
+        <h1 class="display-5">
+            Inventory
+        </h1>
+
+        <p class="text-secondary">
+            Live Configuration Management Database (CMDB)
+        </p>
+
+    </div>
+
+</div>
+
+
+<div class="row mb-4">
+
+    <div class="col-md-3">
+
+        <div class="card bg-primary text-white">
+
+            <div class="card-body">
+
+                <h6>Total Hosts</h6>
+
+                <h2>{{ inventory.statistics.total_hosts }}</h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-success text-white">
+
+            <div class="card-body">
+
+                <h6>Active Hosts</h6>
+
+                <h2>{{ inventory.statistics.active_hosts }}</h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-secondary text-white">
+
+            <div class="card-body">
+
+                <h6>Inactive Hosts</h6>
+
+                <h2>{{ inventory.statistics.inactive_hosts }}</h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-md-3">
+
+        <div class="card bg-warning text-dark">
+
+            <div class="card-body">
+
+                <h6>Groups</h6>
+
+                <h2>{{ inventory.statistics.groups }}</h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<div class="row mb-4">
+
+    <div class="col-lg-4">
+
+        <div class="card bg-dark border-secondary h-100">
+
+            <div class="card-header">
+
+                Host Groups
+
+            </div>
+
+            <div class="card-body">
+
+                <table class="table table-dark table-sm mb-0">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Group</th>
+                            <th class="text-end">Hosts</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                    {% for group in inventory.statistics.group_counts %}
+
+                        <tr>
+
+                            <td>{{ group.name }}</td>
+
+                            <td class="text-end">
+
+                                {{ group.hosts }}
+
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="col-lg-8">
+
+        <div class="card bg-dark border-secondary h-100">
+
+            <div class="card-header">
+
+                Inventory Hosts
+
+            </div>
+
+            <div class="table-responsive">
+
+                <table class="table table-dark table-striped table-hover mb-0">
+
+                    <thead>
+
+                        <tr>
+
+                            <th>Hostname</th>
+                            <th>Group</th>
+                            <th>IP Address</th>
+                            <th>User</th>
+                            <th>Become</th>
+
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                    {% for host in inventory.hosts %}
+
+                        <tr>
+
+                            <td>{{ host.hostname }}</td>
+
+                            <td>{{ host.group }}</td>
+
+                            <td>{{ host.ip }}</td>
+
+                            <td>{{ host.user }}</td>
+
+                            <td>
+
+                                {% if host.become %}
+
+                                    <span class="badge bg-warning text-dark">
+
+                                        Yes
+
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="badge bg-secondary">
+
+                                        No
+
+                                    </span>
+
+                                {% endif %}
+
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endblock %}
