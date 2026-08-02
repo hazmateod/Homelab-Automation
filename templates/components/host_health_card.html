@@ -1,0 +1,92 @@
+{% macro host_health_card(plugin, host) %}
+
+<div class="col-lg-4 col-md-6 mb-4">
+
+    <div class="card bg-dark text-light border-secondary h-100">
+
+        <div class="card-header">
+
+            <strong>
+                {{ host.hostname }}
+            </strong>
+
+            <span class="float-end">
+
+            {% if host.status in ["HEALTHY","PASS"] %}
+
+                <span class="badge bg-success">
+                    PASS
+                </span>
+
+            {% elif host.status == "WARNING" %}
+
+                <span class="badge bg-warning text-dark">
+                    WARNING
+                </span>
+
+            {% else %}
+
+                <span class="badge bg-danger">
+                    FAIL
+                </span>
+
+            {% endif %}
+
+            </span>
+
+        </div>
+
+
+        <div class="card-body">
+
+            <p>
+                <strong>Plugin:</strong>
+                {{ plugin }}
+            </p>
+
+
+            <p>
+                <strong>Score:</strong>
+                {{ host.score }}
+                /
+                {{ host.possible }}
+            </p>
+
+
+            {% if host.issues %}
+
+            <p class="text-danger">
+
+                <strong>Issues:</strong>
+
+            </p>
+
+            <ul>
+
+            {% for issue in host.issues %}
+
+                <li>
+                    {{ issue }}
+                </li>
+
+            {% endfor %}
+
+            </ul>
+
+            {% else %}
+
+            <p class="text-success">
+                No issues detected
+            </p>
+
+            {% endif %}
+
+
+        </div>
+
+
+    </div>
+
+</div>
+
+{% endmacro %}

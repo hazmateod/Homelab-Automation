@@ -1,6 +1,7 @@
 {% extends "base.html" %}
 
 {% from "components/plugin_card.html" import plugin_card %}
+{% from "components/host_health_card.html" import host_health_card %}
 
 {% block content %}
 
@@ -322,6 +323,29 @@ WARNING
 </tbody>
 
 </table>
+
+</div>
+
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
+    Host Health
+</h2>
+
+
+<div class="row">
+
+{% for plugin in dashboard.health.plugins %}
+
+    {% for host in plugin.hosts %}
+
+        {{ host_health_card(plugin.plugin, host) }}
+
+    {% endfor %}
+
+{% endfor %}
 
 </div>
 

@@ -28,6 +28,7 @@ class DashboardService:
 
         self.health_cards = HealthCardsService()
 
+
     def inventory_summary(self):
 
         inventory = self.inventory.summary()
@@ -47,9 +48,68 @@ class DashboardService:
             ],
         }
 
+
     def health_summary(self):
 
         summary = self.health.summary()
+
+        plugins = []
+
+        for plugin in summary.plugins:
+
+            hosts = []
+
+            if plugin.details:
+
+                raw_hosts = plugin.details.get(
+                    "hosts",
+                    []
+                )
+
+                for host in raw_hosts:
+
+                    health = host.get(
+                        "health",
+                        {}
+                    )
+
+                    hosts.append(
+                        {
+                            "hostname": host.get(
+                                "hostname",
+                                "unknown"
+                            ),
+                            "status": health.get(
+                                "status",
+                                "UNKNOWN"
+                            ),
+                            "score": health.get(
+                                "earned",
+                                0
+                            ),
+                            "possible": health.get(
+                                "possible",
+                                0
+                            ),
+                            "issues": health.get(
+                                "issues",
+                                []
+                            ),
+                        }
+                    )
+
+
+            plugins.append(
+                {
+                    "plugin": plugin.plugin,
+                    "status": plugin.status.value,
+                    "message": plugin.message,
+                    "duration_ms": plugin.duration_ms,
+                    "details": plugin.details,
+                    "hosts": hosts,
+                }
+            )
+
 
         return {
             "score": summary.score,
@@ -57,17 +117,9 @@ class DashboardService:
             "warnings": summary.warnings,
             "failed": summary.failed,
             "unknown": summary.unknown,
-            "plugins": [
-                {
-                    "plugin": plugin.plugin,
-                    "status": plugin.status.value,
-                    "message": plugin.message,
-                    "duration_ms": plugin.duration_ms,
-                    "details": plugin.details,
-                }
-                for plugin in summary.plugins
-            ],
+            "plugins": plugins,
         }
+
 
     def summary(self):
 
@@ -90,6 +142,7 @@ class DashboardService:
                     "latest": latest,
                 }
             )
+
 
         return {
 
@@ -115,4 +168,5 @@ class DashboardService:
             "recent_execution": self.execution.history(10),
 
             "recent_inventory_changes": self.inventory.changes(10),
+
         }

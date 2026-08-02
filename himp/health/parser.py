@@ -9,6 +9,8 @@ from pathlib import Path
 
 from himp.health.models import (
     HealthStatus,
+    HealthCheckResult,
+    HostHealthResult,
     PluginHealthExecution,
     PluginHealthSummary,
     PluginMetadata,
@@ -38,46 +40,99 @@ class HealthArtifactParser:
             "r",
             encoding="utf-8",
         ) as f:
-
             data = json.load(f)
 
 
         #
-        # Multi-host plugin support
+        # Multi-host health artifact
         #
         if "hosts" in data:
 
-            hosts = data.get("hosts", [])
+            hosts = []
 
-            earned = sum(
-                host.get("health", {}).get("earned", 0)
-                for host in hosts
-            )
-
-            possible = sum(
-                host.get("health", {}).get("possible", 0)
-                for host in hosts
-            )
-
+            total_earned = 0
+            total_possible = 0
             issues = []
 
-            for host in hosts:
 
-                issues.extend(
-                    host.get("health", {}).get("issues", [])
+            for item in data.get("hosts", []):
+
+                health = item.get(
+                    "health",
+                    {}
+                )
+
+                status = STATUS_MAP.get(
+                    health.get(
+                        "status",
+                        "UNKNOWN"
+                    ),
+                    HealthStatus.UNKNOWN,
                 )
 
 
-            if earned == possible and possible > 0:
+                earned = health.get(
+                    "earned",
+                    0
+                )
 
+                possible = health.get(
+                    "possible",
+                    0
+                )
+
+                total_earned += earned
+                total_possible += possible
+
+                issues.extend(
+                    health.get(
+                        "issues",
+                        []
+                    )
+                )
+
+
+                hosts.append(
+                    HostHealthResult(
+
+                        hostname=item.get(
+                            "hostname",
+                            "unknown"
+                        ),
+
+                        results=[
+
+                            HealthCheckResult(
+
+                                plugin=data.get(
+                                    "plugin",
+                                    path.stem
+                                ),
+
+                                check="health",
+
+                                status=status,
+
+                                message=health.get(
+                                    "status",
+                                    "UNKNOWN"
+                                ),
+
+                                details=health,
+
+                            )
+
+                        ],
+
+                    )
+                )
+
+
+            if total_earned == total_possible and total_possible > 0:
                 status = HealthStatus.PASS
-
-            elif earned > 0:
-
+            elif total_earned > 0:
                 status = HealthStatus.WARNING
-
             else:
-
                 status = HealthStatus.FAIL
 
 
@@ -87,30 +142,30 @@ class HealthArtifactParser:
 
                     plugin=data.get(
                         "plugin",
-                        path.stem,
+                        path.stem
                     ),
 
                     status=status,
 
-                    score=earned,
+                    score=total_earned,
 
-                    possible=possible,
+                    possible=total_possible,
 
                     issues=issues,
 
                 ),
 
                 metadata=PluginMetadata(
-
-                    data=data,
-
+                    data=data
                 ),
+
+                hosts=hosts,
 
             )
 
 
         #
-        # Single host plugin support
+        # Single host artifact
         #
 
         health = data.get(
@@ -118,21 +173,12 @@ class HealthArtifactParser:
             {}
         )
 
-        report = data.get(
-            "report",
-            {}
-        )
-
-
         status = STATUS_MAP.get(
-
             health.get(
                 "status",
-                "UNKNOWN",
+                "UNKNOWN"
             ),
-
             HealthStatus.UNKNOWN,
-
         )
 
 
@@ -142,32 +188,33 @@ class HealthArtifactParser:
 
                 plugin=data.get(
                     "plugin",
-                    "",
+                    ""
                 ),
 
                 status=status,
 
                 score=health.get(
                     "earned",
-                    0,
+                    0
                 ),
 
                 possible=health.get(
                     "possible",
-                    0,
+                    0
                 ),
 
                 issues=health.get(
                     "issues",
-                    [],
+                    []
                 ),
 
             ),
 
             metadata=PluginMetadata(
-
-                data=report,
-
+                data=data.get(
+                    "report",
+                    {}
+                )
             ),
 
         )
