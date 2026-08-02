@@ -1,9 +1,8 @@
 """
 Automation Service.
 
-Provides HIMP automation task definitions and status.
+Provides HIMP automation task definitions and execution.
 """
-
 
 from datetime import datetime, timezone
 
@@ -11,6 +10,10 @@ from datetime import datetime, timezone
 class AutomationService:
 
     def __init__(self):
+
+        self.health = None
+        self.reports = None
+        self.inventory = None
 
         self.tasks = [
             {
@@ -37,6 +40,18 @@ class AutomationService:
         ]
 
 
+    def configure(
+        self,
+        health,
+        reports,
+        inventory,
+    ):
+
+        self.health = health
+        self.reports = reports
+        self.inventory = inventory
+
+
     def summary(self):
 
         return {
@@ -59,4 +74,52 @@ class AutomationService:
             ),
 
             "automation": self.tasks,
+        }
+
+
+    def run(self, task_id):
+
+        if task_id == "health_check":
+
+            if self.health is None:
+                raise RuntimeError(
+                    "Health service not configured"
+                )
+
+            result = self.health.summary()
+
+
+        elif task_id == "generate_reports":
+
+            if self.reports is None:
+                raise RuntimeError(
+                    "Report service not configured"
+                )
+
+            result = self.reports.summary()
+
+
+        elif task_id == "inventory_refresh":
+
+            if self.inventory is None:
+                raise RuntimeError(
+                    "Inventory service not configured"
+                )
+
+            result = self.inventory.summary()
+
+
+        else:
+
+            raise ValueError(
+                f"Unknown automation task: {task_id}"
+            )
+
+
+        return {
+            "task": task_id,
+            "executed_at": datetime.now(
+                timezone.utc
+            ).isoformat(),
+            "result": result,
         }

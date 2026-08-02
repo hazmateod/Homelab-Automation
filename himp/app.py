@@ -43,3 +43,9 @@ class HIMP:
         self.settings = SettingsService()
 
         self.automation = AutomationService()
+
+        self.automation.configure(
+            self.health,
+            self.reports,
+            self.inventory,
+        )
