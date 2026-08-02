@@ -84,6 +84,29 @@ def inventory(request: Request):
     )
 
 
+@app.get("/discovery")
+def discovery(request: Request):
+
+    records = [
+        dict(record)
+        for record in himp.discovery.all()
+    ]
+
+    context = dashboard_context()
+
+    context["discovery"] = {
+        "count": himp.discovery.count(),
+        "records": records,
+    }
+
+    return templates.TemplateResponse(
+        request=request,
+        name="discovery.html",
+        context=context,
+    )
+
+
+
 @app.get("/plugins")
 def plugins(request: Request):
 

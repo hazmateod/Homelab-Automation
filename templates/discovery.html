@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row mb-4">
+
+    <div class="col">
+
+        <h1 class="display-5">
+            Discovery
+        </h1>
+
+        <p class="text-secondary">
+            Infrastructure discovery records and CMDB objects
+        </p>
+
+    </div>
+
+</div>
+
+
+<div class="row mb-4">
+
+    <div class="col-md-3">
+
+        <div class="card bg-primary text-white">
+
+            <div class="card-body">
+
+                <h6>Total Records</h6>
+
+                <h2>
+                    {{ discovery.count }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col-md-3">
+
+        <div class="card bg-success text-white">
+
+            <div class="card-body">
+
+                <h6>Plugins</h6>
+
+                <h2>
+                    {{ discovery.records | map(attribute='plugin') | unique | list | length }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col-md-3">
+
+        <div class="card bg-info text-white">
+
+            <div class="card-body">
+
+                <h6>Hosts</h6>
+
+                <h2>
+                    {{ discovery.records | map(attribute='hostname') | unique | list | length }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col-md-3">
+
+        <div class="card bg-warning text-dark">
+
+            <div class="card-body">
+
+                <h6>Categories</h6>
+
+                <h2>
+                    {{ discovery.records | map(attribute='category') | unique | list | length }}
+                </h2>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
+    Discovery Records
+</h2>
+
+
+<div class="table-responsive">
+
+<table class="table table-dark table-striped table-hover">
+
+<thead>
+
+<tr>
+
+<th>
+Plugin
+</th>
+
+<th>
+Hostname
+</th>
+
+<th>
+Category
+</th>
+
+<th>
+Name
+</th>
+
+<th>
+Value
+</th>
+
+<th>
+Discovered
+</th>
+
+</tr>
+
+</thead>
+
+
+<tbody>
+
+{% for record in discovery.records %}
+
+<tr>
+
+<td>
+{{ record.plugin }}
+</td>
+
+<td>
+{{ record.hostname }}
+</td>
+
+<td>
+{{ record.category }}
+</td>
+
+<td>
+{{ record.name }}
+</td>
+
+<td>
+{{ record.value }}
+</td>
+
+<td>
+{{ record.discovered_at }}
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+
+{% endblock %}
