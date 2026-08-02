@@ -2,6 +2,9 @@
 HIMP REST API Server.
 """
 
+import subprocess
+import time
+
 from fastapi import FastAPI
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
@@ -77,10 +80,115 @@ templates = Jinja2Templates(
 himp = HIMP()
 
 
+@app.get("/system/status")
+def himp_status():
+
+    status = subprocess.run(
+        [
+            "systemctl",
+            "is-active",
+            "himp",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    pid = subprocess.run(
+        [
+            "systemctl",
+            "show",
+            "himp",
+            "--property=MainPID",
+            "--value",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    started = subprocess.run(
+        [
+            "systemctl",
+            "show",
+            "himp",
+            "--property=ActiveEnterTimestamp",
+            "--value",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    return {
+        "service": "himp",
+        "status": status.stdout.strip(),
+        "running": status.returncode == 0,
+        "pid": pid.stdout.strip(),
+        "started": started.stdout.strip(),
+    }
+
+
+@app.post("/system/restart")
+def restart_himp():
+
+    subprocess.Popen(
+        [
+            "bash",
+            "-c",
+            "sleep 1 && systemctl restart himp",
+        ],
+        start_new_session=True,
+    )
+
+    return {
+        "status": "restart_requested"
+    }
+
+
+
 def dashboard_context():
+
+    status = subprocess.run(
+        [
+            "systemctl",
+            "is-active",
+            "himp",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    pid = subprocess.run(
+        [
+            "systemctl",
+            "show",
+            "himp",
+            "--property=MainPID",
+            "--value",
+        ],
+        capture_output=True,
+        text=True,
+    )
+
+    started = subprocess.run(
+        [
+            "systemctl",
+            "show",
+            "himp",
+            "--property=ActiveEnterTimestamp",
+            "--value",
+        ],
+        capture_output=True,
+        text=True,
+    )
 
     return {
         "dashboard": himp.dashboard.summary(),
+        "system": {
+            "service": "himp",
+            "status": status.stdout.strip(),
+            "running": status.returncode == 0,
+            "pid": pid.stdout.strip(),
+            "started": started.stdout.strip(),
+        },
     }
 
 

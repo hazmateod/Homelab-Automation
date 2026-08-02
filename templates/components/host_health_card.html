@@ -13,19 +13,16 @@
             <span class="float-end">
 
             {% if host.status in ["HEALTHY","PASS"] %}
-
                 <span class="badge bg-success">
                     PASS
                 </span>
 
             {% elif host.status == "WARNING" %}
-
                 <span class="badge bg-warning text-dark">
                     WARNING
                 </span>
 
             {% else %}
-
                 <span class="badge bg-danger">
                     FAIL
                 </span>
@@ -44,7 +41,6 @@
                 {{ plugin }}
             </p>
 
-
             <p>
                 <strong>Score:</strong>
                 {{ host.score }}
@@ -56,21 +52,13 @@
             {% if host.issues %}
 
             <p class="text-danger">
-
                 <strong>Issues:</strong>
-
             </p>
 
             <ul>
-
             {% for issue in host.issues %}
-
-                <li>
-                    {{ issue }}
-                </li>
-
+                <li>{{ issue }}</li>
             {% endfor %}
-
             </ul>
 
             {% else %}
@@ -81,9 +69,7 @@
 
             {% endif %}
 
-
         </div>
-
 
     </div>
 
