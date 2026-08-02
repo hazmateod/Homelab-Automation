@@ -1,4 +1,13 @@
 ---
-- name: Pi-hole plugin placeholder
-  ansible.builtin.debug:
-    msg: "Pi-hole plugin loaded successfully."
+###############################################################################
+# Pi-hole Plugin
+###############################################################################
+
+- name: Pi-hole Discovery
+  ansible.builtin.include_tasks: discovery.yml
+
+- name: Pi-hole Health
+  ansible.builtin.include_tasks: health.yml
+
+- name: Pi-hole Report
+  ansible.builtin.include_tasks: report.yml

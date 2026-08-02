@@ -1,0 +1,31 @@
+---
+###############################################################################
+# Pi-hole Report
+###############################################################################
+
+- name: Add Pi-hole health to report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'pihole': {
+              'health':
+                pihole_health.status | default('UNKNOWN'),
+              'health_score':
+                pihole_health.earned | default(0),
+              'health_possible':
+                pihole_health.possible | default(0),
+              'service':
+                'pihole-FTL.service',
+              'status':
+                pihole_service.status.ActiveState
+                | default('unknown'),
+              'version':
+                pihole_version.stdout_lines
+                | default([])
+            }
+          }
+        }, recursive=True)
+      }}

@@ -1,0 +1,46 @@
+---
+###############################################################################
+# Pi-hole Discovery
+###############################################################################
+
+- name: Check Pi-hole FTL service status
+  ansible.builtin.systemd:
+    name: pihole-FTL
+  register: pihole_service
+  changed_when: false
+  failed_when: false
+
+- name: Check Pi-hole binary
+  ansible.builtin.stat:
+    path: /usr/local/bin/pihole
+  register: pihole_binary
+
+- name: Get Pi-hole version
+  ansible.builtin.command:
+    cmd: pihole -v
+  register: pihole_version
+  changed_when: false
+  failed_when: false
+
+- name: Build Pi-hole plugin data
+  ansible.builtin.set_fact:
+    pihole_plugin:
+      installed: "{{ pihole_binary.stat.exists | default(false) }}"
+      service: pihole-FTL.service
+      status: "{{ pihole_service.status.ActiveState | default('unknown') }}"
+      binary: /usr/local/bin/pihole
+      version: "{{ pihole_version.stdout_lines | default([]) }}"
+      metadata:
+        hostname: "{{ inventory_hostname }}"
+
+- name: Store Pi-hole discovery data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'pihole': pihole_plugin
+          }
+        }, recursive=True)
+      }}

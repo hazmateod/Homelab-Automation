@@ -1,0 +1,107 @@
+---
+###############################################################################
+# Pi-hole Health
+###############################################################################
+
+- name: Initialize Pi-hole health result
+  ansible.builtin.set_fact:
+    pihole_health:
+      name: Pi-hole
+      earned: 0
+      possible: 10
+      status: CRITICAL
+      issues: []
+
+- name: Add installation health
+  ansible.builtin.set_fact:
+    pihole_health: >-
+      {{
+        pihole_health |
+        combine({
+          'earned': pihole_health.earned + 3
+        })
+      }}
+  when:
+    - homelab_report.plugins.pihole.installed | default(false)
+
+- name: Add service health
+  ansible.builtin.set_fact:
+    pihole_health: >-
+      {{
+        pihole_health |
+        combine({
+          'earned': pihole_health.earned + 3
+        })
+      }}
+  when:
+    - homelab_report.plugins.pihole.status | default('unknown') == 'active'
+
+- name: Check DNS listener
+  ansible.builtin.command:
+    cmd: pihole status
+  register: pihole_status
+  changed_when: false
+  failed_when: false
+
+- name: Add DNS listener health
+  ansible.builtin.set_fact:
+    pihole_health: >-
+      {{
+        pihole_health |
+        combine({
+          'earned': pihole_health.earned + 2
+        })
+      }}
+  when:
+    - "'FTL is listening on port 53' in pihole_status.stdout"
+
+- name: Add blocking health
+  ansible.builtin.set_fact:
+    pihole_health: >-
+      {{
+        pihole_health |
+        combine({
+          'earned': pihole_health.earned + 2
+        })
+      }}
+  when:
+    - "'Pi-hole blocking is enabled' in pihole_status.stdout"
+
+- name: Calculate Pi-hole health status
+  ansible.builtin.set_fact:
+    pihole_health: >-
+      {{
+        pihole_health |
+        combine({
+          'status':
+            'HEALTHY'
+            if pihole_health.earned >= 8
+            else
+            'WARNING'
+        })
+      }}
+
+- name: Store Pi-hole health
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'pihole': (
+              homelab_report.plugins.pihole |
+              combine({
+                'health': pihole_health
+              })
+            )
+          }
+        }, recursive=True)
+      }}
+
+- name: Add Pi-hole health contributor
+  ansible.builtin.set_fact:
+    health_contributors: >-
+      {{
+        health_contributors | default([]) +
+        [ pihole_health ]
+      }}
