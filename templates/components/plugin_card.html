@@ -2,153 +2,189 @@
 
 <div class="col-lg-6 col-xl-4 mb-4">
 
-    <div class="card bg-secondary text-light h-100 shadow">
+<div class="card bg-dark text-light border-secondary h-100 shadow">
 
-        <div class="card-header">
+    <div class="card-header">
 
-            <strong>{{ plugin.name }}</strong>
+        <div class="d-flex justify-content-between align-items-center">
 
-        </div>
+            <strong>
+                {{ plugin.name }}
+            </strong>
 
-        <div class="card-body">
 
-            <p class="text-light-emphasis">
+            {% if plugin.enabled %}
 
-                {{ plugin.description }}
+            <span class="badge bg-success">
+                Enabled
+            </span>
 
-            </p>
+            {% else %}
 
-            <p>
+            <span class="badge bg-danger">
+                Disabled
+            </span>
 
-                <strong>Version:</strong>
-                {{ plugin.version }}
-
-            </p>
-
-            <p>
-
-                <strong>Status:</strong>
-
-                {% if plugin.enabled %}
-
-                    <span class="badge bg-success">
-                        Enabled
-                    </span>
-
-                {% else %}
-
-                    <span class="badge bg-danger">
-                        Disabled
-                    </span>
-
-                {% endif %}
-
-            </p>
-
-            <p>
-
-                <strong>Capabilities</strong>
-
-            </p>
-
-            <div class="mb-3">
-
-            {% for capability, enabled in plugin.supports.items() %}
-
-                {% if enabled %}
-
-                <span class="badge bg-primary me-1 mb-1">
-
-                    {{ capability|title }}
-
-                </span>
-
-                {% endif %}
-
-            {% endfor %}
-
-            </div>
-
-            <p>
-
-                <strong>Artifacts:</strong>
-
-                {{ plugin.artifacts }}
-
-            </p>
-
-            <p>
-
-                <strong>Requirements:</strong>
-
-                {{ plugin.requirements }}
-
-            </p>
-
-            <hr>
-
-            <p>
-
-                <strong>Last Run:</strong>
-
-                <span id="status-{{ plugin.id }}">
-
-                {% if plugin.latest %}
-
-                    {{ plugin.latest.executed_at }}
-
-                {% else %}
-
-                    Never
-
-                {% endif %}
-
-                </span>
-
-            </p>
-
-            <p>
-
-                <strong>Execution Time:</strong>
-
-                <span id="elapsed-{{ plugin.id }}">
-
-                {% if plugin.latest %}
-
-                    {{ "%.3f"|format(plugin.latest.elapsed) }} sec
-
-                {% else %}
-
-                    --
-
-                {% endif %}
-
-                </span>
-
-            </p>
-
-        </div>
-
-        <div class="card-footer d-flex justify-content-between">
-
-            <button
-                class="btn btn-primary btn-sm run-plugin"
-                data-plugin="{{ plugin.id }}">
-
-                Run
-
-            </button>
-
-            <button
-                class="btn btn-outline-light btn-sm">
-
-                Details
-
-            </button>
+            {% endif %}
 
         </div>
 
     </div>
+
+
+    <div class="card-body">
+
+
+        <p class="text-secondary">
+            {{ plugin.description }}
+        </p>
+
+
+        <div class="row mb-3">
+
+            <div class="col">
+
+                <small class="text-secondary">
+                    Version
+                </small>
+
+                <br>
+
+                {{ plugin.version }}
+
+            </div>
+
+
+            <div class="col">
+
+                <small class="text-secondary">
+                    Artifacts
+                </small>
+
+                <br>
+
+                {{ plugin.artifacts }}
+
+            </div>
+
+
+            <div class="col">
+
+                <small class="text-secondary">
+                    Requirements
+                </small>
+
+                <br>
+
+                {{ plugin.requirements }}
+
+            </div>
+
+        </div>
+
+
+        <hr>
+
+
+        <h6>
+            Capabilities
+        </h6>
+
+
+        <div class="mb-3">
+
+        {% for capability, enabled in plugin.supports.items() %}
+
+            {% if enabled %}
+
+            <span class="badge bg-primary me-1 mb-1">
+
+                {{ capability|title }}
+
+            </span>
+
+            {% endif %}
+
+        {% endfor %}
+
+        </div>
+
+
+        <h6>
+            Execution
+        </h6>
+
+
+        <p class="mb-1">
+
+            <strong>Status:</strong>
+
+            <span id="status-{{ plugin.id }}">
+
+            {% if plugin.latest %}
+
+                Complete
+
+            {% else %}
+
+                Ready
+
+            {% endif %}
+
+            </span>
+
+        </p>
+
+
+        <p>
+
+            <strong>Runtime:</strong>
+
+            <span id="elapsed-{{ plugin.id }}">
+
+            {% if plugin.latest %}
+
+                {{ "%.3f"|format(plugin.latest.elapsed) }} sec
+
+            {% else %}
+
+                --
+
+            {% endif %}
+
+            </span>
+
+        </p>
+
+
+    </div>
+
+
+    <div class="card-footer d-flex justify-content-between">
+
+
+        <button
+            class="btn btn-primary btn-sm run-plugin"
+            data-plugin="{{ plugin.id }}">
+
+            Run Plugin
+
+        </button>
+
+
+        <a
+            href="/plugins/{{ plugin.id }}"
+            class="btn btn-outline-light btn-sm">
+
+            Details
+
+        </a>
+
+
+    </div>
+
+
+</div>
 
 </div>
 
