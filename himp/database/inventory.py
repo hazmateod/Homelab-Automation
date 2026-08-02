@@ -38,6 +38,8 @@ class InventoryRepository:
 
                 become INTEGER NOT NULL,
 
+                active INTEGER NOT NULL DEFAULT 1,
+
                 first_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
 
                 last_seen TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -66,13 +68,59 @@ class InventoryRepository:
             """
         )
 
+        columns = [
+            row["name"]
+            for row in self.database.query(
+                "PRAGMA table_info(inventory_hosts)"
+            )
+        ]
+
+        if "active" not in columns:
+
+            self.database.execute(
+                """
+                ALTER TABLE inventory_hosts
+                ADD COLUMN active INTEGER NOT NULL DEFAULT 1
+                """
+            )
+
+    def save_snapshot(
+        self,
+        hosts,
+    ):
+
+        current = {
+            host["hostname"]
+            for host in hosts
+        }
+
+        existing = self.all_hosts(
+            include_inactive=True
+        )
+
+        for host in hosts:
+
+            self.save_host(host)
+
+        for record in existing:
+
+            if (
+                record["hostname"] not in current
+                and record["active"]
+            ):
+
+                self.mark_removed(
+                    record["hostname"]
+                )
+
     def save_host(
         self,
         host,
     ):
 
         existing = self.find_host(
-            host["hostname"]
+            host["hostname"],
+            include_inactive=True,
         )
 
         if existing:
@@ -101,6 +149,7 @@ class InventoryRepository:
                 ip,
                 ansible_user,
                 become,
+                active,
                 last_seen
             )
             VALUES
@@ -110,6 +159,7 @@ class InventoryRepository:
                 ?,
                 ?,
                 ?,
+                1,
                 ?
             )
             ON CONFLICT(hostname)
@@ -119,6 +169,7 @@ class InventoryRepository:
                 ip=excluded.ip,
                 ansible_user=excluded.ansible_user,
                 become=excluded.become,
+                active=1,
                 last_seen=excluded.last_seen
             """,
             (
@@ -129,6 +180,30 @@ class InventoryRepository:
                 int(host["become"]),
                 datetime.utcnow(),
             ),
+        )
+
+    def mark_removed(
+        self,
+        hostname,
+    ):
+
+        self.database.execute(
+            """
+            UPDATE inventory_hosts
+            SET active=0
+            WHERE hostname=?
+            """,
+            (
+                hostname,
+            ),
+        )
+
+        self.record_change(
+            hostname,
+            "REMOVED",
+            None,
+            None,
+            None,
         )
 
     def detect_changes(
@@ -238,81 +313,83 @@ class InventoryRepository:
             ),
         )
 
-    def save_snapshot(
+    def all_hosts(
         self,
-        hosts,
+        include_inactive=False,
     ):
 
-        for host in hosts:
+        if include_inactive:
 
-            self.save_host(host)
+            return self.database.query(
+                """
+                SELECT *
+                FROM inventory_hosts
+                ORDER BY hostname
+                """
+            )
 
-    def all_hosts(self):
-
-        rows = self.database.query(
+        return self.database.query(
             """
             SELECT *
             FROM inventory_hosts
+            WHERE active=1
             ORDER BY hostname
             """
         )
 
-        return [
-            dict(row)
-            for row in rows
-        ]
-
     def find_host(
         self,
         hostname,
+        include_inactive=False,
     ):
 
-        rows = self.database.query(
-            """
+        query = """
             SELECT *
             FROM inventory_hosts
             WHERE hostname=?
-            """,
+        """
+
+        if not include_inactive:
+
+            query += " AND active=1"
+
+        query += " LIMIT 1"
+
+        rows = self.database.query(
+            query,
             (
                 hostname,
             ),
         )
 
-        if not rows:
-
-            return None
-
-        return dict(rows[0])
+        return rows[0] if rows else None
 
     def count(self):
 
-        rows = self.database.query(
+        row = self.database.query(
             """
-            SELECT COUNT(*) AS count
+            SELECT COUNT(*) AS total
             FROM inventory_hosts
+            WHERE active=1
             """
         )
 
-        return rows[0]["count"]
+        return row[0]["total"]
 
     def changes(
         self,
-        limit=50,
+        limit=100,
     ):
 
-        rows = self.database.query(
+        return self.database.query(
             """
             SELECT *
             FROM inventory_changes
-            ORDER BY id DESC
+            ORDER BY changed_at DESC,
+                     id DESC
             LIMIT ?
             """,
             (
                 limit,
             ),
         )
-
-        return [
-            dict(row)
-            for row in rows
-        ]

@@ -5,9 +5,7 @@ Business logic layer for HIMP inventory.
 """
 
 from himp.collectors.inventory import InventoryCollector
-
 from himp.database.inventory import InventoryRepository
-
 from himp.models.inventory import (
     InventoryHost,
     InventorySummary,
@@ -25,9 +23,14 @@ class InventoryService:
 
         self.collector = InventoryCollector()
 
-    def all_hosts(self):
+    def all_hosts(
+        self,
+        include_inactive=False,
+    ):
 
-        return self.repository.all_hosts()
+        return self.repository.all_hosts(
+            include_inactive=include_inactive
+        )
 
     def find_host(
         self,
@@ -42,6 +45,15 @@ class InventoryService:
 
         return self.repository.count()
 
+    def changes(
+        self,
+        limit=100,
+    ):
+
+        return self.repository.changes(
+            limit
+        )
+
     def sync(self):
 
         hosts = self.collector.hosts()
@@ -52,7 +64,15 @@ class InventoryService:
 
         return {
             "synced": len(hosts),
-            "hosts": len(hosts),
+            "active_hosts": self.repository.count(),
+            "total_hosts": len(
+                self.repository.all_hosts(
+                    include_inactive=True
+                )
+            ),
+            "recent_changes": len(
+                self.repository.changes(25)
+            ),
         }
 
     def summary(self):

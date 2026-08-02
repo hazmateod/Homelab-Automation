@@ -2,7 +2,7 @@
 Inventory dashboard models.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass
@@ -20,10 +20,38 @@ class InventoryHost:
 
 
 @dataclass
+class InventoryGroup:
+
+    name: str
+
+    hosts: int
+
+
+@dataclass
+class InventoryStatistics:
+
+    total_hosts: int
+
+    active_hosts: int
+
+    inactive_hosts: int
+
+    groups: int
+
+    recent_changes: int
+
+    group_counts: list[InventoryGroup] = field(
+        default_factory=list
+    )
+
+
+@dataclass
 class InventorySummary:
 
     total_hosts: int
 
     groups: int
 
-    hosts: list
+    hosts: list[InventoryHost]
+
+    statistics: InventoryStatistics
