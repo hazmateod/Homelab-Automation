@@ -9,6 +9,7 @@ from collections import Counter
 from himp.collectors.inventory import InventoryCollector
 from himp.database.inventory import InventoryRepository
 from himp.health.repository import HealthRepository
+from himp.services.inventory_writer import InventoryFileWriter
 from himp.models.inventory import (
     InventoryGroup,
     InventoryHost,
@@ -26,6 +27,7 @@ class InventoryService:
         self.repository = InventoryRepository()
         self.collector = InventoryCollector()
         self.health_repository = HealthRepository()
+        self.writer = InventoryFileWriter()
 
     def all_hosts(
         self,
@@ -52,6 +54,72 @@ class InventoryService:
     ):
         return self.repository.changes(
             limit
+        )
+
+    def add_host(
+        self,
+        hostname,
+        group,
+        ip,
+        user,
+        become=False,
+    ):
+        existing = self.repository.find_host(
+            hostname,
+            include_inactive=True,
+        )
+
+        if existing is not None:
+            raise ValueError(
+                f"Inventory host already exists: {hostname}"
+            )
+
+        host = self.writer.add_host(
+            hostname=hostname,
+            group=group,
+            ip=ip,
+            user=user,
+            become=become,
+        )
+
+        self.repository.save_host(host)
+
+        return self.repository.find_host(
+            hostname,
+            include_inactive=True,
+        )
+
+    def update_host(
+        self,
+        hostname,
+        group,
+        ip,
+        user,
+        become=False,
+    ):
+        existing = self.repository.find_host(
+            hostname,
+            include_inactive=True,
+        )
+
+        if existing is None:
+            raise ValueError(
+                f"Inventory host does not exist: {hostname}"
+            )
+
+        host = self.writer.update_host(
+            hostname=hostname,
+            group=group,
+            ip=ip,
+            user=user,
+            become=become,
+        )
+
+        self.repository.save_host(host)
+
+        return self.repository.find_host(
+            hostname,
+            include_inactive=True,
         )
 
     def sync(self):
