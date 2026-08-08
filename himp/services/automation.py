@@ -14,6 +14,7 @@ class AutomationService:
         self.health = None
         self.reports = None
         self.inventory = None
+        self.updates = None
 
         self.tasks = [
             {
@@ -35,7 +36,14 @@ class AutomationService:
                 "name": "Inventory Refresh",
                 "description": "Refresh inventory data.",
                 "enabled": True,
-                "schedule": "manual",
+                "schedule": "daily 03:00",
+            },
+            {
+                "id": "scheduled_updates",
+                "name": "Scheduled Updates",
+                "description": "Run maintenance updates across the homelab.",
+                "enabled": True,
+                "schedule": "daily 03:15",
             },
         ]
 
@@ -45,11 +53,13 @@ class AutomationService:
         health,
         reports,
         inventory,
+        updates,
     ):
 
         self.health = health
         self.reports = reports
         self.inventory = inventory
+        self.updates = updates
 
 
     def summary(self):
@@ -107,6 +117,15 @@ class AutomationService:
                 )
 
             result = self.inventory.summary()
+
+        elif task_id == "scheduled_updates":
+
+            if self.updates is None:
+                raise RuntimeError(
+                    "Update service not configured"
+                )
+
+            result = self.updates.update("maintenance")
 
 
         else:

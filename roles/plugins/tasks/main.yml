@@ -3,21 +3,22 @@
 # Plugin Loader
 ###############################################################################
 
-- name: Verify plugin variable exists
-  ansible.builtin.assert:
-    that:
-      - plugin is defined
-    fail_msg: "No plugin defined for host."
+- name: Check if plugin is defined
+  ansible.builtin.set_fact:
+    plugin_enabled: "{{ plugin is defined }}"
 
 - name: Load plugin manifest
   ansible.builtin.include_vars:
     file: "{{ playbook_dir }}/../plugins/{{ plugin }}/plugin.yml"
     name: plugin_manifest
+  when: plugin_enabled
 
 - name: Display plugin manifest
   ansible.builtin.debug:
     var: plugin_manifest
+  when: plugin_enabled
 
 - name: Execute plugin entrypoint
   ansible.builtin.include_tasks:
     file: "{{ playbook_dir }}/../plugins/{{ plugin }}/{{ plugin_manifest.entrypoint }}"
+  when: plugin_enabled

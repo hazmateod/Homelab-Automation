@@ -2,25 +2,25 @@
 Update Commands
 """
 
-from himp.config import config
-from himp.lib.ansible import run_playbook
 from himp.lib.history import log
 from himp.lib.output import error, info, success
+from himp.services.update import UpdateService
 
 
 def run(args):
-
     if not args.target:
         error("Host or group is required.")
         return
 
+    service = UpdateService()
+
     info(f"Updating {args.target}...")
     print()
 
-    ok, elapsed = run_playbook(
-        config.maintenance_playbook,
-        args.target,
-    )
+    result = service.update(args.target)
+
+    ok = result["success"]
+    elapsed = result["elapsed"]
 
     log(
         f"update {args.target}",

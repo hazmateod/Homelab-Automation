@@ -29,10 +29,14 @@ if [[ ! -d "$SYSTEMD_DIR" ]]; then
     exit 1
 fi
 
-for unit in \
-    himp-inventory-sync.service \
+UNITS=(
+    himp-inventory-sync.service
     himp-inventory-sync.timer
-do
+    himp-scheduled-updates.service
+    himp-scheduled-updates.timer
+)
+
+for unit in "${UNITS[@]}"; do
     if [[ ! -f "$SYSTEMD_DIR/$unit" ]]; then
         echo "ERROR: Missing systemd unit:"
         echo "  $SYSTEMD_DIR/$unit"
@@ -42,25 +46,27 @@ done
 
 echo "Installing systemd units..."
 
-install -m 0644 \
-    "$SYSTEMD_DIR/himp-inventory-sync.service" \
-    /etc/systemd/system/himp-inventory-sync.service
-
-install -m 0644 \
-    "$SYSTEMD_DIR/himp-inventory-sync.timer" \
-    /etc/systemd/system/himp-inventory-sync.timer
+for unit in "${UNITS[@]}"; do
+    install -m 0644 \
+        "$SYSTEMD_DIR/$unit" \
+        "/etc/systemd/system/$unit"
+done
 
 echo
 echo "Reloading systemd..."
 systemctl daemon-reload
 
 echo
-echo "Enabling inventory synchronization timer..."
-systemctl enable himp-inventory-sync.timer
+echo "Enabling timers..."
+systemctl enable \
+    himp-inventory-sync.timer \
+    himp-scheduled-updates.timer
 
 echo
-echo "Starting inventory synchronization timer..."
-systemctl start himp-inventory-sync.timer
+echo "Starting timers..."
+systemctl start \
+    himp-inventory-sync.timer \
+    himp-scheduled-updates.timer
 
 echo
 echo "========================================="
@@ -70,11 +76,12 @@ echo
 
 systemctl status \
     himp-inventory-sync.timer \
+    himp-scheduled-updates.timer \
     --no-pager
 
 echo
 echo "Scheduled timers:"
 systemctl list-timers --all --no-pager |
-    grep -E '^.*himp-inventory-sync\.timer' || true
+    grep -E 'himp-(inventory-sync|scheduled-updates)\.timer' || true
 
 echo

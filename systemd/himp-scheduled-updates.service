@@ -1,0 +1,15 @@
+[Unit]
+Description=HIMP Scheduled Maintenance Updates
+After=network-online.target himp-inventory-sync.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+WorkingDirectory=/root/Homelab-Automation
+
+ExecStart=/usr/bin/python3 -m himp.cli automation-run scheduled_updates
+
+User=root
+
+Environment=PYTHONUNBUFFERED=1

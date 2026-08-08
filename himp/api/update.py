@@ -6,8 +6,8 @@ Provides host and group maintenance/update execution.
 
 from fastapi import APIRouter, HTTPException
 
-from himp.lib.ansible import run_playbook
 from himp.services.inventory import InventoryService
+from himp.services.update import UpdateService
 
 
 router = APIRouter(
@@ -15,20 +15,9 @@ router = APIRouter(
     tags=["Update"],
 )
 
+
 inventory = InventoryService()
-
-
-def _run_update(target):
-    success, elapsed = run_playbook(
-        "playbooks/update-all.yml",
-        target,
-    )
-
-    return {
-        "target": target,
-        "success": success,
-        "elapsed": round(elapsed, 3),
-    }
+updates = UpdateService()
 
 
 @router.post("/host/{hostname}")
@@ -44,7 +33,7 @@ async def update_host(hostname: str):
             },
         )
 
-    return _run_update(hostname)
+    return updates.update(hostname)
 
 
 @router.post("/group/{group}")
@@ -65,4 +54,4 @@ async def update_group(group: str):
             },
         )
 
-    return _run_update(group)
+    return updates.update(group)

@@ -14,6 +14,7 @@ from himp.services.plugins import PluginService
 from himp.services.reports import ReportService
 from himp.services.settings import SettingsService
 from himp.services.validation import ValidationService
+from himp.services.update import UpdateService
 
 
 class HIMP:
@@ -42,10 +43,13 @@ class HIMP:
 
         self.settings = SettingsService()
 
+        self.updates = UpdateService()
+
         self.automation = AutomationService()
 
         self.automation.configure(
             self.health,
             self.reports,
             self.inventory,
+            self.updates,
         )

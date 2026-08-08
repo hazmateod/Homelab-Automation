@@ -8,6 +8,7 @@ category: "DNS"
 platform: "LXC"
 
 vendor: "Pi-hole"
+plugin: pihole
 
 priority: "High"
 

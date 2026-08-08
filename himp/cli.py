@@ -5,6 +5,7 @@ Command Line Interface
 import argparse
 
 from himp.commands import (
+    automation_run,
     dashboard,
     docs,
     health,
@@ -95,6 +96,18 @@ def main():
     )
     inventory_sync_parser.set_defaults(
         func=inventory_sync.run,
+    )
+
+    automation_run_parser = subparsers.add_parser(
+        "automation-run",
+        help="Run a registered automation task",
+    )
+    automation_run_parser.add_argument(
+        "task_id",
+        help="Automation task ID",
+    )
+    automation_run_parser.set_defaults(
+        func=automation_run.run,
     )
 
     update_parser = subparsers.add_parser(
