@@ -7,6 +7,7 @@
 {% from "components/health_trend_card.html" import health_trend_card %}
 {% from "components/health_status_table.html" import health_status_table %}
 {% from "components/inventory_table.html" import inventory_table %}
+{% from "components/health_summary_card.html" import health_summary_card %}
 
 {% block content %}
 
@@ -63,47 +64,7 @@
 
 {% for card in dashboard.health_cards.cards %}
 
-<div class="col-md-3">
-
-<div class="card bg-dark text-light border-secondary mb-4">
-
-<div class="card-body">
-
-<h5>{{ card.plugin }}</h5>
-
-{% if card.status == "HEALTHY" %}
-
-<span class="badge bg-success">
-HEALTHY
-</span>
-
-{% elif card.status == "WARNING" %}
-
-<span class="badge bg-warning text-dark">
-WARNING
-</span>
-
-{% else %}
-
-<span class="badge bg-danger">
-{{ card.status }}
-</span>
-
-{% endif %}
-
-<h3 class="mt-3">
-{{ card.earned }}/{{ card.possible }}
-</h3>
-
-<p class="text-secondary">
-Hosts: {{ card.hosts }}
-</p>
-
-</div>
-
-</div>
-
-</div>
+    {{ health_summary_card(card) }}
 
 {% endfor %}
 
