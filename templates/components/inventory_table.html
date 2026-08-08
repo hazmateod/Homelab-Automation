@@ -1,0 +1,72 @@
+{% macro inventory_table(hosts) %}
+
+<div class="table-responsive">
+
+    <table class="table table-dark table-striped">
+
+        <thead>
+
+        <tr>
+
+            <th>
+                Hostname
+            </th>
+
+            <th>
+                Group
+            </th>
+
+            <th>
+                IP Address
+            </th>
+
+            <th>
+                User
+            </th>
+
+            <th>
+                Become
+            </th>
+
+        </tr>
+
+        </thead>
+
+
+        <tbody>
+
+        {% for host in hosts %}
+
+        <tr>
+
+            <td>
+                {{ host.hostname }}
+            </td>
+
+            <td>
+                {{ host.group }}
+            </td>
+
+            <td>
+                {{ host.ip }}
+            </td>
+
+            <td>
+                {{ host.user }}
+            </td>
+
+            <td>
+                {{ host.become }}
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endmacro %}
