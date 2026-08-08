@@ -15,6 +15,7 @@ from himp.api.dashboard import router as dashboard_router
 from himp.api.discovery import router as discovery_router
 from himp.api.execution import router as execution_router
 from himp.api.inventory import router as inventory_router
+from himp.api.update import router as update_router
 from himp.api.health import router as health_router
 from himp.api.health_history import router as health_history_router
 from himp.api.health_trends import router as health_trends_router
@@ -45,6 +46,11 @@ app.include_router(
 
 app.include_router(
     inventory_router,
+    prefix="/api",
+)
+
+app.include_router(
+    update_router,
     prefix="/api",
 )
 
