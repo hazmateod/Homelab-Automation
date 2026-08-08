@@ -3,6 +3,7 @@
 {% from "components/plugin_card.html" import plugin_card %}
 {% from "components/host_health_card.html" import host_health_card %}
 {% from "components/dashboard_metric.html" import dashboard_metric %}
+{% from "components/himp_service_card.html" import himp_service_card %}
 
 {% block content %}
 
@@ -55,86 +56,7 @@
 
 <div class="row">
 
-    <div class="col-md-3">
-
-        <div class="card bg-dark text-light border-secondary mb-4">
-
-            <div class="card-body">
-
-                <h6>HIMP Service</h6>
-
-                {% if system.running %}
-
-                <h3>
-                    <span class="badge bg-success">
-                        Running
-                    </span>
-                </h3>
-
-                {% else %}
-
-                <h3>
-                    <span class="badge bg-danger">
-                        Down
-                    </span>
-                </h3>
-
-                {% endif %}
-
-
-                <small>
-                    Status: {{ system.status }}
-                </small>
-
-
-                <div class="mt-2">
-
-                    <small>
-                        PID: {{ system.pid }}
-                    </small>
-
-                </div>
-
-
-                <div class="mt-2">
-
-                    <small>
-                        Last Restart: {{ system.started }}
-                    </small>
-
-                </div>
-
-
-                <hr>
-
-
-                <button
-                    class="btn btn-warning btn-sm"
-                    id="restart-himp">
-
-                    Restart HIMP
-
-                </button>
-
-
-            </div>
-
-        </div>
-
-    </div>
-
-</div>
-
-
-<hr class="border-secondary">
-
-
-<h2 class="mb-4">
-    Infrastructure Health
-</h2>
-
-
-<div class="row">
+    {{ himp_service_card(system) }}
 
 {% for card in dashboard.health_cards.cards %}
 
