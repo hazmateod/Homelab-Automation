@@ -8,7 +8,7 @@
     media_health:
       name: Media Services
       earned: 0
-      possible: 10
+      possible: 7
       status: CRITICAL
       issues: []
 

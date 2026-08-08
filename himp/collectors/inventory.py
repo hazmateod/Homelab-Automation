@@ -35,17 +35,20 @@ class InventoryCollector:
         )
 
     def hosts(self):
-
         results = []
+        seen = set()
 
         for group, data in self.groups().items():
-
             hosts = data.get(
                 "hosts",
                 {}
             )
 
             for hostname, details in hosts.items():
+                if hostname in seen:
+                    continue
+
+                seen.add(hostname)
 
                 results.append(
                     {
