@@ -2,6 +2,7 @@
 
 {% from "components/plugin_card.html" import plugin_card %}
 {% from "components/host_health_card.html" import host_health_card %}
+{% from "components/dashboard_metric.html" import dashboard_metric %}
 
 {% block content %}
 
@@ -24,72 +25,13 @@
 
 <div class="row">
 
-    <div class="col-md-3">
+    {{ dashboard_metric("Hostname", dashboard.system.hostname, "primary", "white") }}
 
-        <div class="card bg-primary text-white mb-4">
+    {{ dashboard_metric("Plugins", dashboard.plugins.plugins, "success", "white") }}
 
-            <div class="card-body">
+    {{ dashboard_metric("Inventory Hosts", dashboard.inventory.total_hosts, "info", "white") }}
 
-                <h6>Hostname</h6>
-
-                <h3>{{ dashboard.system.hostname }}</h3>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="col-md-3">
-
-        <div class="card bg-success text-white mb-4">
-
-            <div class="card-body">
-
-                <h6>Plugins</h6>
-
-                <h3>{{ dashboard.plugins.plugins }}</h3>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="col-md-3">
-
-        <div class="card bg-info text-white mb-4">
-
-            <div class="card-body">
-
-                <h6>Inventory Hosts</h6>
-
-                <h3>{{ dashboard.inventory.total_hosts }}</h3>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="col-md-3">
-
-        <div class="card bg-warning text-dark mb-4">
-
-            <div class="card-body">
-
-                <h6>Inventory Groups</h6>
-
-                <h3>{{ dashboard.inventory.groups }}</h3>
-
-            </div>
-
-        </div>
-
-    </div>
+    {{ dashboard_metric("Inventory Groups", dashboard.inventory.groups, "warning", "dark") }}
 
 </div>
 
@@ -99,80 +41,13 @@
 
 <div class="row">
 
-    <div class="col-md-3">
+    {{ dashboard_metric("Health Score", dashboard.health.score, "dark", "light") }}
 
-        <div class="card bg-dark text-light mb-4">
+    {{ dashboard_metric("Passed", dashboard.health.passed, "success", "white") }}
 
-            <div class="card-body">
+    {{ dashboard_metric("Warnings", dashboard.health.warnings, "warning", "dark") }}
 
-                <h6>Health Score</h6>
-
-                <h3>
-                    {{ dashboard.health.score }}
-                </h3>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="col-md-3">
-
-        <div class="card bg-success text-white mb-4">
-
-            <div class="card-body">
-
-                <h6>Passed</h6>
-
-                <h3>
-                    {{ dashboard.health.passed }}
-                </h3>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="col-md-3">
-
-        <div class="card bg-warning text-dark mb-4">
-
-            <div class="card-body">
-
-                <h6>Warnings</h6>
-
-                <h3>
-                    {{ dashboard.health.warnings }}
-                </h3>
-
-            </div>
-
-        </div>
-
-    </div>
-
-
-    <div class="col-md-3">
-
-        <div class="card bg-danger text-white mb-4">
-
-            <div class="card-body">
-
-                <h6>Failed</h6>
-
-                <h3>
-                    {{ dashboard.health.failed }}
-                </h3>
-
-            </div>
-
-        </div>
-
-    </div>
+    {{ dashboard_metric("Failed", dashboard.health.failed, "danger", "white") }}
 
 </div>
 
