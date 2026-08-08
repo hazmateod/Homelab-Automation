@@ -36,6 +36,16 @@ class DashboardService:
         return {
             "total_hosts": inventory.total_hosts,
             "groups": inventory.groups,
+            "group_health": [
+                {
+                    "name": group.name,
+                    "hosts": group.hosts,
+                    "health_status": group.health_status,
+                    "health_earned": group.health_earned,
+                    "health_possible": group.health_possible,
+                }
+                for group in inventory.statistics.group_counts
+            ],
             "hosts": [
                 {
                     "hostname": host.hostname,

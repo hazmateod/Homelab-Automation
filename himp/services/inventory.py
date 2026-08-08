@@ -23,18 +23,14 @@ class InventoryService:
     """
 
     def __init__(self):
-
         self.repository = InventoryRepository()
-
         self.collector = InventoryCollector()
-
         self.health_repository = HealthRepository()
 
     def all_hosts(
         self,
         include_inactive=False,
     ):
-
         return self.repository.all_hosts(
             include_inactive=include_inactive
         )
@@ -43,26 +39,22 @@ class InventoryService:
         self,
         hostname,
     ):
-
         return self.repository.find_host(
             hostname
         )
 
     def count(self):
-
         return self.repository.count()
 
     def changes(
         self,
         limit=100,
     ):
-
         return self.repository.changes(
             limit
         )
 
     def sync(self):
-
         hosts = self.collector.hosts()
 
         self.repository.save_snapshot(
@@ -83,23 +75,19 @@ class InventoryService:
         }
 
     def _health_lookup(self):
-
         lookup = {}
 
         for execution in self.health_repository.plugins():
-
             inventory_group = execution.metadata.data.get(
                 "inventory_group",
                 "",
             )
 
             for host in execution.hosts:
-
                 if not host.results:
                     continue
 
                 result = host.results[0]
-
                 health = result.details or {}
 
                 lookup[
@@ -121,20 +109,51 @@ class InventoryService:
 
         return lookup
 
-    def summary(self):
+    @staticmethod
+    def _group_health(hosts):
+        earned = sum(
+            host.health_earned
+            for host in hosts
+        )
 
+        possible = sum(
+            host.health_possible
+            for host in hosts
+        )
+
+        statuses = {
+            host.health_status
+            for host in hosts
+            if host.health_status != "UNKNOWN"
+        }
+
+        if not statuses:
+            status = "UNKNOWN"
+        elif "FAIL" in statuses:
+            status = "FAIL"
+        elif "WARNING" in statuses:
+            status = "WARNING"
+        elif statuses == {"PASS"}:
+            status = "PASS"
+        else:
+            status = "UNKNOWN"
+
+        return {
+            "status": status,
+            "earned": earned,
+            "possible": possible,
+        }
+
+    def summary(self):
         hosts = []
 
         records = self.repository.all_hosts()
-
         groups = Counter()
 
         health_lookup = self._health_lookup()
 
         for item in records:
-
             group = item["group_name"]
-
             hostname = item["hostname"]
 
             groups[group] += 1
@@ -169,6 +188,33 @@ class InventoryService:
                 )
             )
 
+        group_hosts = {}
+
+        for host in hosts:
+            group_hosts.setdefault(
+                host.group,
+                [],
+            ).append(host)
+
+        group_counts = []
+
+        for name, count in sorted(
+            groups.items()
+        ):
+            health = self._group_health(
+                group_hosts.get(name, [])
+            )
+
+            group_counts.append(
+                InventoryGroup(
+                    name=name,
+                    hosts=count,
+                    health_status=health["status"],
+                    health_earned=health["earned"],
+                    health_possible=health["possible"],
+                )
+            )
+
         all_records = self.repository.all_hosts(
             include_inactive=True
         )
@@ -181,15 +227,7 @@ class InventoryService:
             recent_changes=len(
                 self.repository.changes()
             ),
-            group_counts=[
-                InventoryGroup(
-                    name=name,
-                    hosts=count,
-                )
-                for name, count in sorted(
-                    groups.items()
-                )
-            ],
+            group_counts=group_counts,
         )
 
         return InventorySummary(

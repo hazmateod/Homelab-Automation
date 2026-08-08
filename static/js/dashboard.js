@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     initializePluginButtons();
     initializeRestartButton();
+    initializeUpdateButtons();
 
 });
 
@@ -151,6 +152,85 @@ function initializeRestartButton() {
             alert("Unable to restart the HIMP service.");
 
         }
+
+    });
+
+}
+
+
+function initializeUpdateButtons() {
+
+    const buttons = document.querySelectorAll(".update-target");
+
+    console.log(`Found ${buttons.length} Update buttons.`);
+
+    buttons.forEach(button => {
+
+        button.addEventListener("click", async () => {
+
+            const type = button.dataset.updateType;
+            const target = button.dataset.target;
+
+            const confirmed = confirm(
+                `Update ${type} "${target}"?\n\nThis will update the selected host or group using the HIMP update playbook.`
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            const originalText = button.textContent;
+
+            button.disabled = true;
+            button.textContent = "Updating...";
+            button.classList.remove("btn-primary", "btn-success", "btn-danger");
+            button.classList.add("btn-warning", "text-dark");
+
+            try {
+
+                const response = await fetch(
+                    `/api/update/${type}/${encodeURIComponent(target)}`,
+                    {
+                        method: "POST"
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok || !result.success) {
+                    throw new Error(
+                        result.detail
+                            ? JSON.stringify(result.detail)
+                            : `HTTP ${response.status}`
+                    );
+                }
+
+                button.classList.remove("btn-warning", "text-dark");
+                button.classList.add("btn-success");
+                button.textContent = "Updated";
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+
+            } catch (error) {
+
+                console.error(error);
+
+                button.disabled = false;
+                button.classList.remove("btn-warning", "text-dark");
+                button.classList.add("btn-danger");
+                button.textContent = "Failed";
+
+                setTimeout(() => {
+                    button.classList.remove("btn-danger");
+                    button.classList.add("btn-primary");
+                    button.textContent = originalText;
+                }, 3000);
+
+            }
+
+        });
 
     });
 

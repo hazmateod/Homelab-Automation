@@ -129,6 +129,90 @@ Results
 
 
 
+<div class="card bg-dark border-secondary mb-4">
+
+<div class="card-header">
+Inventory Groups
+</div>
+
+<div class="table-responsive">
+
+<table class="table table-dark table-striped table-hover mb-0">
+
+<thead>
+
+<tr>
+<th>Group</th>
+<th>Hosts</th>
+<th>Health</th>
+<th>Score</th>
+<th>Update</th>
+</tr>
+
+</thead>
+
+<tbody>
+
+{% for group in inventory.statistics.group_counts %}
+
+<tr>
+
+<td>
+{{ group.name }}
+</td>
+
+<td>
+{{ group.hosts }}
+</td>
+
+<td>
+{% if group.health_status == "PASS" %}
+<span class="badge bg-success">
+HEALTHY
+</span>
+{% elif group.health_status == "WARNING" %}
+<span class="badge bg-warning text-dark">
+WARNING
+</span>
+{% elif group.health_status == "FAIL" %}
+<span class="badge bg-danger">
+FAILED
+</span>
+{% else %}
+<span class="badge bg-secondary">
+UNKNOWN
+</span>
+{% endif %}
+</td>
+
+<td>
+{{ group.health_earned }}/{{ group.health_possible }}
+</td>
+
+<td>
+<button
+    type="button"
+    class="btn btn-sm btn-primary update-target"
+    data-update-type="group"
+    data-target="{{ group.name }}"
+>
+Update
+</button>
+</td>
+
+</tr>
+
+{% endfor %}
+
+</tbody>
+
+</table>
+
+</div>
+
+</div>
+
+
 <div class="card bg-dark border-secondary">
 
 <div class="card-header">
@@ -150,6 +234,9 @@ Inventory Hosts
 <th>IP Address</th>
 <th>User</th>
 <th>Become</th>
+<th>Health</th>
+<th>Score</th>
+<th>Update</th>
 </tr>
 
 </thead>
@@ -206,6 +293,41 @@ No
 
 {% endif %}
 
+</td>
+
+<td>
+{% if host.health_status == "PASS" %}
+<span class="badge bg-success">
+HEALTHY
+</span>
+{% elif host.health_status == "WARNING" %}
+<span class="badge bg-warning text-dark">
+WARNING
+</span>
+{% elif host.health_status == "FAIL" %}
+<span class="badge bg-danger">
+FAILED
+</span>
+{% else %}
+<span class="badge bg-secondary">
+UNKNOWN
+</span>
+{% endif %}
+</td>
+
+<td>
+{{ host.health_earned }}/{{ host.health_possible }}
+</td>
+
+<td>
+<button
+    type="button"
+    class="btn btn-sm btn-primary update-target"
+    data-update-type="host"
+    data-target="{{ host.hostname }}"
+>
+Update
+</button>
 </td>
 
 

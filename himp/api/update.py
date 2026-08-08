@@ -6,7 +6,6 @@ Provides host and group maintenance/update execution.
 
 from fastapi import APIRouter, HTTPException
 
-from himp.config import config
 from himp.lib.ansible import run_playbook
 from himp.services.inventory import InventoryService
 
@@ -21,7 +20,7 @@ inventory = InventoryService()
 
 def _run_update(target):
     success, elapsed = run_playbook(
-        config.maintenance_playbook,
+        "playbooks/update-all.yml",
         target,
     )
 
