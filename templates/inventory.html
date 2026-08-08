@@ -3,9 +3,7 @@
 {% block content %}
 
 <div class="row mb-4">
-
-    <div class="col">
-
+    <div class="col-12">
         <h1 class="display-5">
             Inventory
         </h1>
@@ -13,16 +11,14 @@
         <p class="text-secondary">
             Live Configuration Management Database (CMDB)
         </p>
-
     </div>
-
 </div>
 
 
-<div class="row mb-4">
+<div class="row g-3 mb-4">
 
     <div class="col-md-3">
-        <div class="card bg-primary text-white">
+        <div class="card bg-primary text-white h-100">
             <div class="card-body">
                 <h6>Total Hosts</h6>
                 <h2>{{ inventory.statistics.total_hosts }}</h2>
@@ -30,19 +26,17 @@
         </div>
     </div>
 
-
     <div class="col-md-3">
-        <div class="card bg-success text-white">
-            <div class="card-body>
+        <div class="card bg-success text-white h-100">
+            <div class="card-body">
                 <h6>Active Hosts</h6>
                 <h2>{{ inventory.statistics.active_hosts }}</h2>
             </div>
         </div>
     </div>
 
-
     <div class="col-md-3">
-        <div class="card bg-secondary text-white">
+        <div class="card bg-secondary text-white h-100">
             <div class="card-body">
                 <h6>Inactive Hosts</h6>
                 <h2>{{ inventory.statistics.inactive_hosts }}</h2>
@@ -50,9 +44,8 @@
         </div>
     </div>
 
-
     <div class="col-md-3">
-        <div class="card bg-warning text-dark">
+        <div class="card bg-warning text-dark h-100">
             <div class="card-body">
                 <h6>Groups</h6>
                 <h2>{{ inventory.statistics.groups }}</h2>
@@ -64,387 +57,354 @@
 
 
 <div class="card bg-dark border-secondary mb-4">
+    <div class="card-body">
 
-<div class="card-body">
+        <div class="row g-3 align-items-end">
 
-<div class="row">
+            <div class="col-md-6">
+                <label
+                    for="inventorySearch"
+                    class="form-label"
+                >
+                    Search Hosts
+                </label>
 
-<div class="col-md-6">
+                <input
+                    id="inventorySearch"
+                    class="form-control"
+                    placeholder="hostname, IP, group, user"
+                >
+            </div>
 
-<label class="form-label">
-Search Hosts
-</label>
+            <div class="col-md-4">
+                <label
+                    for="inventoryGroup"
+                    class="form-label"
+                >
+                    Group
+                </label>
 
-<input
-id="inventorySearch"
-class="form-control"
-placeholder="hostname, IP, group, user">
+                <select
+                    id="inventoryGroup"
+                    class="form-select"
+                >
+                    <option value="all">
+                        All Groups
+                    </option>
 
+                    {% for group in inventory.statistics.group_counts %}
+                    <option value="{{ group.name }}">
+                        {{ group.name }}
+                    </option>
+                    {% endfor %}
+
+                </select>
+            </div>
+
+            <div class="col-md-2">
+                <label class="form-label">
+                    Results
+                </label>
+
+                <h4 id="inventoryCount">
+                    {{ inventory.hosts|length }}
+                </h4>
+            </div>
+
+        </div>
+
+    </div>
 </div>
-
-
-<div class="col-md-4">
-
-<label class="form-label">
-Group
-</label>
-
-<select id="inventoryGroup" class="form-select">
-
-<option value="all">
-All Groups
-</option>
-
-{% for group in inventory.statistics.group_counts %}
-
-<option value="{{ group.name }}">
-{{ group.name }}
-</option>
-
-{% endfor %}
-
-</select>
-
-</div>
-
-
-<div class="col-md-2">
-
-<label class="form-label">
-Results
-</label>
-
-<h4 id="inventoryCount">
-{{ inventory.hosts|length }}
-</h4>
-
-</div>
-
-
-</div>
-
-</div>
-
-</div>
-
 
 
 <div class="card bg-dark border-secondary mb-4">
 
-<div class="card-header">
-Inventory Groups
-</div>
+    <div class="card-header">
+        Inventory Groups
+    </div>
 
-<div class="table-responsive">
+    <div class="table-responsive">
 
-<table class="table table-dark table-striped table-hover mb-0">
+        <table class="table table-dark table-striped table-hover mb-0">
 
-<thead>
+            <thead>
+                <tr>
+                    <th>Group</th>
+                    <th>Hosts</th>
+                    <th>Health</th>
+                    <th>Score</th>
+                    <th>Update</th>
+                </tr>
+            </thead>
 
-<tr>
-<th>Group</th>
-<th>Hosts</th>
-<th>Health</th>
-<th>Score</th>
-<th>Update</th>
-</tr>
+            <tbody>
 
-</thead>
+                {% for group in inventory.statistics.group_counts %}
 
-<tbody>
+                <tr>
 
-{% for group in inventory.statistics.group_counts %}
+                    <td>
+                        {{ group.name }}
+                    </td>
 
-<tr>
+                    <td>
+                        {{ group.hosts }}
+                    </td>
 
-<td>
-{{ group.name }}
-</td>
+                    <td>
+                        {% if group.health_status == "PASS" %}
+                        <span class="badge bg-success">
+                            HEALTHY
+                        </span>
+                        {% elif group.health_status == "WARNING" %}
+                        <span class="badge bg-warning text-dark">
+                            WARNING
+                        </span>
+                        {% elif group.health_status == "FAIL" %}
+                        <span class="badge bg-danger">
+                            FAILED
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">
+                            UNKNOWN
+                        </span>
+                        {% endif %}
+                    </td>
 
-<td>
-{{ group.hosts }}
-</td>
+                    <td>
+                        {{ group.health_earned }}/{{ group.health_possible }}
+                    </td>
 
-<td>
-{% if group.health_status == "PASS" %}
-<span class="badge bg-success">
-HEALTHY
-</span>
-{% elif group.health_status == "WARNING" %}
-<span class="badge bg-warning text-dark">
-WARNING
-</span>
-{% elif group.health_status == "FAIL" %}
-<span class="badge bg-danger">
-FAILED
-</span>
-{% else %}
-<span class="badge bg-secondary">
-UNKNOWN
-</span>
-{% endif %}
-</td>
+                    <td>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-primary update-target"
+                            data-update-type="group"
+                            data-target="{{ group.name }}"
+                        >
+                            Update
+                        </button>
+                    </td>
 
-<td>
-{{ group.health_earned }}/{{ group.health_possible }}
-</td>
+                </tr>
 
-<td>
-<button
-    type="button"
-    class="btn btn-sm btn-primary update-target"
-    data-update-type="group"
-    data-target="{{ group.name }}"
->
-Update
-</button>
-</td>
+                {% endfor %}
 
-</tr>
+            </tbody>
 
-{% endfor %}
+        </table>
 
-</tbody>
-
-</table>
-
-</div>
+    </div>
 
 </div>
 
 
 <div class="card bg-dark border-secondary">
 
-<div class="card-header">
-Inventory Hosts
-</div>
+    <div class="card-header">
+        Inventory Hosts
+    </div>
 
+    <div class="table-responsive">
 
-<div class="table-responsive">
+        <table
+            class="table table-dark table-striped table-hover mb-0"
+            id="inventoryTable"
+        >
 
+            <thead>
+                <tr>
+                    <th>Hostname</th>
+                    <th>Group</th>
+                    <th>IP Address</th>
+                    <th>User</th>
+                    <th>Become</th>
+                    <th>Health</th>
+                    <th>Score</th>
+                    <th>Update</th>
+                </tr>
+            </thead>
 
-<table class="table table-dark table-striped table-hover mb-0">
+            <tbody>
 
+                {% for host in inventory.hosts %}
 
-<thead>
+                <tr
+                    data-host="{{ host.hostname }}"
+                    data-group="{{ host.group }}"
+                    data-ip="{{ host.ip }}"
+                    data-user="{{ host.user }}"
+                >
 
-<tr>
-<th>Hostname</th>
-<th>Group</th>
-<th>IP Address</th>
-<th>User</th>
-<th>Become</th>
-<th>Health</th>
-<th>Score</th>
-<th>Update</th>
-</tr>
+                    <td>
+                        <a href="/inventory/hosts/{{ host.hostname }}">
+                            {{ host.hostname }}
+                        </a>
+                    </td>
 
-</thead>
+                    <td>
+                        {{ host.group }}
+                    </td>
 
+                    <td>
+                        {{ host.ip }}
+                    </td>
 
-<tbody id="inventoryTable">
+                    <td>
+                        {{ host.user }}
+                    </td>
 
+                    <td>
+                        {% if host.become %}
+                        <span class="badge bg-warning text-dark">
+                            Yes
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">
+                            No
+                        </span>
+                        {% endif %}
+                    </td>
 
-{% for host in inventory.hosts %}
+                    <td>
+                        {% if host.health_status == "PASS" %}
+                        <span class="badge bg-success">
+                            HEALTHY
+                        </span>
+                        {% elif host.health_status == "WARNING" %}
+                        <span class="badge bg-warning text-dark">
+                            WARNING
+                        </span>
+                        {% elif host.health_status == "FAIL" %}
+                        <span class="badge bg-danger">
+                            FAILED
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">
+                            UNKNOWN
+                        </span>
+                        {% endif %}
+                    </td>
 
-<tr
-data-host="{{ host.hostname }}"
-data-group="{{ host.group }}"
-data-ip="{{ host.ip }}"
-data-user="{{ host.user }}"
->
+                    <td>
+                        {{ host.health_earned }}/{{ host.health_possible }}
+                    </td>
 
+                    <td>
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-primary update-target"
+                            data-update-type="host"
+                            data-target="{{ host.hostname }}"
+                        >
+                            Update
+                        </button>
+                    </td>
 
-<td>
-<a href="/inventory/hosts/{{ host.hostname }}">
-{{ host.hostname }}
-</a>
-</td>
+                </tr>
 
+                {% endfor %}
 
-<td>
-{{ host.group }}
-</td>
+            </tbody>
 
+        </table>
 
-<td>
-{{ host.ip }}
-</td>
-
-
-<td>
-{{ host.user }}
-</td>
-
-
-<td>
-
-{% if host.become %}
-
-<span class="badge bg-warning text-dark">
-Yes
-</span>
-
-{% else %}
-
-<span class="badge bg-secondary">
-No
-</span>
-
-{% endif %}
-
-</td>
-
-<td>
-{% if host.health_status == "PASS" %}
-<span class="badge bg-success">
-HEALTHY
-</span>
-{% elif host.health_status == "WARNING" %}
-<span class="badge bg-warning text-dark">
-WARNING
-</span>
-{% elif host.health_status == "FAIL" %}
-<span class="badge bg-danger">
-FAILED
-</span>
-{% else %}
-<span class="badge bg-secondary">
-UNKNOWN
-</span>
-{% endif %}
-</td>
-
-<td>
-{{ host.health_earned }}/{{ host.health_possible }}
-</td>
-
-<td>
-<button
-    type="button"
-    class="btn btn-sm btn-primary update-target"
-    data-update-type="host"
-    data-target="{{ host.hostname }}"
->
-Update
-</button>
-</td>
-
-
-</tr>
-
-{% endfor %}
-
-
-</tbody>
-
-
-</table>
-
-
-</div>
+    </div>
 
 </div>
 
 
 <script>
-
 document.addEventListener(
-"DOMContentLoaded",
-() => {
+    "DOMContentLoaded",
+    () => {
 
-const search =
-document.getElementById(
-"inventorySearch"
+        const search =
+            document.getElementById(
+                "inventorySearch"
+            );
+
+        const group =
+            document.getElementById(
+                "inventoryGroup"
+            );
+
+        const rows =
+            document.querySelectorAll(
+                "#inventoryTable tbody tr"
+            );
+
+        const count =
+            document.getElementById(
+                "inventoryCount"
+            );
+
+
+        function filterInventory() {
+
+            let visible = 0;
+
+            const text =
+                search.value.toLowerCase();
+
+            const selected =
+                group.value;
+
+
+            rows.forEach(row => {
+
+                const data =
+                    row.dataset;
+
+                const matchesText =
+                    (
+                        data.host +
+                        data.group +
+                        data.ip +
+                        data.user
+                    )
+                    .toLowerCase()
+                    .includes(text);
+
+                const matchesGroup =
+                    selected === "all" ||
+                    data.group === selected;
+
+
+                if (
+                    matchesText &&
+                    matchesGroup
+                ) {
+
+                    row.style.display = "";
+                    visible++;
+
+                } else {
+
+                    row.style.display = "none";
+
+                }
+
+            });
+
+
+            count.textContent = visible;
+
+        }
+
+
+        search.addEventListener(
+            "keyup",
+            filterInventory
+        );
+
+        group.addEventListener(
+            "change",
+            filterInventory
+        );
+
+    }
 );
-
-const group =
-document.getElementById(
-"inventoryGroup"
-);
-
-const rows =
-document.querySelectorAll(
-"#inventoryTable tr"
-);
-
-const count =
-document.getElementById(
-"inventoryCount"
-);
-
-
-function filterInventory(){
-
-let visible = 0;
-
-const text =
-search.value.toLowerCase();
-
-const selected =
-group.value;
-
-
-rows.forEach(row => {
-
-const data =
-row.dataset;
-
-const matchesText =
-(
-data.host +
-data.group +
-data.ip +
-data.user
-)
-.toLowerCase()
-.includes(text);
-
-
-const matchesGroup =
-selected === "all"
-||
-data.group === selected;
-
-
-if(matchesText && matchesGroup){
-
-row.style.display = "";
-
-visible++;
-
-}
-
-else{
-
-row.style.display = "none";
-
-}
-
-});
-
-
-count.textContent = visible;
-
-}
-
-
-search.addEventListener(
-"keyup",
-filterInventory
-);
-
-
-group.addEventListener(
-"change",
-filterInventory
-);
-
-
-}
-);
-
 </script>
-
 
 {% endblock %}

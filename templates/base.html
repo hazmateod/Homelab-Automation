@@ -1,9 +1,9 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 
 <head>
 
-    <meta charset="UTF-8">
+    <meta charset="utf-8">
 
     <meta name="viewport"
           content="width=device-width, initial-scale=1">
@@ -18,33 +18,32 @@
 
 <body class="bg-dark text-light">
 
-<div class="d-flex">
+    <div class="d-flex min-vh-100">
 
-    {% include "layout/sidebar.html" %}
+        {% include "layout/sidebar.html" %}
 
-    <div class="flex-grow-1">
+        <div class="flex-grow-1 min-width-0">
 
-        {% include "components/navbar.html" %}
+            {% include "components/navbar.html" %}
 
-        <main class="container-fluid py-4 px-4">
+            <main class="container-fluid p-4">
 
-            {% block content %}
+                {% block content %}
+                {% endblock %}
 
-            {% endblock %}
+            </main>
 
-        </main>
+        </div>
 
     </div>
 
-</div>
+    <script
+        src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js">
+    </script>
 
-<script
-    src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.7/dist/js/bootstrap.bundle.min.js">
-</script>
-
-<script
-    src="/static/js/dashboard.js">
-</script>
+    <script
+        src="/static/js/dashboard.js">
+    </script>
 
 </body>
 
