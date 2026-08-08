@@ -1,0 +1,15 @@
+[Unit]
+Description=HIMP Inventory Synchronization
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+
+WorkingDirectory=/root/Homelab-Automation
+
+ExecStart=/usr/bin/python3 -m himp.cli inventory-sync
+
+User=root
+
+Environment=PYTHONUNBUFFERED=1

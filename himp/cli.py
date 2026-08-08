@@ -10,6 +10,7 @@ from himp.commands import (
     health,
     history,
     inventory,
+    inventory_sync,
     plugin,
     plugin_run,
     plugins,
@@ -86,6 +87,14 @@ def main():
     )
     inventory_parser.set_defaults(
         func=inventory.run,
+    )
+
+    inventory_sync_parser = subparsers.add_parser(
+        "inventory-sync",
+        help="Synchronize inventory with the live Ansible inventory",
+    )
+    inventory_sync_parser.set_defaults(
+        func=inventory_sync.run,
     )
 
     update_parser = subparsers.add_parser(
