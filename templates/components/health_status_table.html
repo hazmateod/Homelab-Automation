@@ -1,0 +1,84 @@
+{% macro health_status_table(plugins) %}
+
+<div class="table-responsive">
+
+    <table class="table table-dark table-striped">
+
+        <thead>
+
+        <tr>
+
+            <th>
+                Plugin
+            </th>
+
+            <th>
+                Status
+            </th>
+
+            <th>
+                Message
+            </th>
+
+            <th>
+                Duration
+            </th>
+
+        </tr>
+
+        </thead>
+
+
+        <tbody>
+
+        {% for plugin in plugins %}
+
+        <tr>
+
+            <td>
+                {{ plugin.plugin }}
+            </td>
+
+            <td>
+
+            {% if plugin.status == "PASS" %}
+
+            <span class="badge bg-success">
+                PASS
+            </span>
+
+            {% elif plugin.status == "WARNING" %}
+
+            <span class="badge bg-warning text-dark">
+                WARNING
+            </span>
+
+            {% else %}
+
+            <span class="badge bg-danger">
+                {{ plugin.status }}
+            </span>
+
+            {% endif %}
+
+            </td>
+
+            <td>
+                {{ plugin.message }}
+            </td>
+
+            <td>
+                {{ plugin.duration_ms }} ms
+            </td>
+
+        </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% endmacro %}
