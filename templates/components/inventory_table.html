@@ -28,6 +28,14 @@
                 Become
             </th>
 
+        <th>
+            Health
+        </th>
+
+        <th>
+            Score
+        </th>
+
         </tr>
 
         </thead>
@@ -58,6 +66,30 @@
             <td>
                 {{ host.become }}
             </td>
+
+        <td>
+            {% if host.health_status == "PASS" %}
+            <span class="badge bg-success">
+                HEALTHY
+            </span>
+            {% elif host.health_status == "WARNING" %}
+            <span class="badge bg-warning text-dark">
+                WARNING
+            </span>
+            {% elif host.health_status == "FAIL" %}
+            <span class="badge bg-danger">
+                FAILED
+            </span>
+            {% else %}
+            <span class="badge bg-secondary">
+                UNKNOWN
+            </span>
+            {% endif %}
+        </td>
+
+        <td>
+            {{ host.health_earned }}/{{ host.health_possible }}
+        </td>
 
         </tr>
 

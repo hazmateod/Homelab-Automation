@@ -43,6 +43,9 @@ class DashboardService:
                     "ip": host.ip,
                     "user": host.user,
                     "become": host.become,
+                    "health_status": host.health_status,
+                    "health_earned": host.health_earned,
+                    "health_possible": host.health_possible,
                 }
                 for host in inventory.hosts
             ],

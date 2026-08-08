@@ -18,6 +18,12 @@ class InventoryHost:
 
     become: bool
 
+    health_status: str = "UNKNOWN"
+
+    health_earned: int = 0
+
+    health_possible: int = 0
+
 
 @dataclass
 class InventoryGroup:
