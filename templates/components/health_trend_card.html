@@ -1,0 +1,54 @@
+{% macro health_trend_card(trend) %}
+
+<div class="col-md-4">
+
+    <div class="card bg-dark text-light border-secondary mb-4">
+
+        <div class="card-body">
+
+            <h5>
+                {{ trend.plugin }}
+            </h5>
+
+
+            {% if trend.status == "PASS" %}
+
+            <span class="badge bg-success">
+                PASS
+            </span>
+
+            {% elif trend.status == "WARNING" %}
+
+            <span class="badge bg-warning text-dark">
+                WARNING
+            </span>
+
+            {% else %}
+
+            <span class="badge bg-danger">
+                {{ trend.status }}
+            </span>
+
+            {% endif %}
+
+
+            <p class="mt-3 mb-1">
+                Score:
+                {{ trend.score }}/{{ trend.possible }}
+            </p>
+
+
+            <small class="text-secondary">
+
+                Last Run:
+                {{ trend.latest }}
+
+            </small>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endmacro %}
