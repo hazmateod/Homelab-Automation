@@ -222,6 +222,14 @@ def inventory(request: Request):
 
     context["inventory"] = himp.inventory.summary()
 
+    context["inactive_hosts"] = [
+        dict(host)
+        for host in himp.inventory.repository.all_hosts(
+            include_inactive=True
+        )
+        if not host["active"]
+    ]
+
     return templates.TemplateResponse(
         request=request,
         name="inventory.html",

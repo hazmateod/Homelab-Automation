@@ -349,6 +349,244 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /*
+ * HIMP Inventory Host Remove / Restore UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const removeModal = document.getElementById(
+        "removeHostModal"
+    );
+
+    const restoreModal = document.getElementById(
+        "restoreHostModal"
+    );
+
+    if (!removeModal && !restoreModal) {
+        return;
+    }
+
+    function showError(element, message) {
+        element.textContent = message;
+        element.classList.remove("d-none");
+    }
+
+    function clearError(element) {
+        element.textContent = "";
+        element.classList.add("d-none");
+    }
+
+    if (removeModal) {
+        const removeName = document.getElementById(
+            "removeHostName"
+        );
+
+        const removeButton = document.getElementById(
+            "confirmRemoveHostButton"
+        );
+
+        const removeError = document.getElementById(
+            "removeHostError"
+        );
+
+        let hostname = "";
+
+        removeModal.addEventListener(
+            "show.bs.modal",
+            (event) => {
+                clearError(removeError);
+
+                const button = event.relatedTarget;
+
+                if (!button) {
+                    return;
+                }
+
+                hostname =
+                    button.dataset.hostname || "";
+
+                removeName.textContent = hostname;
+
+                removeButton.disabled = false;
+                removeButton.textContent =
+                    "Remove Host";
+            }
+        );
+
+        removeButton.addEventListener(
+            "click",
+            async () => {
+                clearError(removeError);
+
+                if (!hostname) {
+                    showError(
+                        removeError,
+                        "No host was selected."
+                    );
+                    return;
+                }
+
+                removeButton.disabled = true;
+                removeButton.textContent =
+                    "Removing...";
+
+                try {
+                    const response = await fetch(
+                        `/api/inventory/hosts/${encodeURIComponent(
+                            hostname
+                        )}`,
+                        {
+                            method: "DELETE",
+                        }
+                    );
+
+                    const result =
+                        await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            result.detail?.error ||
+                            result.detail ||
+                            `HTTP ${response.status}`
+                        );
+                    }
+
+                    removeButton.classList.remove(
+                        "btn-danger"
+                    );
+
+                    removeButton.classList.add(
+                        "btn-success"
+                    );
+
+                    removeButton.textContent =
+                        "Removed";
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 800);
+                } catch (err) {
+                    console.error(err);
+
+                    showError(
+                        removeError,
+                        err.message
+                    );
+
+                    removeButton.disabled = false;
+                    removeButton.textContent =
+                        "Remove Host";
+                }
+            }
+        );
+    }
+
+    if (restoreModal) {
+        const restoreName = document.getElementById(
+            "restoreHostName"
+        );
+
+        const restoreButton = document.getElementById(
+            "confirmRestoreHostButton"
+        );
+
+        const restoreError = document.getElementById(
+            "restoreHostError"
+        );
+
+        let hostname = "";
+
+        restoreModal.addEventListener(
+            "show.bs.modal",
+            (event) => {
+                clearError(restoreError);
+
+                const button = event.relatedTarget;
+
+                if (!button) {
+                    return;
+                }
+
+                hostname =
+                    button.dataset.hostname || "";
+
+                restoreName.textContent = hostname;
+
+                restoreButton.disabled = false;
+                restoreButton.textContent =
+                    "Restore Host";
+            }
+        );
+
+        restoreButton.addEventListener(
+            "click",
+            async () => {
+                clearError(restoreError);
+
+                if (!hostname) {
+                    showError(
+                        restoreError,
+                        "No host was selected."
+                    );
+                    return;
+                }
+
+                restoreButton.disabled = true;
+                restoreButton.textContent =
+                    "Restoring...";
+
+                try {
+                    const response = await fetch(
+                        `/api/inventory/hosts/${encodeURIComponent(
+                            hostname
+                        )}/restore`,
+                        {
+                            method: "POST",
+                        }
+                    );
+
+                    const result =
+                        await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(
+                            result.detail?.error ||
+                            result.detail ||
+                            `HTTP ${response.status}`
+                        );
+                    }
+
+                    restoreButton.classList.remove(
+                        "btn-success"
+                    );
+
+                    restoreButton.classList.add(
+                        "btn-primary"
+                    );
+
+                    restoreButton.textContent =
+                        "Restored";
+
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 800);
+                } catch (err) {
+                    console.error(err);
+
+                    showError(
+                        restoreError,
+                        err.message
+                    );
+
+                    restoreButton.disabled = false;
+                    restoreButton.textContent =
+                        "Restore Host";
+                }
+            }
+        );
+    }
+});
+
+/*
  * HIMP Inventory Host Edit UI
  */
 
