@@ -315,21 +315,6 @@ class InventoryFileWriter:
 
         updated = "".join(lines)
 
-        if existing_group != group:
-            empty_hosts_pattern = (
-                rf"(^    {existing_group}:\n"
-                rf"      hosts:)\n"
-                rf"(?=\n|    [A-Za-z0-9_-]+:|$)"
-            )
-
-            updated = re.sub(
-                empty_hosts_pattern,
-                r"\1 {}\n",
-                updated,
-                count=1,
-                flags=re.MULTILINE,
-            )
-
         host_lines = self._host_lines(
             hostname=hostname,
             ip=ip,
@@ -354,4 +339,50 @@ class InventoryFileWriter:
             "user": user,
             "become": bool(become),
             "previous_group": existing_group,
+        }
+
+    def remove_host(
+        self,
+        hostname,
+    ):
+        content = self._read()
+
+        inventory = self._load(content)
+
+        children = self._children(inventory)
+
+        existing_group = None
+
+        for group_name, data in children.items():
+            hosts = data.get("hosts")
+
+            if hosts and hostname in hosts:
+                existing_group = group_name
+                break
+
+        if existing_group is None:
+            raise ValueError(
+                f"Inventory host does not exist: {hostname}"
+            )
+
+        (
+            lines,
+            host_index,
+            block_end,
+        ) = self._find_host_block(
+            content,
+            hostname,
+        )
+
+        del lines[host_index:block_end]
+
+        updated = "".join(lines)
+
+        yaml.safe_load(updated)
+
+        self.filename.write_text(updated)
+
+        return {
+            "hostname": hostname,
+            "group": existing_group,
         }

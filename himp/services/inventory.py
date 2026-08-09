@@ -122,6 +122,33 @@ class InventoryService:
             include_inactive=True,
         )
 
+    def remove_host(
+        self,
+        hostname,
+    ):
+        existing = self.repository.find_host(
+            hostname,
+            include_inactive=True,
+        )
+
+        if existing is None:
+            raise ValueError(
+                f"Inventory host does not exist: {hostname}"
+            )
+
+        result = self.writer.remove_host(
+            hostname=hostname,
+        )
+
+        self.repository.mark_removed(
+            hostname
+        )
+
+        return self.repository.find_host(
+            hostname,
+            include_inactive=True,
+        )
+
     def sync(self):
         hosts = self.collector.hosts()
 
