@@ -237,6 +237,248 @@ function initializeUpdateButtons() {
 }
 
 /*
+ * HIMP Inventory SSH Setup UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById(
+        "sshSetupModal"
+    );
+
+    if (!modal) {
+        return;
+    }
+
+    const host = document.getElementById(
+        "sshSetupHost"
+    );
+
+    const copyCommand = document.getElementById(
+        "sshSetupCopyCommand"
+    );
+
+    const testCommand = document.getElementById(
+        "sshSetupTestCommand"
+    );
+
+    const ansibleCommand = document.getElementById(
+        "sshSetupAnsibleCommand"
+    );
+
+    const copyStatus = document.getElementById(
+        "sshSetupCopyStatus"
+    );
+
+    function clearStatus() {
+        copyStatus.textContent = "";
+        copyStatus.classList.add("d-none");
+    }
+
+    function showStatus(message) {
+        copyStatus.textContent = message;
+        copyStatus.classList.remove("d-none");
+    }
+
+    function configure(hostname, ip, user) {
+        const safeHostname = hostname.trim();
+        const safeIp = ip.trim();
+        const safeUser = user.trim();
+
+        host.textContent =
+            `${safeHostname} (${safeUser}@${safeIp})`;
+
+        copyCommand.value =
+            `ssh-copy-id ${safeUser}@${safeIp}`;
+
+        testCommand.value =
+            `ssh ${safeUser}@${safeIp}`;
+
+        ansibleCommand.value =
+            `ansible ${safeHostname} -i inventory/hosts.yml -m ping`;
+
+        clearStatus();
+    }
+
+    function getAddHostValues() {
+        return {
+            hostname:
+                document.getElementById(
+                    "addHostHostname"
+                ).value,
+
+            ip:
+                document.getElementById(
+                    "addHostIp"
+                ).value,
+
+            user:
+                document.getElementById(
+                    "addHostUser"
+                ).value,
+        };
+    }
+
+    function getEditHostValues() {
+        return {
+            hostname:
+                document.getElementById(
+                    "editHostHostname"
+                ).value,
+
+            ip:
+                document.getElementById(
+                    "editHostIp"
+                ).value,
+
+            user:
+                document.getElementById(
+                    "editHostUser"
+                ).value,
+        };
+    }
+
+    function showSetup(values) {
+        if (
+            !values.hostname.trim() ||
+            !values.ip.trim() ||
+            !values.user.trim()
+        ) {
+            showStatus(
+                "Enter the hostname, IP address, and Ansible user before opening SSH setup."
+            );
+            return;
+        }
+
+        configure(
+            values.hostname,
+            values.ip,
+            values.user
+        );
+
+        const bootstrapModal =
+            bootstrap.Modal.getOrCreateInstance(
+                modal
+            );
+
+        bootstrapModal.show();
+    }
+
+    async function copyToClipboard(
+        input,
+        label
+    ) {
+        try {
+            if (
+                navigator.clipboard &&
+                typeof navigator.clipboard.writeText === "function"
+            ) {
+                await navigator.clipboard.writeText(
+                    input.value
+                );
+
+                showStatus(
+                    `${label} copied to clipboard.`
+                );
+
+                return;
+            }
+        } catch (err) {
+            console.warn(
+                "Modern clipboard API unavailable:",
+                err
+            );
+        }
+
+        try {
+            input.focus();
+            input.select();
+
+            const copied =
+                document.execCommand("copy");
+
+            if (copied) {
+                showStatus(
+                    `${label} copied to clipboard.`
+                );
+
+                return;
+            }
+        } catch (err) {
+            console.warn(
+                "Legacy clipboard fallback failed:",
+                err
+            );
+        }
+
+        input.focus();
+        input.select();
+
+        showStatus(
+            "Unable to copy automatically. "
+            + "The command has been selected so you can copy it manually."
+        );
+    }
+
+    document.getElementById(
+        "showAddHostSshSetupButton"
+    ).addEventListener(
+        "click",
+        () => {
+            showSetup(
+                getAddHostValues()
+            );
+        }
+    );
+
+    document.getElementById(
+        "showEditHostSshSetupButton"
+    ).addEventListener(
+        "click",
+        () => {
+            showSetup(
+                getEditHostValues()
+            );
+        }
+    );
+
+    document.getElementById(
+        "copySshSetupCopyCommand"
+    ).addEventListener(
+        "click",
+        () => {
+            copyToClipboard(
+                copyCommand,
+                "SSH key command"
+            );
+        }
+    );
+
+    document.getElementById(
+        "copySshSetupTestCommand"
+    ).addEventListener(
+        "click",
+        () => {
+            copyToClipboard(
+                testCommand,
+                "SSH test command"
+            );
+        }
+    );
+
+    document.getElementById(
+        "copySshSetupAnsibleCommand"
+    ).addEventListener(
+        "click",
+        () => {
+            copyToClipboard(
+                ansibleCommand,
+                "Ansible test command"
+            );
+        }
+    );
+});
+
+/*
  * HIMP Inventory Host Add UI
  */
 

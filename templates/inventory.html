@@ -796,10 +796,180 @@ document.addEventListener(
 
                 <button
                     type="button"
+                    class="btn btn-outline-info"
+                    id="showAddHostSshSetupButton"
+                >
+                    SSH Setup
+                </button>
+
+                <button
+                    type="button"
                     class="btn btn-primary"
                     id="saveAddHostButton"
                 >
                     Add Host
+                </button>
+
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<!-- SSH Setup Instructions Modal -->
+
+<div
+    class="modal fade"
+    id="sshSetupModal"
+    tabindex="-1"
+    aria-labelledby="sshSetupModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content bg-dark text-light border-secondary">
+
+            <div class="modal-header border-secondary">
+
+                <h5
+                    class="modal-title"
+                    id="sshSetupModalLabel"
+                >
+                    SSH Setup Instructions
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close btn-close-white"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div
+                    class="alert alert-info"
+                    role="alert"
+                >
+                    HIMP uses SSH key authentication to manage
+                    inventory hosts. Run the commands below from
+                    the HIMP server. Your host password is only used
+                    by <code>ssh-copy-id</code> and is not stored by HIMP.
+                </div>
+
+                <div class="mb-3">
+
+                    <strong>Host</strong>
+
+                    <div
+                        id="sshSetupHost"
+                        class="mt-1"
+                    >
+                    </div>
+
+                </div>
+
+                <div class="mb-4">
+
+                    <h6>1. Copy the HIMP SSH key to the host</h6>
+
+                    <p class="text-secondary">
+                        This command will prompt for the host password.
+                    </p>
+
+                    <div class="input-group">
+
+                        <input
+                            id="sshSetupCopyCommand"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            readonly
+                        >
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            id="copySshSetupCopyCommand"
+                        >
+                            Copy
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div class="mb-4">
+
+                    <h6>2. Verify passwordless SSH</h6>
+
+                    <p class="text-secondary">
+                        This should connect without asking for a password.
+                    </p>
+
+                    <div class="input-group">
+
+                        <input
+                            id="sshSetupTestCommand"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            readonly
+                        >
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            id="copySshSetupTestCommand"
+                        >
+                            Copy
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div class="mb-3">
+
+                    <h6>3. Verify Ansible connectivity</h6>
+
+                    <p class="text-secondary">
+                        A successful test should return <code>pong</code>.
+                    </p>
+
+                    <div class="input-group">
+
+                        <input
+                            id="sshSetupAnsibleCommand"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            readonly
+                        >
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            id="copySshSetupAnsibleCommand"
+                        >
+                            Copy
+                        </button>
+
+                    </div>
+
+                </div>
+
+                <div
+                    id="sshSetupCopyStatus"
+                    class="alert alert-success d-none mt-3"
+                    role="alert"
+                ></div>
+
+            </div>
+
+            <div class="modal-footer border-secondary">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Close
                 </button>
 
             </div>
@@ -929,6 +1099,14 @@ document.addEventListener(
                     data-bs-dismiss="modal"
                 >
                     Cancel
+                </button>
+
+                <button
+                    type="button"
+                    class="btn btn-outline-info"
+                    id="showEditHostSshSetupButton"
+                >
+                    SSH Setup
                 </button>
 
                 <button
