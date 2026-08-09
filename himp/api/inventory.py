@@ -11,6 +11,7 @@ from pydantic import BaseModel
 
 from himp.database.inventory import InventoryRepository
 from himp.services.inventory import InventoryService
+from himp.services.ssh import SSHService
 
 
 class InventoryHostCreate(BaseModel):
@@ -36,6 +37,7 @@ router = APIRouter(
 
 service = InventoryService()
 repository = InventoryRepository()
+ssh_service = SSHService()
 
 
 @router.get("")
@@ -213,6 +215,43 @@ async def inventory_host(
         )
 
     return host
+
+
+@router.post("/hosts/{hostname}/ssh-test")
+async def test_inventory_host_ssh(
+    hostname: str,
+):
+    host = repository.find_host(
+        hostname
+    )
+
+    if host is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Host not found",
+                "hostname": hostname,
+            },
+        )
+
+    result = ssh_service.test(
+        hostname=host["hostname"],
+        ip=host["ip"],
+        user=host["ansible_user"],
+    )
+
+    return {
+        "hostname": result.hostname,
+        "ip": result.ip,
+        "user": result.user,
+        "status": result.status,
+        "success": result.success,
+        "return_code": result.return_code,
+        "elapsed": result.elapsed,
+        "stdout": result.stdout,
+        "stderr": result.stderr,
+        "message": result.message,
+    }
 
 
 @router.get("/cmdb")

@@ -1381,3 +1381,192 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     });
 });
+
+/*
+ * HIMP Inventory SSH Connectivity Test UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById(
+        "sshTestModal"
+    );
+
+    if (!modal) {
+        return;
+    }
+
+    const loading = document.getElementById(
+        "sshTestLoading"
+    );
+
+    const error = document.getElementById(
+        "sshTestError"
+    );
+
+    const result = document.getElementById(
+        "sshTestResult"
+    );
+
+    const host = document.getElementById(
+        "sshTestHost"
+    );
+
+    const address = document.getElementById(
+        "sshTestAddress"
+    );
+
+    const user = document.getElementById(
+        "sshTestUser"
+    );
+
+    const status = document.getElementById(
+        "sshTestStatus"
+    );
+
+    const elapsed = document.getElementById(
+        "sshTestElapsed"
+    );
+
+    const message = document.getElementById(
+        "sshTestMessage"
+    );
+
+    const stderrContainer = document.getElementById(
+        "sshTestStderrContainer"
+    );
+
+    const stderr = document.getElementById(
+        "sshTestStderr"
+    );
+
+    const reset = () => {
+        loading.classList.remove("d-none");
+        error.classList.add("d-none");
+        result.classList.add("d-none");
+
+        error.textContent = "";
+
+        host.textContent = "";
+        address.textContent = "";
+        user.textContent = "";
+        status.textContent = "";
+        elapsed.textContent = "";
+        message.textContent = "";
+
+        stderr.textContent = "";
+        stderrContainer.classList.add("d-none");
+    };
+
+    const statusBadge = (value, success) => {
+        const badge = document.createElement("span");
+
+        badge.className = success
+            ? "badge bg-success"
+            : "badge bg-danger";
+
+        badge.textContent = value;
+
+        return badge;
+    };
+
+    const testHost = async (
+        hostname,
+        button
+    ) => {
+        reset();
+
+        button.disabled = true;
+
+        const originalText = button.textContent;
+
+        button.textContent = "Testing...";
+
+        const bootstrapModal =
+            bootstrap.Modal.getOrCreateInstance(
+                modal
+            );
+
+        bootstrapModal.show();
+
+        try {
+            const response = await fetch(
+                `/api/inventory/hosts/${encodeURIComponent(hostname)}/ssh-test`,
+                {
+                    method: "POST",
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail?.error ||
+                    data.detail ||
+                    "Unable to test SSH connectivity."
+                );
+            }
+
+            host.textContent =
+                data.hostname;
+
+            address.textContent =
+                data.ip;
+
+            user.textContent =
+                data.user;
+
+            status.replaceChildren(
+                statusBadge(
+                    data.status,
+                    data.success
+                )
+            );
+
+            elapsed.textContent =
+                `${Number(data.elapsed).toFixed(3)} sec`;
+
+            message.textContent =
+                data.message ||
+                "No additional information.";
+
+            if (data.stderr) {
+                stderr.textContent =
+                    data.stderr;
+
+                stderrContainer.classList.remove(
+                    "d-none"
+                );
+            }
+
+            loading.classList.add("d-none");
+            result.classList.remove("d-none");
+
+        } catch (testError) {
+            loading.classList.add("d-none");
+
+            error.textContent =
+                testError.message ||
+                "Unable to test SSH connectivity.";
+
+            error.classList.remove("d-none");
+
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    };
+
+    document.querySelectorAll(
+        ".test-ssh-button"
+    ).forEach((button) => {
+        button.addEventListener(
+            "click",
+            () => {
+                testHost(
+                    button.dataset.hostname,
+                    button
+                );
+            }
+        );
+    });
+});
