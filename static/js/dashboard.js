@@ -235,3 +235,235 @@ function initializeUpdateButtons() {
     });
 
 }
+
+/*
+ * HIMP Scheduler UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById("scheduleModal");
+
+    if (!modal) {
+        return;
+    }
+
+    const taskId = document.getElementById("scheduleTaskId");
+    const enabled = document.getElementById("scheduleEnabled");
+    const frequency = document.getElementById("scheduleFrequency");
+    const scheduleTime = document.getElementById("scheduleTime");
+    const scheduleDay = document.getElementById("scheduleDay");
+    const timeGroup = document.getElementById("scheduleTimeGroup");
+    const dayGroup = document.getElementById("scheduleDayGroup");
+    const saveButton = document.getElementById("saveScheduleButton");
+    const error = document.getElementById("scheduleError");
+
+    function updateScheduleFields() {
+        const value = frequency.value;
+
+        timeGroup.classList.toggle(
+            "d-none",
+            value === "manual"
+        );
+
+        dayGroup.classList.toggle(
+            "d-none",
+            value !== "weekly"
+        );
+    }
+
+    function showError(message) {
+        error.textContent = message;
+        error.classList.remove("d-none");
+    }
+
+    function clearError() {
+        error.textContent = "";
+        error.classList.add("d-none");
+    }
+
+    modal.addEventListener("show.bs.modal", async (event) => {
+        clearError();
+
+        const button = event.relatedTarget;
+
+        if (!button) {
+            return;
+        }
+
+        const id = button.dataset.taskId;
+        const name = button.dataset.taskName;
+
+        taskId.value = id;
+        document.getElementById("scheduleModalLabel").textContent =
+            `Edit Schedule — ${name}`;
+
+        saveButton.disabled = true;
+
+        try {
+            const response = await fetch(
+                `/api/scheduler/${encodeURIComponent(id)}`
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail || "Unable to load schedule."
+                );
+            }
+
+            enabled.value = data.enabled ? "true" : "false";
+            frequency.value = data.frequency;
+            scheduleTime.value = data.schedule_time || "";
+            scheduleDay.value =
+                data.day_of_week !== null
+                    ? String(data.day_of_week)
+                    : "0";
+
+            updateScheduleFields();
+        } catch (err) {
+            showError(err.message);
+        } finally {
+            saveButton.disabled = false;
+        }
+    });
+
+    frequency.addEventListener(
+        "change",
+        updateScheduleFields
+    );
+
+    saveButton.addEventListener("click", async () => {
+        clearError();
+
+        const selectedFrequency = frequency.value;
+
+        const payload = {
+            enabled: enabled.value === "true",
+            frequency: selectedFrequency,
+            schedule_time:
+                selectedFrequency === "manual"
+                    ? null
+                    : scheduleTime.value,
+            day_of_week:
+                selectedFrequency === "weekly"
+                    ? Number(scheduleDay.value)
+                    : null,
+        };
+
+        saveButton.disabled = true;
+
+        try {
+            const response = await fetch(
+                `/api/scheduler/${encodeURIComponent(taskId.value)}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail?.error ||
+                    data.detail ||
+                    "Unable to update schedule."
+                );
+            }
+
+            window.location.reload();
+        } catch (err) {
+            showError(err.message);
+            saveButton.disabled = false;
+        }
+    });
+
+    updateScheduleFields();
+});
+
+/*
+ * HIMP Automation Run UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const buttons = document.querySelectorAll(
+        ".automation-run-button"
+    );
+
+    buttons.forEach(button => {
+        button.addEventListener("click", async () => {
+            const taskId = button.dataset.taskId;
+            const originalText = button.textContent;
+
+            const confirmed = confirm(
+                `Run automation "${taskId}" now?`
+            );
+
+            if (!confirmed) {
+                return;
+            }
+
+            button.disabled = true;
+            button.classList.remove(
+                "btn-outline-success",
+                "btn-success",
+                "btn-danger"
+            );
+            button.classList.add("btn-warning", "text-dark");
+            button.textContent = "Running...";
+
+            try {
+                const response = await fetch(
+                    `/api/automation/${encodeURIComponent(taskId)}/run`,
+                    {
+                        method: "POST"
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.detail ||
+                        `HTTP ${response.status}`
+                    );
+                }
+
+                button.classList.remove(
+                    "btn-warning",
+                    "text-dark"
+                );
+                button.classList.add("btn-success");
+                button.textContent = "Completed";
+
+                setTimeout(() => {
+                    button.disabled = false;
+                    button.classList.remove("btn-success");
+                    button.classList.add("btn-outline-success");
+                    button.textContent = originalText;
+                }, 3000);
+
+            } catch (error) {
+                console.error(error);
+
+                button.disabled = false;
+                button.classList.remove(
+                    "btn-warning",
+                    "text-dark"
+                );
+                button.classList.add("btn-danger");
+                button.textContent = "Failed";
+
+                setTimeout(() => {
+                    button.classList.remove("btn-danger");
+                    button.classList.add("btn-outline-success");
+                    button.textContent = originalText;
+                }, 3000);
+            }
+        });
+    });
+});

@@ -121,6 +121,10 @@ Schedule
 Status
 </th>
 
+<th>
+Actions
+</th>
+
 </tr>
 
 </thead>
@@ -130,6 +134,8 @@ Status
 
 
 {% for task in automation.automation %}
+
+{% set schedule = schedule_map.get(task.id) %}
 
 <tr>
 
@@ -142,12 +148,39 @@ Status
 </td>
 
 <td>
+
+{% if schedule and schedule.frequency == "manual" %}
+
+Manual
+
+{% elif schedule and schedule.frequency == "hourly" %}
+
+Hourly
+
+{% elif schedule and schedule.frequency == "daily" %}
+
+Daily — {{ schedule.schedule_time }}
+
+{% elif schedule and schedule.frequency == "weekly" %}
+
+{% set days = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"] %}
+Weekly — {{ days[schedule.day_of_week] }} {{ schedule.schedule_time }}
+
+{% elif schedule and schedule.frequency == "monthly" %}
+
+Monthly — {{ schedule.schedule_time }}
+
+{% else %}
+
 {{ task.schedule }}
+
+{% endif %}
+
 </td>
 
 <td>
 
-{% if task.enabled %}
+{% if schedule and schedule.enabled %}
 
 <span class="badge bg-success">
 Enabled
@@ -163,6 +196,33 @@ Disabled
 
 </td>
 
+<td>
+
+{% if schedule %}
+
+<button
+    type="button"
+    class="btn btn-sm btn-outline-success automation-run-button"
+    data-task-id="{{ schedule.task_id }}"
+>
+    Run Now
+</button>
+
+<button
+    type="button"
+    class="btn btn-sm btn-outline-primary"
+    data-bs-toggle="modal"
+    data-bs-target="#scheduleModal"
+    data-task-id="{{ schedule.task_id }}"
+    data-task-name="{{ schedule.name }}"
+>
+    Edit Schedule
+</button>
+
+{% endif %}
+
+</td>
+
 </tr>
 
 {% endfor %}
@@ -173,6 +233,155 @@ Disabled
 
 </table>
 
+</div>
+
+
+
+<!-- Schedule Editor Modal -->
+
+<div
+    class="modal fade"
+    id="scheduleModal"
+    tabindex="-1"
+    aria-labelledby="scheduleModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog">
+        <div class="modal-content">
+
+            <div class="modal-header">
+                <h5
+                    class="modal-title"
+                    id="scheduleModalLabel"
+                >
+                    Edit Schedule
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
+            </div>
+
+            <div class="modal-body">
+
+                <div
+                    id="scheduleError"
+                    class="alert alert-danger d-none"
+                    role="alert"
+                ></div>
+
+                <input
+                    type="hidden"
+                    id="scheduleTaskId"
+                >
+
+                <div class="mb-3">
+                    <label
+                        for="scheduleEnabled"
+                        class="form-label"
+                    >
+                        Status
+                    </label>
+
+                    <select
+                        id="scheduleEnabled"
+                        class="form-select"
+                    >
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </div>
+
+                <div class="mb-3">
+                    <label
+                        for="scheduleFrequency"
+                        class="form-label"
+                    >
+                        Frequency
+                    </label>
+
+                    <select
+                        id="scheduleFrequency"
+                        class="form-select"
+                    >
+                        <option value="manual">Manual</option>
+                        <option value="hourly">Hourly</option>
+                        <option value="daily">Daily</option>
+                        <option value="weekly">Weekly</option>
+                        <option value="monthly">Monthly</option>
+                    </select>
+                </div>
+
+                <div
+                    id="scheduleTimeGroup"
+                    class="mb-3"
+                >
+                    <label
+                        for="scheduleTime"
+                        class="form-label"
+                    >
+                        Time
+                    </label>
+
+                    <input
+                        type="time"
+                        id="scheduleTime"
+                        class="form-control"
+                    >
+                </div>
+
+                <div
+                    id="scheduleDayGroup"
+                    class="mb-3"
+                >
+                    <label
+                        for="scheduleDay"
+                        class="form-label"
+                    >
+                        Day of Week
+                    </label>
+
+                    <select
+                        id="scheduleDay"
+                        class="form-select"
+                    >
+                        <option value="0">Sunday</option>
+                        <option value="1">Monday</option>
+                        <option value="2">Tuesday</option>
+                        <option value="3">Wednesday</option>
+                        <option value="4">Thursday</option>
+                        <option value="5">Friday</option>
+                        <option value="6">Saturday</option>
+                    </select>
+                </div>
+
+            </div>
+
+            <div class="modal-footer">
+
+                <button
+                    type="button"
+                    class="btn btn-secondary"
+                    data-bs-dismiss="modal"
+                >
+                    Cancel
+                </button>
+
+                <button
+                    type="button"
+                    class="btn btn-primary"
+                    id="saveScheduleButton"
+                >
+                    Save Schedule
+                </button>
+
+            </div>
+
+        </div>
+    </div>
 </div>
 
 

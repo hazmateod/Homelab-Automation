@@ -21,6 +21,7 @@ from himp.api.health_history import router as health_history_router
 from himp.api.health_trends import router as health_trends_router
 from himp.api.automation import router as automation_router
 from himp.api.scheduler import router as scheduler_router
+from himp.services.scheduler import SchedulerService
 from himp.app import HIMP
 
 
@@ -346,6 +347,14 @@ def automation(request: Request):
     context["automation"] = (
         himp.automation.summary()
     )
+
+    schedules = SchedulerService().all()
+
+    context["schedules"] = schedules
+    context["schedule_map"] = {
+        schedule["task_id"]: schedule
+        for schedule in schedules
+    }
 
     return templates.TemplateResponse(
         request=request,
