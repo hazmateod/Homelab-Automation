@@ -149,6 +149,42 @@ class InventoryService:
             include_inactive=True,
         )
 
+    def restore_host(
+        self,
+        hostname,
+    ):
+        existing = self.repository.find_host(
+            hostname,
+            include_inactive=True,
+        )
+
+        if existing is None:
+            raise ValueError(
+                f"Inventory host does not exist: {hostname}"
+            )
+
+        if existing["active"]:
+            raise ValueError(
+                f"Inventory host is already active: {hostname}"
+            )
+
+        host = self.writer.restore_host(
+            hostname=hostname,
+            group=existing["group_name"],
+            ip=existing["ip"],
+            user=existing["ansible_user"],
+            become=bool(existing["become"]),
+        )
+
+        self.repository.restore_host(
+            hostname
+        )
+
+        return self.repository.find_host(
+            hostname,
+            include_inactive=True,
+        )
+
     def sync(self):
         hosts = self.collector.hosts()
 

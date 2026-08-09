@@ -341,6 +341,64 @@ class InventoryFileWriter:
             "previous_group": existing_group,
         }
 
+    def restore_host(
+        self,
+        hostname,
+        group,
+        ip,
+        user,
+        become=False,
+    ):
+        content = self._read()
+
+        inventory = self._load(content)
+
+        children = self._children(inventory)
+
+        if group not in children:
+            raise ValueError(
+                f"Inventory group does not exist: {group}"
+            )
+
+        group_data = children[group]
+
+        if "hosts" not in group_data:
+            raise ValueError(
+                f"Inventory group cannot contain hosts: {group}"
+            )
+
+        hosts = group_data["hosts"]
+
+        if hosts and hostname in hosts:
+            raise ValueError(
+                f"Inventory host already exists: {hostname}"
+            )
+
+        host_lines = self._host_lines(
+            hostname=hostname,
+            ip=ip,
+            user=user,
+            become=become,
+        )
+
+        updated = self._insert_host(
+            content,
+            group,
+            host_lines,
+        )
+
+        yaml.safe_load(updated)
+
+        self.filename.write_text(updated)
+
+        return {
+            "hostname": hostname,
+            "group": group,
+            "ip": ip,
+            "user": user,
+            "become": bool(become),
+        }
+
     def remove_host(
         self,
         hostname,

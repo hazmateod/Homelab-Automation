@@ -206,6 +206,36 @@ class InventoryRepository:
             None,
         )
 
+    def restore_host(
+        self,
+        hostname,
+    ):
+        self.database.execute(
+            """
+            UPDATE inventory_hosts
+            SET active=1,
+                last_seen=?
+            WHERE hostname=?
+            """,
+            (
+                datetime.utcnow(),
+                hostname,
+            ),
+        )
+
+        self.record_change(
+            hostname,
+            "RESTORED",
+            None,
+            None,
+            None,
+        )
+
+        return self.find_host(
+            hostname,
+            include_inactive=True,
+        )
+
     def detect_changes(
         self,
         old,

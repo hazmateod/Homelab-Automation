@@ -164,6 +164,37 @@ async def delete_inventory_host(
     }
 
 
+@router.post("/hosts/{hostname}/restore")
+async def restore_inventory_host(
+    hostname: str,
+):
+    try:
+        host = service.restore_host(
+            hostname=hostname,
+        )
+
+    except ValueError as exc:
+        message = str(exc)
+
+        if message.startswith("Inventory host does not exist:"):
+            status_code = 404
+        else:
+            status_code = 400
+
+        raise HTTPException(
+            status_code=status_code,
+            detail={
+                "error": message,
+                "hostname": hostname,
+            },
+        ) from exc
+
+    return {
+        "host": dict(host),
+        "message": "Inventory host restored successfully.",
+    }
+
+
 @router.get("/hosts/{hostname}")
 async def inventory_host(
     hostname: str,
