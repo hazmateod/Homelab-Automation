@@ -40,6 +40,8 @@
 
                     <th>Executed</th>
 
+                <th>Actions</th>
+
                 </tr>
 
             </thead>
@@ -102,6 +104,20 @@
 
                     </td>
 
+                    <td>
+
+                        <button
+                            type="button"
+                            class="btn btn-sm btn-outline-info execution-details-button"
+                            data-bs-toggle="modal"
+                            data-bs-target="#executionDetailsModal"
+                            data-execution-id="{{ execution.id }}"
+                        >
+                            View Details
+                        </button>
+
+                    </td>
+
                 </tr>
 
             {% endfor %}
@@ -112,6 +128,159 @@
 
     </div>
 
+</div>
+
+
+<!-- Execution Details Modal -->
+
+<div
+    class="modal fade"
+    id="executionDetailsModal"
+    tabindex="-1"
+    aria-labelledby="executionDetailsModalLabel"
+    aria-hidden="true"
+>
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content bg-dark text-light border-secondary">
+
+            <div class="modal-header border-secondary">
+
+                <h5
+                    class="modal-title"
+                    id="executionDetailsModalLabel"
+                >
+                    Execution Details
+                </h5>
+
+                <button
+                    type="button"
+                    class="btn-close btn-close-white"
+                    data-bs-dismiss="modal"
+                    aria-label="Close"
+                ></button>
+
+            </div>
+
+            <div class="modal-body">
+
+                <div
+                    id="executionDetailsError"
+                    class="alert alert-danger d-none"
+                    role="alert"
+                ></div>
+
+                <div
+                    id="executionDetailsLoading"
+                    class="text-center py-4"
+                >
+                    Loading execution details...
+                </div>
+
+                <div
+                    id="executionDetailsContent"
+                    class="d-none"
+                >
+
+                    <div class="row g-2 mb-3">
+
+                        <div class="col-md-3">
+                            <div class="text-secondary small">
+                                Execution ID
+                            </div>
+                            <div id="executionDetailsId"></div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="text-secondary small">
+                                Plugin
+                            </div>
+                            <div id="executionDetailsPlugin"></div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="text-secondary small">
+                                Status
+                            </div>
+                            <div id="executionDetailsStatus"></div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="text-secondary small">
+                                Return Code
+                            </div>
+                            <div id="executionDetailsReturnCode"></div>
+                        </div>
+
+                        <div class="col-md-3">
+                            <div class="text-secondary small">
+                                Runtime
+                            </div>
+                            <div id="executionDetailsElapsed"></div>
+                        </div>
+
+                        <div class="col-md-9">
+                            <div class="text-secondary small">
+                                Executed
+                            </div>
+                            <div id="executionDetailsExecutedAt"></div>
+                        </div>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <h6>Standard Output</h6>
+
+                        <pre
+                            id="executionDetailsStdout"
+                            class="bg-black border border-secondary rounded p-2 text-light"
+                            style="max-height: 300px; overflow: auto;"
+                        ></pre>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <h6>Standard Error</h6>
+
+                        <pre
+                            id="executionDetailsStderr"
+                            class="bg-black border border-secondary rounded p-2 text-light"
+                            style="max-height: 300px; overflow: auto;"
+                        ></pre>
+
+                    </div>
+
+                    <div class="mb-3">
+
+                        <h6>Warnings</h6>
+
+                        <pre
+                            id="executionDetailsWarnings"
+                            class="bg-black border border-secondary rounded p-2 text-light"
+                            style="max-height: 200px; overflow: auto;"
+                        ></pre>
+
+                    </div>
+
+                    <div>
+
+                        <h6>Artifacts</h6>
+
+                        <pre
+                            id="executionDetailsArtifacts"
+                            class="bg-black border border-secondary rounded p-2 text-light"
+                            style="max-height: 200px; overflow: auto;"
+                        ></pre>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+    </div>
 </div>
 
 {% endblock %}

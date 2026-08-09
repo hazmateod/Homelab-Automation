@@ -1208,3 +1208,176 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+/*
+ * HIMP Execution History Detail UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById(
+        "executionDetailsModal"
+    );
+
+    if (!modal) {
+        return;
+    }
+
+    const loading = document.getElementById(
+        "executionDetailsLoading"
+    );
+
+    const content = document.getElementById(
+        "executionDetailsContent"
+    );
+
+    const error = document.getElementById(
+        "executionDetailsError"
+    );
+
+    const executionId = document.getElementById(
+        "executionDetailsId"
+    );
+
+    const plugin = document.getElementById(
+        "executionDetailsPlugin"
+    );
+
+    const status = document.getElementById(
+        "executionDetailsStatus"
+    );
+
+    const returnCode = document.getElementById(
+        "executionDetailsReturnCode"
+    );
+
+    const elapsed = document.getElementById(
+        "executionDetailsElapsed"
+    );
+
+    const executedAt = document.getElementById(
+        "executionDetailsExecutedAt"
+    );
+
+    const stdout = document.getElementById(
+        "executionDetailsStdout"
+    );
+
+    const stderr = document.getElementById(
+        "executionDetailsStderr"
+    );
+
+    const warnings = document.getElementById(
+        "executionDetailsWarnings"
+    );
+
+    const artifacts = document.getElementById(
+        "executionDetailsArtifacts"
+    );
+
+    const reset = () => {
+        loading.classList.remove("d-none");
+        content.classList.add("d-none");
+        error.classList.add("d-none");
+        error.textContent = "";
+
+        executionId.textContent = "";
+        plugin.textContent = "";
+        status.textContent = "";
+        returnCode.textContent = "";
+        elapsed.textContent = "";
+        executedAt.textContent = "";
+
+        stdout.textContent = "";
+        stderr.textContent = "";
+        warnings.textContent = "";
+        artifacts.textContent = "";
+    };
+
+    const formatJson = (value) => {
+        try {
+            return JSON.stringify(
+                value,
+                null,
+                2
+            );
+        } catch {
+            return String(value);
+        }
+    };
+
+    const loadExecution = async (id) => {
+        reset();
+
+        try {
+            const response = await fetch(
+                `/api/executions/id/${encodeURIComponent(id)}`
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.detail ||
+                    "Unable to load execution details."
+                );
+            }
+
+            executionId.textContent = result.id;
+            plugin.textContent = result.plugin;
+
+            status.innerHTML = result.success
+                ? '<span class="badge bg-success">Success</span>'
+                : '<span class="badge bg-danger">Failed</span>';
+
+            returnCode.textContent =
+                result.return_code;
+
+            elapsed.textContent =
+                `${Number(result.elapsed).toFixed(3)} sec`;
+
+            executedAt.textContent =
+                result.executed_at;
+
+            stdout.textContent =
+                result.stdout || "(none)";
+
+            stderr.textContent =
+                result.stderr || "(none)";
+
+            warnings.textContent =
+                result.warnings &&
+                result.warnings.length
+                    ? formatJson(result.warnings)
+                    : "(none)";
+
+            artifacts.textContent =
+                result.artifacts &&
+                result.artifacts.length
+                    ? formatJson(result.artifacts)
+                    : "(none)";
+
+            loading.classList.add("d-none");
+            content.classList.remove("d-none");
+
+        } catch (loadError) {
+            loading.classList.add("d-none");
+            error.textContent =
+                loadError.message ||
+                "Unable to load execution details.";
+            error.classList.remove("d-none");
+        }
+    };
+
+    document.querySelectorAll(
+        ".execution-details-button"
+    ).forEach((button) => {
+        button.addEventListener(
+            "click",
+            () => {
+                loadExecution(
+                    button.dataset.executionId
+                );
+            }
+        );
+    });
+});

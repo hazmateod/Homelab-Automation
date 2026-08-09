@@ -4,6 +4,8 @@ Execution API.
 Provides plugin execution operations and history.
 """
 
+import json
+
 from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
@@ -50,6 +52,47 @@ def execution_history(
 
     return JSONResponse(
         execution.history(limit)
+    )
+
+
+@router.get("/executions/id/{execution_id}")
+def execution_detail(
+    execution_id: int,
+):
+
+    result = execution.repository.find(
+        execution_id
+    )
+
+    if result is None:
+
+        raise HTTPException(
+            status_code=404,
+            detail="Execution not found",
+        )
+
+    try:
+
+        result["warnings"] = json.loads(
+            result.get("warnings") or "[]"
+        )
+
+    except (TypeError, json.JSONDecodeError):
+
+        result["warnings"] = []
+
+    try:
+
+        result["artifacts"] = json.loads(
+            result.get("artifacts") or "[]"
+        )
+
+    except (TypeError, json.JSONDecodeError):
+
+        result["artifacts"] = []
+
+    return JSONResponse(
+        result
     )
 
 
