@@ -237,6 +237,118 @@ function initializeUpdateButtons() {
 }
 
 /*
+ * HIMP Inventory Host Add UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById("addHostModal");
+
+    if (!modal) {
+        return;
+    }
+
+    const hostname = document.getElementById("addHostHostname");
+    const group = document.getElementById("addHostGroup");
+    const ip = document.getElementById("addHostIp");
+    const user = document.getElementById("addHostUser");
+    const become = document.getElementById("addHostBecome");
+    const saveButton = document.getElementById("saveAddHostButton");
+    const error = document.getElementById("addHostError");
+
+    function clearError() {
+        error.textContent = "";
+        error.classList.add("d-none");
+    }
+
+    function showError(message) {
+        error.textContent = message;
+        error.classList.remove("d-none");
+    }
+
+    modal.addEventListener("show.bs.modal", () => {
+        clearError();
+
+        hostname.value = "";
+        group.value = "";
+        ip.value = "";
+        user.value = "";
+        become.checked = false;
+
+        saveButton.disabled = false;
+        saveButton.classList.remove("btn-success");
+        saveButton.classList.add("btn-primary");
+        saveButton.textContent = "Add Host";
+    });
+
+    saveButton.addEventListener("click", async () => {
+        clearError();
+
+        if (
+            !hostname.value.trim() ||
+            !group.value.trim() ||
+            !ip.value.trim() ||
+            !user.value.trim()
+        ) {
+            showError(
+                "Hostname, group, IP address, and Ansible user are required."
+            );
+            return;
+        }
+
+        const payload = {
+            hostname: hostname.value.trim(),
+            group: group.value.trim(),
+            ip: ip.value.trim(),
+            user: user.value.trim(),
+            become: become.checked,
+        };
+
+        const originalText = saveButton.textContent;
+
+        saveButton.disabled = true;
+        saveButton.textContent = "Adding...";
+
+        try {
+            const response = await fetch(
+                "/api/inventory/hosts",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.detail?.error ||
+                    result.detail ||
+                    `HTTP ${response.status}`
+                );
+            }
+
+            saveButton.classList.remove("btn-primary");
+            saveButton.classList.add("btn-success");
+            saveButton.textContent = "Added";
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 800);
+        } catch (err) {
+            console.error(err);
+
+            showError(err.message);
+
+            saveButton.disabled = false;
+            saveButton.textContent = originalText;
+        }
+    });
+});
+
+/*
  * HIMP Inventory Host Edit UI
  */
 
