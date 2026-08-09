@@ -237,6 +237,155 @@ function initializeUpdateButtons() {
 }
 
 /*
+ * HIMP Inventory Host Edit UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById("editHostModal");
+
+    if (!modal) {
+        return;
+    }
+
+    const hostname = document.getElementById(
+        "editHostHostname"
+    );
+    const group = document.getElementById(
+        "editHostGroup"
+    );
+    const ip = document.getElementById(
+        "editHostIp"
+    );
+    const user = document.getElementById(
+        "editHostUser"
+    );
+    const become = document.getElementById(
+        "editHostBecome"
+    );
+    const saveButton = document.getElementById(
+        "saveEditHostButton"
+    );
+    const error = document.getElementById(
+        "editHostError"
+    );
+
+    function clearError() {
+        error.textContent = "";
+        error.classList.add("d-none");
+    }
+
+    function showError(message) {
+        error.textContent = message;
+        error.classList.remove("d-none");
+    }
+
+    modal.addEventListener(
+        "show.bs.modal",
+        (event) => {
+            clearError();
+
+            const button = event.relatedTarget;
+
+            if (!button) {
+                return;
+            }
+
+            hostname.value = button.dataset.hostname || "";
+            group.value = button.dataset.group || "";
+            ip.value = button.dataset.ip || "";
+            user.value = button.dataset.user || "";
+            become.checked =
+                button.dataset.become === "true";
+
+            document.getElementById(
+                "editHostModalLabel"
+            ).textContent =
+                `Edit Host — ${hostname.value}`;
+        }
+    );
+
+    saveButton.addEventListener(
+        "click",
+        async () => {
+            clearError();
+
+            if (
+                !group.value.trim() ||
+                !ip.value.trim() ||
+                !user.value.trim()
+            ) {
+                showError(
+                    "Group, IP address, and Ansible user are required."
+                );
+                return;
+            }
+
+            const payload = {
+                group: group.value.trim(),
+                ip: ip.value.trim(),
+                user: user.value.trim(),
+                become: become.checked,
+            };
+
+            const originalText =
+                saveButton.textContent;
+
+            saveButton.disabled = true;
+            saveButton.textContent = "Saving...";
+
+            try {
+                const response = await fetch(
+                    `/api/inventory/hosts/${encodeURIComponent(
+                        hostname.value
+                    )}`,
+                    {
+                        method: "PUT",
+                        headers: {
+                            "Content-Type":
+                                "application/json",
+                        },
+                        body: JSON.stringify(payload),
+                    }
+                );
+
+                const result = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result.detail?.error ||
+                        result.detail ||
+                        `HTTP ${response.status}`
+                    );
+                }
+
+                saveButton.classList.remove(
+                    "btn-primary"
+                );
+                saveButton.classList.add(
+                    "btn-success"
+                );
+                saveButton.textContent =
+                    "Saved";
+
+                setTimeout(() => {
+                    window.location.reload();
+                }, 800);
+
+            } catch (err) {
+                console.error(err);
+
+                showError(err.message);
+
+                saveButton.disabled = false;
+                saveButton.textContent =
+                    originalText;
+            }
+        }
+    );
+});
+
+
+/*
  * HIMP Scheduler UI
  */
 
