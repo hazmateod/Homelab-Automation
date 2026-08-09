@@ -12,6 +12,7 @@ from himp.commands import (
     history,
     inventory,
     inventory_sync,
+    scheduler_run,
     plugin,
     plugin_run,
     plugins,
@@ -108,6 +109,18 @@ def main():
     )
     automation_run_parser.set_defaults(
         func=automation_run.run,
+    )
+
+    scheduler_run_parser = subparsers.add_parser(
+        "scheduler-run",
+        help="Run due scheduled automation tasks",
+    )
+    scheduler_run_parser.add_argument(
+        "--at",
+        help="Evaluate schedules at a specific ISO datetime",
+    )
+    scheduler_run_parser.set_defaults(
+        func=scheduler_run.run,
     )
 
     update_parser = subparsers.add_parser(

@@ -31,9 +31,9 @@ fi
 
 UNITS=(
     himp-inventory-sync.service
-    himp-inventory-sync.timer
     himp-scheduled-updates.service
-    himp-scheduled-updates.timer
+    himp-scheduler.service
+    himp-scheduler.timer
 )
 
 for unit in "${UNITS[@]}"; do
@@ -57,16 +57,19 @@ echo "Reloading systemd..."
 systemctl daemon-reload
 
 echo
-echo "Enabling timers..."
-systemctl enable \
+echo "Disabling legacy timers..."
+systemctl disable --now \
     himp-inventory-sync.timer \
-    himp-scheduled-updates.timer
+    himp-scheduled-updates.timer \
+    2>/dev/null || true
 
 echo
-echo "Starting timers..."
-systemctl start \
-    himp-inventory-sync.timer \
-    himp-scheduled-updates.timer
+echo "Enabling scheduler timer..."
+systemctl enable himp-scheduler.timer
+
+echo
+echo "Starting scheduler timer..."
+systemctl start himp-scheduler.timer
 
 echo
 echo "========================================="
@@ -75,13 +78,12 @@ echo "========================================="
 echo
 
 systemctl status \
-    himp-inventory-sync.timer \
-    himp-scheduled-updates.timer \
+    himp-scheduler.timer \
     --no-pager
 
 echo
 echo "Scheduled timers:"
 systemctl list-timers --all --no-pager |
-    grep -E 'himp-(inventory-sync|scheduled-updates)\.timer' || true
+    grep -E 'himp-(scheduler|inventory-sync|scheduled-updates).timer' || true
 
 echo

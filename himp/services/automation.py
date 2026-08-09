@@ -116,7 +116,7 @@ class AutomationService:
                     "Inventory service not configured"
                 )
 
-            result = self.inventory.summary()
+            result = self.inventory.sync()
 
         elif task_id == "scheduled_updates":
 

@@ -1,0 +1,11 @@
+[Unit]
+Description=HIMP Scheduler
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/root/Homelab-Automation
+ExecStart=/usr/bin/python3 -m himp.cli scheduler-run
+User=root
+Environment=PYTHONUNBUFFERED=1

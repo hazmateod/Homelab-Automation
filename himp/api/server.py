@@ -20,6 +20,7 @@ from himp.api.health import router as health_router
 from himp.api.health_history import router as health_history_router
 from himp.api.health_trends import router as health_trends_router
 from himp.api.automation import router as automation_router
+from himp.api.scheduler import router as scheduler_router
 from himp.app import HIMP
 
 
@@ -76,6 +77,11 @@ app.include_router(
 
 app.include_router(
     automation_router,
+    prefix="/api",
+)
+
+app.include_router(
+    scheduler_router,
     prefix="/api",
 )
 
