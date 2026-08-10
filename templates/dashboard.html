@@ -1,13 +1,13 @@
 {% extends "base.html" %}
 
 {% from "components/plugin_card.html" import plugin_card %}
-{% from "components/host_health_card.html" import host_health_card %}
 {% from "components/dashboard_metric.html" import dashboard_metric %}
 {% from "components/himp_service_card.html" import himp_service_card %}
 {% from "components/health_trend_card.html" import health_trend_card %}
 {% from "components/health_status_table.html" import health_status_table %}
 {% from "components/inventory_table.html" import inventory_table %}
 {% from "components/health_summary_card.html" import health_summary_card %}
+{% from "components/host_health_dashboard.html" import host_health_dashboard %}
 
 {% block content %}
 
@@ -80,30 +80,9 @@
 </h2>
 
 
+{{ host_health_dashboard(dashboard.host_health) }}
+
 {{ health_status_table(dashboard.health.plugins) }}
-
-
-<hr class="border-secondary">
-
-
-<h2 class="mb-4">
-    Host Health
-</h2>
-
-
-<div class="row">
-
-{% for plugin in dashboard.health.plugins %}
-
-    {% for host in plugin.hosts %}
-
-        {{ host_health_card(plugin.plugin, host) }}
-
-    {% endfor %}
-
-{% endfor %}
-
-</div>
 
 
 <hr class="border-secondary">

@@ -8,6 +8,7 @@ from himp.services.execution import ExecutionService
 from himp.services.health import HealthService
 from himp.services.health_trends import HealthTrendsService
 from himp.services.health_cards import HealthCardsService
+from himp.services.host_health_dashboard import HostHealthDashboardService
 from himp.services.inventory import InventoryService
 from himp.services.plugins import PluginService
 
@@ -27,6 +28,7 @@ class DashboardService:
         self.health_trends = HealthTrendsService()
 
         self.health_cards = HealthCardsService()
+        self.host_health = HostHealthDashboardService()
 
 
     def inventory_summary(self):
@@ -175,6 +177,7 @@ class DashboardService:
             "health_trends": self.health_trends.summary(),
 
             "health_cards": self.health_cards.summary(),
+            "host_health": self.host_health.summary(),
 
             "inventory": self.inventory_summary(),
 

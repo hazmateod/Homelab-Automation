@@ -1,0 +1,259 @@
+{% macro host_health_dashboard(health) %}
+
+<div class="card bg-dark text-light border-secondary mb-4">
+
+    <div class="card-header border-secondary">
+        <div class="d-flex justify-content-between align-items-center">
+
+            <h4 class="mb-0">
+                Host Health
+            </h4>
+
+            <span class="badge bg-secondary">
+                {{ health.total }} Hosts
+            </span>
+
+        </div>
+    </div>
+
+    <div class="card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-md-2">
+                <div class="card bg-success text-white h-100">
+                    <div class="card-body">
+                        <div class="small">
+                            Passed
+                        </div>
+                        <div class="fs-3 fw-bold">
+                            {{ health.passed }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="card bg-warning text-dark h-100">
+                    <div class="card-body">
+                        <div class="small">
+                            Warnings
+                        </div>
+                        <div class="fs-3 fw-bold">
+                            {{ health.warnings }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="card bg-danger text-white h-100">
+                    <div class="card-body">
+                        <div class="small">
+                            Failed
+                        </div>
+                        <div class="fs-3 fw-bold">
+                            {{ health.failed }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="card bg-secondary text-white h-100">
+                    <div class="card-body">
+                        <div class="small">
+                            Unknown
+                        </div>
+                        <div class="fs-3 fw-bold">
+                            {{ health.unknown }}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-4">
+                <div class="card bg-dark border-secondary h-100">
+                    <div class="card-body">
+                        <div class="small text-secondary">
+                            Host Health Score
+                        </div>
+                        <div class="fs-2 fw-bold">
+                            {{ health.score }}%
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="table-responsive">
+
+            <table class="table table-dark table-striped table-hover align-middle">
+
+                <thead>
+
+                    <tr>
+                        <th>Host</th>
+                        <th>Group</th>
+                        <th>IP</th>
+                        <th>Status</th>
+                        <th>Score</th>
+                        <th>Check</th>
+                        <th>Message</th>
+                        <th>Runtime</th>
+                        <th>Last Checked</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                {% for host in health.hosts %}
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                {{ host.hostname }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {{ host.group }}
+                        </td>
+
+                        <td>
+                            <code>
+                                {{ host.ip }}
+                            </code>
+                        </td>
+
+                        <td>
+
+                            {% if host.status == "PASS" %}
+
+                                <span class="badge bg-success">
+                                    PASS
+                                </span>
+
+                            {% elif host.status == "WARNING" %}
+
+                                <span class="badge bg-warning text-dark">
+                                    WARNING
+                                </span>
+
+                            {% elif host.status == "FAIL" %}
+
+                                <span class="badge bg-danger">
+                                    FAIL
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge bg-secondary">
+                                    UNKNOWN
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            {{ host.score }}
+                        </td>
+
+                        <td>
+                            {{ host.check or "—" }}
+                        </td>
+
+                        <td>
+                            {{ host.message }}
+                        </td>
+
+                        <td>
+                            {% if host.duration_ms %}
+                                {{ host.duration_ms }} ms
+                            {% else %}
+                                —
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ host.created_at or "Never" }}
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% if health.failures %}
+
+        <div class="mt-4">
+
+            <h5 class="text-danger">
+                Recent Host Failures
+            </h5>
+
+            <div class="table-responsive">
+
+                <table class="table table-dark table-sm">
+
+                    <thead>
+
+                        <tr>
+                            <th>Host</th>
+                            <th>Check</th>
+                            <th>Message</th>
+                            <th>Time</th>
+                        </tr>
+
+                    </thead>
+
+                    <tbody>
+
+                    {% for failure in health.failures %}
+
+                        <tr>
+
+                            <td>
+                                {{ failure.hostname }}
+                            </td>
+
+                            <td>
+                                {{ failure.check or "—" }}
+                            </td>
+
+                            <td>
+                                {{ failure.message }}
+                            </td>
+
+                            <td>
+                                {{ failure.created_at or "—" }}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endmacro %}
