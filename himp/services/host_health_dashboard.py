@@ -2,7 +2,7 @@
 Host Health Dashboard Service.
 """
 
-from himp.database.host_health import HostHealthRepository
+from himp.services.host_health import HostHealthService
 from himp.database.inventory import InventoryRepository
 
 
@@ -15,7 +15,7 @@ class HostHealthDashboardService:
 
         self.inventory = InventoryRepository()
 
-        self.health = HostHealthRepository()
+        self.health = HostHealthService()
 
     @staticmethod
     def _score(status):

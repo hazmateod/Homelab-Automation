@@ -94,11 +94,28 @@ class HostHealthService:
             check=check or self.CHECK_NAME,
         )
 
-    def history(
+    def host(
         self,
         hostname,
         limit=50,
     ):
+
+        return self.repository.host(
+            hostname=hostname,
+            limit=limit,
+        )
+
+    def history(
+        self,
+        hostname=None,
+        limit=50,
+    ):
+
+        if hostname is None:
+
+            return self.repository.history(
+                limit=limit,
+            )
 
         return self.repository.host(
             hostname=hostname,
