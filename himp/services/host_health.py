@@ -83,6 +83,23 @@ class HostHealthService:
             results=[result],
         )
 
+    def check_hosts(
+        self,
+        hostnames,
+    ):
+
+        results = []
+
+        for hostname in hostnames:
+
+            results.append(
+                self.check_host(
+                    hostname
+                )
+            )
+
+        return results
+
     def latest(
         self,
         hostname,

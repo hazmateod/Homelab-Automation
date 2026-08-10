@@ -6,6 +6,7 @@ and persisted host health history.
 """
 
 from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
 
 from himp.services.host_health import HostHealthService
 from himp.services.host_health_dashboard import HostHealthDashboardService
@@ -17,8 +18,41 @@ router = APIRouter(
 )
 
 
+class HostHealthCheckRequest(BaseModel):
+
+    hostnames: list[str] = Field(
+        min_length=1,
+    )
+
+
 dashboard = HostHealthDashboardService()
 health = HostHealthService()
+
+
+@router.post("/check")
+def check_host_health(
+    request: HostHealthCheckRequest,
+):
+
+    try:
+
+        results = health.check_hosts(
+            request.hostnames
+        )
+
+    except ValueError as exc:
+
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": str(exc),
+            },
+        ) from exc
+
+    return {
+        "count": len(results),
+        "results": results,
+    }
 
 
 @router.get("")
