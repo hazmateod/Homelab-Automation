@@ -97,6 +97,38 @@ class HostHealthDashboardService:
 
         return results
 
+    def current(
+        self,
+        hostname,
+    ):
+
+        for host in self.hosts():
+
+            if host["hostname"] == hostname:
+
+                return host
+
+        return None
+
+
+    def history(
+        self,
+        hostname=None,
+        limit=50,
+    ):
+
+        if hostname is None:
+
+            return self.health.history(
+                limit=limit,
+            )
+
+        return self.health.host(
+            hostname=hostname,
+            limit=limit,
+        )
+
+
     def summary(self):
 
         hosts = self.hosts()

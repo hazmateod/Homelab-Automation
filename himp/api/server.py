@@ -265,17 +265,14 @@ def inventory_host(
             if change["hostname"] == hostname
         ]
 
-        context["current_health"] = next(
-            (
-                item
-                for item in himp.dashboard.host_health.hosts()
-                if item["hostname"] == hostname
-            ),
-            None,
+        context["current_health"] = (
+            himp.dashboard.host_health.current(
+                hostname,
+            )
         )
 
         context["health_history"] = (
-            himp.dashboard.host_health.health.host(
+            himp.dashboard.host_health.history(
                 hostname=hostname,
                 limit=50,
             )

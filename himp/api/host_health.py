@@ -38,7 +38,8 @@ def host_health_history(
 ):
 
     return {
-        "history": dashboard.health.history(
+        "history": dashboard.history(
+            hostname=None,
             limit=limit,
         ),
     }
@@ -89,11 +90,11 @@ def host_health_host_history(
     ),
 ):
 
-    inventory_host = dashboard.inventory.find_host(
+    host = dashboard.current(
         hostname,
     )
 
-    if inventory_host is None:
+    if host is None:
 
         raise HTTPException(
             status_code=404,
@@ -102,7 +103,7 @@ def host_health_host_history(
 
     return {
         "hostname": hostname,
-        "history": health.history(
+        "history": dashboard.history(
             hostname=hostname,
             limit=limit,
         ),
