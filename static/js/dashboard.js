@@ -1570,3 +1570,472 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     });
 });
+
+/*
+ * HIMP Inventory Host Health UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById(
+        "hostHealthModal"
+    );
+
+    if (!modal) {
+        return;
+    }
+
+    const loading = document.getElementById(
+        "hostHealthLoading"
+    );
+
+    const error = document.getElementById(
+        "hostHealthError"
+    );
+
+    const result = document.getElementById(
+        "hostHealthResult"
+    );
+
+    const host = document.getElementById(
+        "hostHealthHost"
+    );
+
+    const check = document.getElementById(
+        "hostHealthCheck"
+    );
+
+    const status = document.getElementById(
+        "hostHealthStatus"
+    );
+
+    const elapsed = document.getElementById(
+        "hostHealthElapsed"
+    );
+
+    const sshStatus = document.getElementById(
+        "hostHealthSSHStatus"
+    );
+
+    const returnCode = document.getElementById(
+        "hostHealthReturnCode"
+    );
+
+    const message = document.getElementById(
+        "hostHealthMessage"
+    );
+
+    const stdout = document.getElementById(
+        "hostHealthStdout"
+    );
+
+    const stderr = document.getElementById(
+        "hostHealthStderr"
+    );
+
+    const stdoutContainer = document.getElementById(
+        "hostHealthStdoutContainer"
+    );
+
+    const stderrContainer = document.getElementById(
+        "hostHealthStderrContainer"
+    );
+
+    const reset = () => {
+        loading.classList.remove("d-none");
+        error.classList.add("d-none");
+        result.classList.add("d-none");
+
+        error.textContent = "";
+
+        host.textContent = "";
+        check.textContent = "";
+        status.textContent = "";
+        elapsed.textContent = "";
+        sshStatus.textContent = "";
+        returnCode.textContent = "";
+        message.textContent = "";
+
+        stdout.textContent = "";
+        stderr.textContent = "";
+
+        stdoutContainer.classList.add("d-none");
+        stderrContainer.classList.add("d-none");
+    };
+
+    const showResult = (data) => {
+        const healthResult = (
+            data.results &&
+            data.results.length
+        )
+            ? data.results[0]
+            : null;
+
+        if (!healthResult) {
+            throw new Error(
+                "Host health response contained no results."
+            );
+        }
+
+        const details = healthResult.details || {};
+
+        host.textContent = data.hostname || "(unknown)";
+        check.textContent = healthResult.check || "(unknown)";
+
+        status.textContent =
+            healthResult.status || "UNKNOWN";
+
+        status.classList.remove(
+            "text-success",
+            "text-warning",
+            "text-danger",
+            "text-secondary"
+        );
+
+        if (healthResult.status === "PASS") {
+            status.classList.add("text-success");
+        } else if (
+            healthResult.status === "WARNING"
+        ) {
+            status.classList.add("text-warning");
+        } else if (
+            healthResult.status === "FAIL"
+        ) {
+            status.classList.add("text-danger");
+        } else {
+            status.classList.add("text-secondary");
+        }
+
+        elapsed.textContent =
+            `${Number(
+                healthResult.duration_ms || 0
+            ).toFixed(3)} ms`;
+
+        sshStatus.textContent =
+            details.ssh_status || "(none)";
+
+        returnCode.textContent =
+            details.return_code ?? "(none)";
+
+        message.textContent =
+            healthResult.message || "(none)";
+
+        if (details.stdout) {
+            stdout.textContent = details.stdout;
+            stdoutContainer.classList.remove(
+                "d-none"
+            );
+        }
+
+        if (details.stderr) {
+            stderr.textContent = details.stderr;
+            stderrContainer.classList.remove(
+                "d-none"
+            );
+        }
+
+        loading.classList.add("d-none");
+        result.classList.remove("d-none");
+    };
+
+    const testHealth = async (
+        button,
+        hostname
+    ) => {
+        reset();
+
+        button.disabled = true;
+        const originalText = button.textContent;
+        button.textContent = "Checking...";
+
+        const bootstrapModal =
+            bootstrap.Modal.getOrCreateInstance(
+                modal
+            );
+
+        bootstrapModal.show();
+
+        try {
+            const response = await fetch(
+                `/api/inventory/hosts/${encodeURIComponent(hostname)}/health`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Accept": "application/json",
+                    },
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail?.error ||
+                    data.detail ||
+                    "Unable to check host health."
+                );
+            }
+
+            showResult(data);
+
+        } catch (healthError) {
+            loading.classList.add("d-none");
+
+            error.textContent =
+                healthError.message ||
+                "Unable to check host health.";
+
+            error.classList.remove("d-none");
+
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    };
+
+    document.querySelectorAll(
+        ".host-health-button"
+    ).forEach((button) => {
+        button.addEventListener(
+            "click",
+            () => {
+                testHealth(
+                    button,
+                    button.dataset.hostname
+                );
+            }
+        );
+    });
+});
+
+/*
+ * HIMP Inventory Host Health History UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modal = document.getElementById(
+        "hostHealthHistoryModal"
+    );
+
+    if (!modal) {
+        return;
+    }
+
+    const loading = document.getElementById(
+        "hostHealthHistoryLoading"
+    );
+
+    const error = document.getElementById(
+        "hostHealthHistoryError"
+    );
+
+    const result = document.getElementById(
+        "hostHealthHistoryResult"
+    );
+
+    const host = document.getElementById(
+        "hostHealthHistoryHost"
+    );
+
+    const count = document.getElementById(
+        "hostHealthHistoryCount"
+    );
+
+    const rows = document.getElementById(
+        "hostHealthHistoryRows"
+    );
+
+    const empty = document.getElementById(
+        "hostHealthHistoryEmpty"
+    );
+
+    const reset = () => {
+        loading.classList.remove("d-none");
+        error.classList.add("d-none");
+        result.classList.add("d-none");
+        empty.classList.add("d-none");
+
+        error.textContent = "";
+        host.textContent = "";
+        count.textContent = "";
+        rows.innerHTML = "";
+    };
+
+    const statusClass = (status) => {
+        if (status === "PASS") {
+            return "text-success";
+        }
+
+        if (status === "WARNING") {
+            return "text-warning";
+        }
+
+        if (status === "FAIL") {
+            return "text-danger";
+        }
+
+        return "text-secondary";
+    };
+
+    const formatDetails = (details) => {
+        try {
+            return JSON.stringify(
+                details || {},
+                null,
+                2
+            );
+        } catch {
+            return String(details);
+        }
+    };
+
+    const renderHistory = (data) => {
+        const history = Array.isArray(data.history)
+            ? data.history
+            : [];
+
+        host.textContent =
+            data.hostname || "(unknown)";
+
+        count.textContent =
+            data.count ?? history.length;
+
+        rows.innerHTML = "";
+
+        if (history.length === 0) {
+            empty.classList.remove("d-none");
+            loading.classList.add("d-none");
+            result.classList.remove("d-none");
+            return;
+        }
+
+        history.forEach((entry) => {
+            const row = document.createElement("tr");
+
+            const id = document.createElement("td");
+            id.textContent = entry.id ?? "";
+            row.appendChild(id);
+
+            const check = document.createElement("td");
+            check.textContent =
+                entry.check_name || "(unknown)";
+            row.appendChild(check);
+
+            const status = document.createElement("td");
+            status.textContent =
+                entry.status || "UNKNOWN";
+            status.classList.add(
+                statusClass(entry.status)
+            );
+            row.appendChild(status);
+
+            const runtime = document.createElement("td");
+            runtime.textContent =
+                `${Number(
+                    entry.duration_ms || 0
+                ).toFixed(3)} ms`;
+            row.appendChild(runtime);
+
+            const message = document.createElement("td");
+            message.textContent =
+                entry.message || "(none)";
+            row.appendChild(message);
+
+            const executed = document.createElement("td");
+            executed.textContent =
+                entry.created_at || "(unknown)";
+            row.appendChild(executed);
+
+            const details = document.createElement("td");
+
+            const detailsPre =
+                document.createElement("pre");
+
+            detailsPre.className =
+                "mb-0 bg-black border border-secondary rounded p-2 text-light";
+
+            detailsPre.style.maxWidth = "420px";
+            detailsPre.style.maxHeight = "180px";
+            detailsPre.style.overflow = "auto";
+
+            detailsPre.textContent =
+                formatDetails(entry.details);
+
+            details.appendChild(detailsPre);
+            row.appendChild(details);
+
+            rows.appendChild(row);
+        });
+
+        loading.classList.add("d-none");
+        result.classList.remove("d-none");
+    };
+
+    const loadHistory = async (
+        button,
+        hostname
+    ) => {
+        reset();
+
+        button.disabled = true;
+
+        const originalText = button.textContent;
+        button.textContent = "Loading...";
+
+        const bootstrapModal =
+            bootstrap.Modal.getOrCreateInstance(
+                modal
+            );
+
+        bootstrapModal.show();
+
+        try {
+            const response = await fetch(
+                `/api/inventory/hosts/${encodeURIComponent(hostname)}/health/history`,
+                {
+                    headers: {
+                        "Accept": "application/json",
+                    },
+                }
+            );
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    data.detail?.error ||
+                    data.detail ||
+                    "Unable to load host health history."
+                );
+            }
+
+            renderHistory(data);
+
+        } catch (historyError) {
+            loading.classList.add("d-none");
+
+            error.textContent =
+                historyError.message ||
+                "Unable to load host health history.";
+
+            error.classList.remove("d-none");
+
+        } finally {
+            button.disabled = false;
+            button.textContent = originalText;
+        }
+    };
+
+    document.querySelectorAll(
+        ".host-health-history-button"
+    ).forEach((button) => {
+        button.addEventListener(
+            "click",
+            () => {
+                loadHistory(
+                    button,
+                    button.dataset.hostname
+                );
+            }
+        );
+    });
+});

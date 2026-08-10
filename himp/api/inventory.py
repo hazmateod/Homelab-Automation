@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
 from himp.database.inventory import InventoryRepository
+from himp.services.host_health import HostHealthService
 from himp.services.inventory import InventoryService
 from himp.services.ssh import SSHService
 
@@ -38,6 +39,7 @@ router = APIRouter(
 service = InventoryService()
 repository = InventoryRepository()
 ssh_service = SSHService()
+host_health_service = HostHealthService()
 
 
 @router.get("")
@@ -251,6 +253,75 @@ async def test_inventory_host_ssh(
         "stdout": result.stdout,
         "stderr": result.stderr,
         "message": result.message,
+    }
+
+
+@router.post("/hosts/{hostname}/health")
+async def check_inventory_host_health(
+    hostname: str,
+):
+    try:
+        result = host_health_service.check_host(
+            hostname
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": str(exc),
+                "hostname": hostname,
+            },
+        ) from exc
+
+    return result
+
+
+@router.get("/hosts/{hostname}/health")
+async def inventory_host_health(
+    hostname: str,
+):
+    result = host_health_service.latest(
+        hostname
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Host health result not found",
+                "hostname": hostname,
+            },
+        )
+
+    return result
+
+
+@router.get("/hosts/{hostname}/health/history")
+async def inventory_host_health_history(
+    hostname: str,
+):
+    host = repository.find_host(
+        hostname
+    )
+
+    if host is None:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": "Host not found",
+                "hostname": hostname,
+            },
+        )
+
+    history = host_health_service.history(
+        hostname
+    )
+
+    return {
+        "hostname": hostname,
+        "count": len(history),
+        "history": history,
     }
 
 
