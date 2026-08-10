@@ -4,193 +4,318 @@
 
 {% if host %}
 
+<div class="col">
+
+    <h1 class="display-5">
+        {{ host.hostname }}
+    </h1>
+
+    <p class="text-secondary">
+        Inventory Host Details
+    </p>
+
+</div>
+
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
+    Host Information
+</h2>
+
 <div class="row mb-4">
 
-    <div class="col">
+    <div class="col-md-4">
+        <strong>Group</strong>
+        <div>{{ host.group_name }}</div>
+    </div>
 
-        <h1 class="display-5">
-            {{ host.hostname }}
-        </h1>
+    <div class="col-md-4">
+        <strong>IP Address</strong>
+        <div>{{ host.ip }}</div>
+    </div>
 
-        <p class="text-secondary">
-            Inventory Host Details
-        </p>
-
+    <div class="col-md-4">
+        <strong>User</strong>
+        <div>{{ host.ansible_user }}</div>
     </div>
 
 </div>
 
 
-<div class="card bg-dark border-secondary mb-4">
-
-<div class="card-body">
-
-<h5>
-Host Information
-</h5>
+<hr class="border-secondary">
 
 
-<table class="table table-dark">
+<h2 class="mb-4">
+    Current Health
+</h2>
 
-<tr>
-<th>Hostname</th>
-<td>{{ host.hostname }}</td>
-</tr>
+{% if current_health %}
 
-<tr>
-<th>Group</th>
-<td>{{ host.group_name }}</td>
-</tr>
+<div class="card mb-4">
 
-<tr>
-<th>IP Address</th>
-<td>{{ host.ip }}</td>
-</tr>
+    <div class="card-body">
 
-<tr>
-<th>Ansible User</th>
-<td>{{ host.ansible_user }}</td>
-</tr>
+        <div class="row align-items-center">
 
-<tr>
-<th>Become</th>
-<td>
+            <div class="col-md-3">
 
-{% if host.become %}
+                {% if current_health.status == "PASS" %}
 
-<span class="badge bg-warning text-dark">
-Yes
-</span>
+                <span class="badge bg-success fs-6">
+                    PASS
+                </span>
 
-{% else %}
+                {% elif current_health.status == "WARNING" %}
 
-<span class="badge bg-secondary">
-No
-</span>
+                <span class="badge bg-warning text-dark fs-6">
+                    WARNING
+                </span>
 
-{% endif %}
+                {% elif current_health.status == "FAIL" %}
 
-</td>
-</tr>
+                <span class="badge bg-danger fs-6">
+                    FAIL
+                </span>
 
+                {% else %}
 
-<tr>
-<th>Status</th>
-<td>
+                <span class="badge bg-secondary fs-6">
+                    UNKNOWN
+                </span>
 
-{% if host.active %}
+                {% endif %}
 
-<span class="badge bg-success">
-Active
-</span>
+            </div>
 
-{% else %}
+            <div class="col-md-2">
 
-<span class="badge bg-danger">
-Inactive
-</span>
+                <strong>Score</strong>
 
-{% endif %}
+                <div class="fs-4">
+                    {{ current_health.score }}
+                </div>
 
-</td>
-</tr>
+            </div>
 
+            <div class="col-md-2">
 
-<tr>
-<th>First Seen</th>
-<td>{{ host.first_seen }}</td>
-</tr>
+                <strong>Check</strong>
 
+                <div>
+                    {{ current_health.check or "—" }}
+                </div>
 
-<tr>
-<th>Last Seen</th>
-<td>{{ host.last_seen }}</td>
-</tr>
+            </div>
+
+            <div class="col-md-5">
+
+                <strong>Last Checked</strong>
+
+                <div>
+                    {{ current_health.created_at or "Never Checked" }}
+                </div>
+
+            </div>
+
+        </div>
 
 
-</table>
+        <hr>
 
-</div>
+
+        <strong>Message</strong>
+
+        <div class="text-secondary">
+            {{ current_health.message }}
+        </div>
+
+    </div>
 
 </div>
 
+{% else %}
+
+<div class="alert alert-secondary mb-4">
+
+    <strong>UNKNOWN — Never Checked</strong>
+
+    <div class="mt-1">
+        No host health check has been run.
+    </div>
+
+</div>
+
+{% endif %}
 
 
-<div class="card bg-dark border-secondary">
+<hr class="border-secondary">
 
-<div class="card-body">
 
-<h5>
-Change History
-</h5>
+<h2 class="mb-4">
+    Health History
+</h2>
 
+{% if health_history %}
+
+<div class="table-responsive">
+
+    <table class="table table-dark table-striped table-hover">
+
+        <thead>
+
+            <tr>
+                <th>Time</th>
+                <th>Check</th>
+                <th>Status</th>
+                <th>Runtime</th>
+                <th>Message</th>
+            </tr>
+
+        </thead>
+
+        <tbody>
+
+        {% for record in health_history %}
+
+            <tr>
+
+                <td>
+                    {{ record.created_at }}
+                </td>
+
+                <td>
+                    {{ record.check_name }}
+                </td>
+
+                <td>
+
+                    {% if record.status == "PASS" %}
+
+                    <span class="badge bg-success">
+                        PASS
+                    </span>
+
+                    {% elif record.status == "WARNING" %}
+
+                    <span class="badge bg-warning text-dark">
+                        WARNING
+                    </span>
+
+                    {% elif record.status == "FAIL" %}
+
+                    <span class="badge bg-danger">
+                        FAIL
+                    </span>
+
+                    {% else %}
+
+                    <span class="badge bg-secondary">
+                        UNKNOWN
+                    </span>
+
+                    {% endif %}
+
+                </td>
+
+                <td>
+                    {{ record.duration_ms }} ms
+                </td>
+
+                <td>
+                    {{ record.message }}
+                </td>
+
+            </tr>
+
+        {% endfor %}
+
+        </tbody>
+
+    </table>
+
+</div>
+
+{% else %}
+
+<div class="alert alert-secondary">
+    No health checks have been recorded for this host.
+</div>
+
+{% endif %}
+
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
+    Change History
+</h2>
 
 {% if changes %}
 
-<table class="table table-dark table-striped">
+<div class="table-responsive">
 
-<thead>
+    <table class="table table-dark table-striped table-hover">
 
-<tr>
-<th>Type</th>
-<th>Field</th>
-<th>Old</th>
-<th>New</th>
-<th>Date</th>
-</tr>
+        <thead>
 
-</thead>
+            <tr>
+                <th>Time</th>
+                <th>Field</th>
+                <th>Old Value</th>
+                <th>New Value</th>
+            </tr>
 
+        </thead>
 
-<tbody>
+        <tbody>
 
-{% for change in changes %}
+        {% for change in changes %}
 
-<tr>
+            <tr>
 
-<td>{{ change.change_type }}</td>
+                <td>
+                    {{ change.created_at }}
+                </td>
 
-<td>{{ change.field }}</td>
+                <td>
+                    {{ change.field }}
+                </td>
 
-<td>{{ change.old_value }}</td>
+                <td>
+                    {{ change.old_value or "—" }}
+                </td>
 
-<td>{{ change.new_value }}</td>
+                <td>
+                    {{ change.new_value or "—" }}
+                </td>
 
-<td>{{ change.changed_at }}</td>
+            </tr>
 
-</tr>
+        {% endfor %}
 
-{% endfor %}
+        </tbody>
 
-</tbody>
+    </table>
 
-</table>
+</div>
 
 {% else %}
 
-<p class="text-secondary">
-No changes recorded.
-</p>
+<div class="alert alert-secondary">
+    No inventory changes recorded.
+</div>
 
 {% endif %}
 
-
-</div>
-
-</div>
-
-
 {% else %}
-
 
 <div class="alert alert-danger">
-
-Host not found.
-
+    Host not found.
 </div>
 
-
 {% endif %}
-
 
 {% endblock %}

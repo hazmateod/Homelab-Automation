@@ -115,7 +115,12 @@
 
                         <td>
                             <strong>
-                                {{ host.hostname }}
+                                <a
+                                    href="/inventory/hosts/{{ host.hostname }}"
+                                    class="link-light text-decoration-none"
+                                >
+                                    {{ host.hostname }}
+                                </a>
                             </strong>
                         </td>
 

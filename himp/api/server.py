@@ -265,9 +265,27 @@ def inventory_host(
             if change["hostname"] == hostname
         ]
 
+        context["current_health"] = next(
+            (
+                item
+                for item in himp.dashboard.host_health.hosts()
+                if item["hostname"] == hostname
+            ),
+            None,
+        )
+
+        context["health_history"] = (
+            himp.dashboard.host_health.health.host(
+                hostname=hostname,
+                limit=50,
+            )
+        )
+
     else:
 
         context["changes"] = []
+        context["current_health"] = None
+        context["health_history"] = []
 
     return templates.TemplateResponse(
         request=request,

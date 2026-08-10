@@ -44,15 +44,114 @@
 <hr class="border-secondary">
 
 
+<h2 class="mb-4">
+    Infrastructure Health
+</h2>
+
+
+<div class="row g-3 mb-4">
+
+    <div class="col">
+
+        <div class="card bg-dark text-light h-100">
+
+            <div class="card-body">
+
+                <h6>Health Score</h6>
+
+                <h3>{{ dashboard.host_health.score }}%</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col">
+
+        <div class="card bg-success text-white h-100">
+
+            <div class="card-body">
+
+                <h6>PASS</h6>
+
+                <h3>{{ dashboard.host_health.passed }}</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col">
+
+        <div class="card bg-warning text-dark h-100">
+
+            <div class="card-body">
+
+                <h6>WARNING</h6>
+
+                <h3>{{ dashboard.host_health.warnings }}</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col">
+
+        <div class="card bg-danger text-white h-100">
+
+            <div class="card-body">
+
+                <h6>FAIL</h6>
+
+                <h3>{{ dashboard.host_health.failed }}</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="col">
+
+        <div class="card bg-secondary text-white h-100">
+
+            <div class="card-body">
+
+                <h6>NEVER CHECKED</h6>
+
+                <h3>{{ dashboard.host_health.unknown }}</h3>
+
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+
+<h3 class="mb-3">
+    Plugin Health
+</h3>
+
+
 <div class="row">
 
-    {{ dashboard_metric("Health Score", dashboard.health.score, "dark", "light") }}
+    {{ dashboard_metric("Plugin Health Score", dashboard.health.score, "dark", "light") }}
 
-    {{ dashboard_metric("Passed", dashboard.health.passed, "success", "white") }}
+    {{ dashboard_metric("Plugin Passed", dashboard.health.passed, "success", "white") }}
 
-    {{ dashboard_metric("Warnings", dashboard.health.warnings, "warning", "dark") }}
+    {{ dashboard_metric("Plugin Warnings", dashboard.health.warnings, "warning", "dark") }}
 
-    {{ dashboard_metric("Failed", dashboard.health.failed, "danger", "white") }}
+    {{ dashboard_metric("Plugin Failed", dashboard.health.failed, "danger", "white") }}
 
 </div>
 
