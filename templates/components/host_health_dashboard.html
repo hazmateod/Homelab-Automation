@@ -198,6 +198,150 @@
 
         </div>
 
+        {% if health.trends %}
+
+        <div class="mt-4">
+
+            <h5>
+                Host Health Trends
+            </h5>
+
+            <div class="table-responsive">
+
+                <table class="table table-dark table-sm table-hover align-middle">
+
+                    <thead>
+                        <tr>
+                            <th>Host</th>
+                            <th>Current</th>
+                            <th>Trend</th>
+                            <th>Last Checked</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                    {% for host in health.trends %}
+
+                        <tr>
+
+                            <td>
+                                <strong>
+                                    <a
+                                        href="/inventory/hosts/{{ host.hostname }}"
+                                        class="link-light text-decoration-none"
+                                    >
+                                        {{ host.hostname }}
+                                    </a>
+                                </strong>
+                            </td>
+
+                            <td>
+                                {% if host.status == "PASS" %}
+
+                                    <span class="badge bg-success">
+                                        PASS
+                                    </span>
+
+                                {% elif host.status == "WARNING" %}
+
+                                    <span class="badge bg-warning text-dark">
+                                        WARNING
+                                    </span>
+
+                                {% elif host.status == "FAIL" %}
+
+                                    <span class="badge bg-danger">
+                                        FAIL
+                                    </span>
+
+                                {% else %}
+
+                                    <span class="badge bg-secondary">
+                                        UNKNOWN
+                                    </span>
+
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if host.trend %}
+
+                                    {% for record in host.trend %}
+
+                                        {% if record.status == "PASS" %}
+
+                                            <span
+                                                class="badge bg-success"
+                                                title="{{ record.created_at }}"
+                                            >
+                                                PASS
+                                            </span>
+
+                                        {% elif record.status == "WARNING" %}
+
+                                            <span
+                                                class="badge bg-warning text-dark"
+                                                title="{{ record.created_at }}"
+                                            >
+                                                WARNING
+                                            </span>
+
+                                        {% elif record.status == "FAIL" %}
+
+                                            <span
+                                                class="badge bg-danger"
+                                                title="{{ record.created_at }}"
+                                            >
+                                                FAIL
+                                            </span>
+
+                                        {% else %}
+
+                                            <span
+                                                class="badge bg-secondary"
+                                                title="{{ record.created_at }}"
+                                            >
+                                                UNKNOWN
+                                            </span>
+
+                                        {% endif %}
+
+                                        {% if not loop.last %}
+                                            <span class="text-secondary">
+                                                →
+                                            </span>
+                                        {% endif %}
+
+                                    {% endfor %}
+
+                                {% else %}
+
+                                    <span class="text-secondary">
+                                        Never Checked
+                                    </span>
+
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {{ host.latest or "Never" }}
+                            </td>
+
+                        </tr>
+
+                    {% endfor %}
+
+                    </tbody>
+
+                </table>
+
+            </div>
+
+        </div>
+
+        {% endif %}
+
         {% if health.failures %}
 
         <div class="mt-4">

@@ -157,7 +157,52 @@ class HostHealthDashboardService:
             "score": score,
             "hosts": hosts,
             "failures": failures,
+            "trends": self.trends(),
         }
+
+    def trends(
+        self,
+        limit=10,
+    ):
+
+        trends = []
+
+        for host in self.inventory.all_hosts():
+
+            history = self.health.host(
+                hostname=host["hostname"],
+                limit=limit,
+            )
+
+            trends.append(
+                {
+                    "hostname": host["hostname"],
+                    "group": host["group_name"],
+                    "ip": host["ip"],
+                    "status": (
+                        history[0]["status"]
+                        if history
+                        else "UNKNOWN"
+                    ),
+                    "latest": (
+                        history[0]["created_at"]
+                        if history
+                        else None
+                    ),
+                    "trend": [
+                        {
+                            "created_at": record["created_at"],
+                            "status": record["status"],
+                            "duration_ms": record["duration_ms"],
+                            "message": record["message"],
+                        }
+                        for record in reversed(history)
+                    ],
+                }
+            )
+
+        return trends
+
 
     def recent_failures(
         self,

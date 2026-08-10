@@ -44,6 +44,22 @@ def host_health_history(
     }
 
 
+@router.get("/trends")
+def host_health_trends(
+    limit: int = Query(
+        default=10,
+        ge=1,
+        le=50,
+    ),
+):
+
+    return {
+        "trends": dashboard.trends(
+            limit=limit,
+        ),
+    }
+
+
 @router.get("/{hostname}")
 def host_health_host(
     hostname: str,
