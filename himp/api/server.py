@@ -369,7 +369,11 @@ def settings(request: Request):
 
 
 @app.get("/automation")
-def automation(request: Request):
+def automation(
+    request: Request,
+    task_id: str | None = None,
+    success: bool | None = None,
+):
 
     context = dashboard_context()
 
@@ -387,8 +391,16 @@ def automation(request: Request):
 
     context["automation_executions"] = (
         himp.automation.execution_repository.history(
-            limit=10
+            limit=10,
+            task_id=task_id,
+            success=success,
         )
+    )
+
+    context["automation_task_filter"] = task_id
+    context["automation_success_filter"] = success
+    context["automation_execution_count"] = len(
+        context["automation_executions"]
     )
 
     return templates.TemplateResponse(

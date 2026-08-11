@@ -8,7 +8,7 @@ from dataclasses import asdict, is_dataclass
 
 from pydantic import BaseModel
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from himp.app import HIMP
@@ -66,10 +66,24 @@ def automation_summary():
 
 
 @router.get("/automation/executions")
-def automation_execution_history():
+def automation_execution_history(
+    limit: int = Query(
+        default=50,
+        ge=1,
+        le=500,
+    ),
+    task_id: str | None = Query(
+        default=None,
+    ),
+    success: bool | None = Query(
+        default=None,
+    ),
+):
     return JSONResponse(
         himp.automation.execution_repository.history(
-            limit=50
+            limit=limit,
+            task_id=task_id,
+            success=success,
         )
     )
 

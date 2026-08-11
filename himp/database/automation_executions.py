@@ -109,17 +109,43 @@ class AutomationExecutionRepository:
 
         return self._deserialize(rows[0])
 
-    def history(self, limit=50):
-        rows = self.database.query(
-            """
+    def history(
+        self,
+        limit=50,
+        task_id=None,
+        success=None,
+    ):
+        clauses = []
+        parameters = []
+
+        if task_id is not None:
+            clauses.append("task_id=?")
+            parameters.append(task_id)
+
+        if success is not None:
+            clauses.append("success=?")
+            parameters.append(int(success))
+
+        query = """
             SELECT *
             FROM automation_executions
+        """
+
+        if clauses:
+            query += " WHERE " + " AND ".join(
+                clauses
+            )
+
+        query += """
             ORDER BY id DESC
             LIMIT ?
-            """,
-            (
-                limit,
-            ),
+        """
+
+        parameters.append(limit)
+
+        rows = self.database.query(
+            query,
+            tuple(parameters),
         )
 
         return [

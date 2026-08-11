@@ -396,6 +396,148 @@ Disabled
         </h5>
     </div>
 
+    <div class="card-body border-bottom border-secondary">
+
+        <form
+            method="get"
+            action="/automation"
+            class="row g-3 align-items-end"
+        >
+
+            <div class="col-md-5">
+
+                <label
+                    for="automationTaskFilter"
+                    class="form-label"
+                >
+                    Task
+                </label>
+
+                <select
+                    id="automationTaskFilter"
+                    name="task_id"
+                    class="form-select"
+                >
+
+                    <option value="">
+                        All Tasks
+                    </option>
+
+                    {% for task in automation.automation %}
+
+                        <option
+                            value="{{ task.id }}"
+                            {% if automation_task_filter == task.id %}
+                                selected
+                            {% endif %}
+                        >
+                            {{ task.name }}
+                        </option>
+
+                    {% endfor %}
+
+                </select>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <label
+                    for="automationStatusFilter"
+                    class="form-label"
+                >
+                    Status
+                </label>
+
+                <select
+                    id="automationStatusFilter"
+                    name="success"
+                    class="form-select"
+                >
+
+                    <option
+                        value=""
+                        {% if automation_success_filter is none %}
+                            selected
+                        {% endif %}
+                    >
+                        All Statuses
+                    </option>
+
+                    <option
+                        value="true"
+                        {% if automation_success_filter is sameas true %}
+                            selected
+                        {% endif %}
+                    >
+                        Successful
+                    </option>
+
+                    <option
+                        value="false"
+                        {% if automation_success_filter is sameas false %}
+                            selected
+                        {% endif %}
+                    >
+                        Failed
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div class="col-md-3 d-flex gap-2">
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Apply Filters
+                </button>
+
+                <a
+                    href="/automation"
+                    class="btn btn-outline-secondary"
+                >
+                    Clear
+                </a>
+
+            </div>
+
+        </form>
+
+    </div>
+
+    <div class="px-3 py-2 border-bottom border-secondary">
+
+        <small class="text-secondary">
+            {% if automation_task_filter %}
+                Task:
+                <strong class="text-light">
+                    {{ automation_task_filter }}
+                </strong>
+            {% else %}
+                All Tasks
+            {% endif %}
+
+            &nbsp;·&nbsp;
+
+            {% if automation_success_filter is sameas true %}
+                Successful
+            {% elif automation_success_filter is sameas false %}
+                Failed
+            {% else %}
+                All Statuses
+            {% endif %}
+
+            &nbsp;·&nbsp;
+
+            {{ automation_execution_count }}
+            execution{% if automation_execution_count != 1 %}s{% endif %}
+        </small>
+
+    </div>
+
     <div class="card-body p-0">
 
         {% if automation_executions %}
