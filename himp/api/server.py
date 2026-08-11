@@ -393,6 +393,9 @@ def automation(
                 is not None
                 else None
             ),
+            "execution_status": scheduler.execution_status(
+                schedule["task_id"]
+            ),
         }
         for schedule in schedules
     ]

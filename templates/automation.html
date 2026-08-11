@@ -122,6 +122,10 @@ Status
 </th>
 
 <th>
+Last Execution
+</th>
+
+<th>
 Actions
 </th>
 
@@ -200,6 +204,60 @@ Enabled
 
 <span class="badge bg-danger">
 Disabled
+</span>
+
+{% endif %}
+
+</td>
+
+<td>
+
+{% if schedule and schedule.execution_status %}
+
+{% set execution = schedule.execution_status %}
+
+{% if execution.last_execution_success is true %}
+
+<span class="badge bg-success">
+Successful
+</span>
+
+{% elif execution.last_execution_success is false %}
+
+<span class="badge bg-danger">
+Failed
+</span>
+
+{% else %}
+
+<span class="badge bg-secondary">
+Never Run
+</span>
+
+{% endif %}
+
+{% if execution.last_execution_at %}
+<div class="small text-secondary mt-1">
+{{ execution.last_execution_at }}
+</div>
+{% endif %}
+
+{% if execution.last_execution_elapsed is not none %}
+<div class="small text-secondary">
+Duration — {{ execution.last_execution_elapsed }}s
+</div>
+{% endif %}
+
+{% if execution.last_execution_error %}
+<div class="small text-danger mt-1">
+{{ execution.last_execution_error }}
+</div>
+{% endif %}
+
+{% else %}
+
+<span class="badge bg-secondary">
+No execution data
 </span>
 
 {% endif %}

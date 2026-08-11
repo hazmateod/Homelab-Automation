@@ -7,6 +7,9 @@ validation, and due-task evaluation.
 
 from datetime import datetime
 
+from himp.database.automation_executions import (
+    AutomationExecutionRepository,
+)
 from himp.database.scheduler import SchedulerRepository
 
 
@@ -26,6 +29,9 @@ class SchedulerService:
 
     def __init__(self):
         self.repository = SchedulerRepository()
+        self.execution_repository = (
+            AutomationExecutionRepository()
+        )
 
     def all(self):
         return self.repository.all()
@@ -93,6 +99,80 @@ class SchedulerService:
         return self.repository.record_run(
             task_id
         )
+
+    def execution_status(
+        self,
+        task_id,
+    ):
+        schedule = self.find(
+            task_id
+        )
+
+        next_run = self.next_run(
+            schedule
+        )
+
+        execution = self.execution_repository.latest(
+            task_id
+        )
+
+        status = {
+            "task_id": task_id,
+            "schedule": dict(schedule),
+            "next_run": (
+                next_run.isoformat()
+                if next_run is not None
+                else None
+            ),
+            "last_execution": execution,
+        }
+
+        if execution is None:
+            status.update(
+                {
+                    "last_execution_success": None,
+                    "last_execution_at": None,
+                    "last_execution_elapsed": None,
+                    "last_execution_error": None,
+                }
+            )
+
+            return status
+
+        result = execution.get(
+            "result",
+            {}
+        )
+
+        error = None
+
+        if isinstance(result, dict):
+            nested_result = result.get(
+                "result",
+                {}
+            )
+
+            if isinstance(nested_result, dict):
+                error = nested_result.get(
+                    "error"
+                )
+
+        status.update(
+            {
+                "last_execution_success": bool(
+                    execution["success"]
+                ),
+                "last_execution_at": execution[
+                    "executed_at"
+                ],
+                "last_execution_elapsed": execution[
+                    "elapsed"
+                ],
+                "last_execution_error": error,
+            }
+        )
+
+        return status
 
     def _localize_last_run(
         self,

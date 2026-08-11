@@ -39,6 +39,25 @@ async def scheduler_summary():
     }
 
 
+@router.get("/{task_id}/status")
+async def scheduler_task_status(
+    task_id: str,
+):
+    try:
+        return service.execution_status(
+            task_id
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": str(exc),
+                "task_id": task_id,
+            },
+        ) from exc
+
+
 @router.get("/{task_id}")
 async def scheduler_task(
     task_id: str,
