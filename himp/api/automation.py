@@ -15,7 +15,9 @@ from himp.app import HIMP
 from himp.services.automation import (
     AutomationAlreadyRunningError,
     AutomationConfirmationRequiredError,
+    AutomationDependencyCycleError,
     AutomationDependencyNotFoundError,
+    AutomationDependencyNotSatisfiedError,
     AutomationDisabledError,
 )
 
@@ -165,6 +167,12 @@ def add_automation_dependency(
             }
         )
 
+    except AutomationDependencyCycleError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        )
+
     except ValueError as error:
         raise HTTPException(
             status_code=400,
@@ -188,6 +196,13 @@ def automation_dependency_status(
             status_code=404,
             detail=str(error),
         )
+
+
+@router.get("/automation/dependencies/graph")
+def automation_dependency_graph():
+    return JSONResponse(
+        himp.automation.dependency_graph()
+    )
 
 
 @router.delete(
@@ -322,6 +337,14 @@ def run_automation(
 
 
     except AutomationConfirmationRequiredError as error:
+
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        )
+
+
+    except AutomationDependencyNotSatisfiedError as error:
 
         raise HTTPException(
             status_code=409,

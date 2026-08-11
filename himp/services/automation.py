@@ -49,6 +49,12 @@ class AutomationDependencyNotFoundError(
     """Raised when an automation dependency does not exist."""
 
 
+class AutomationDependencyCycleError(
+    RuntimeError
+):
+    """Raised when an automation dependency would create a cycle."""
+
+
 class AutomationService:
 
     def __init__(self):
@@ -230,6 +236,43 @@ class AutomationService:
             depends_on_task_id
         )
 
+        if task_id == depends_on_task_id:
+            raise AutomationDependencyCycleError(
+                "Automation dependency would create a cycle: "
+                f"{task_id} -> {depends_on_task_id}"
+            )
+
+        pending = [
+            depends_on_task_id
+        ]
+
+        visited = set()
+
+        while pending:
+            current_task_id = pending.pop()
+
+            if current_task_id in visited:
+                continue
+
+            visited.add(current_task_id)
+
+            if current_task_id == task_id:
+                raise AutomationDependencyCycleError(
+                    "Automation dependency would create a cycle: "
+                    f"{task_id} -> {depends_on_task_id}"
+                )
+
+            dependencies = (
+                self.dependency_repository.list(
+                    current_task_id
+                )
+            )
+
+            pending.extend(
+                dependency["depends_on_task_id"]
+                for dependency in dependencies
+            )
+
         return self.dependency_repository.add(
             task_id,
             depends_on_task_id,
@@ -336,6 +379,43 @@ class AutomationService:
                 dependency["satisfied"]
                 for dependency in status
             ),
+        }
+
+
+    def dependency_graph(self):
+        graph = []
+
+        for task in self.tasks:
+            task_id = task["id"]
+
+            dependencies = [
+                dependency["depends_on_task_id"]
+                for dependency in (
+                    self.dependency_repository.list(
+                        task_id
+                    )
+                )
+            ]
+
+            dependents = [
+                dependency["task_id"]
+                for dependency in (
+                    self.dependency_repository.dependents(
+                        task_id
+                    )
+                )
+            ]
+
+            graph.append(
+                {
+                    "task_id": task_id,
+                    "dependencies": dependencies,
+                    "dependents": dependents,
+                }
+            )
+
+        return {
+            "tasks": graph,
         }
 
 

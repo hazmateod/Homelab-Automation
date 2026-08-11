@@ -146,6 +146,28 @@ class AutomationDependencyRepository:
             for row in rows
         ]
 
+    def dependents(
+        self,
+        task_id,
+    ):
+        rows = self.database.query(
+            """
+            SELECT *
+            FROM automation_dependencies
+            WHERE depends_on_task_id=?
+            ORDER BY id
+            """,
+            (
+                task_id,
+            ),
+        )
+
+        return [
+            dict(row)
+            for row in rows
+        ]
+
+
     def all(self):
         rows = self.database.query(
             """
