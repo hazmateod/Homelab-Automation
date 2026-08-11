@@ -381,7 +381,21 @@ def automation(
         himp.automation.summary()
     )
 
-    schedules = SchedulerService().all()
+    scheduler = SchedulerService()
+    schedules = scheduler.all()
+
+    schedules = [
+        {
+            **dict(schedule),
+            "next_run": (
+                next_run.isoformat()
+                if (next_run := scheduler.next_run(schedule))
+                is not None
+                else None
+            ),
+        }
+        for schedule in schedules
+    ]
 
     context["schedules"] = schedules
     context["schedule_map"] = {

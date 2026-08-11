@@ -57,7 +57,16 @@ async def scheduler_task(
             },
         ) from exc
 
-    return dict(schedule)
+    next_run = service.next_run(schedule)
+
+    result = dict(schedule)
+    result["next_run"] = (
+        next_run.isoformat()
+        if next_run is not None
+        else None
+    )
+
+    return result
 
 
 @router.put("/{task_id}")

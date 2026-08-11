@@ -176,6 +176,16 @@ Monthly — {{ schedule.schedule_time }}
 
 {% endif %}
 
+{% if schedule %}
+<div class="small text-secondary mt-1">
+    {% if schedule.next_run %}
+        Next Run — {{ schedule.next_run }}
+    {% else %}
+        Not scheduled
+    {% endif %}
+</div>
+{% endif %}
+
 </td>
 
 <td>

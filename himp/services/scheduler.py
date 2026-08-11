@@ -191,6 +191,140 @@ class SchedulerService:
 
         return True
 
+    def next_run(
+        self,
+        schedule,
+        now=None,
+    ):
+        if not schedule["enabled"]:
+            return None
+
+        frequency = schedule["frequency"]
+
+        if frequency == "manual":
+            return None
+
+        if now is None:
+            now = datetime.now()
+
+        schedule_time = schedule["schedule_time"]
+
+        if schedule_time is None:
+            return None
+
+        hour, minute = (
+            int(value)
+            for value in schedule_time.split(":")
+        )
+
+        if frequency == "hourly":
+            candidate = now.replace(
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
+
+            if candidate <= now:
+                candidate = candidate.replace(
+                    hour=(candidate.hour + 1) % 24,
+                )
+
+                if candidate.hour == 0:
+                    from datetime import timedelta
+
+                    candidate = candidate + timedelta(
+                        days=1,
+                    )
+
+            return candidate
+
+        if frequency == "daily":
+            candidate = now.replace(
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
+
+            if candidate <= now:
+                from datetime import timedelta
+
+                candidate = candidate + timedelta(
+                    days=1,
+                )
+
+            return candidate
+
+        if frequency == "weekly":
+            sunday_based_weekday = (
+                now.weekday() + 1
+            ) % 7
+
+            days_ahead = (
+                schedule["day_of_week"]
+                - sunday_based_weekday
+            ) % 7
+
+            candidate = now.replace(
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
+
+            from datetime import timedelta
+
+            candidate = candidate + timedelta(
+                days=days_ahead,
+            )
+
+            if candidate <= now:
+                candidate = candidate + timedelta(
+                    days=7,
+                )
+
+            return candidate
+
+        if frequency == "monthly":
+            from calendar import monthrange
+            from datetime import timedelta
+
+            day = schedule["day_of_month"]
+
+            if day is None:
+                return None
+
+            year = now.year
+            month = now.month
+
+            while True:
+                last_day = monthrange(
+                    year,
+                    month,
+                )[1]
+
+                if day <= last_day:
+                    candidate = now.replace(
+                        year=year,
+                        month=month,
+                        day=day,
+                        hour=hour,
+                        minute=minute,
+                        second=0,
+                        microsecond=0,
+                    )
+
+                    if candidate > now:
+                        return candidate
+
+                if month == 12:
+                    year += 1
+                    month = 1
+                else:
+                    month += 1
+
+        return None
+
     def due_tasks(
         self,
         now=None,
