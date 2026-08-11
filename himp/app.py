@@ -52,4 +52,5 @@ class HIMP:
             self.reports,
             self.inventory,
             self.updates,
+            self.dashboard.host_health.health,
         )

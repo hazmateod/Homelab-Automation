@@ -12,6 +12,7 @@ class AutomationService:
     def __init__(self):
 
         self.health = None
+        self.host_health = None
         self.reports = None
         self.inventory = None
         self.updates = None
@@ -21,6 +22,13 @@ class AutomationService:
                 "id": "health_check",
                 "name": "Health Check",
                 "description": "Run health validation across plugins.",
+                "enabled": True,
+                "schedule": "manual",
+            },
+            {
+                "id": "host_health_check",
+                "name": "Host Health Check",
+                "description": "Run SSH health checks across active inventory hosts.",
                 "enabled": True,
                 "schedule": "manual",
             },
@@ -54,9 +62,11 @@ class AutomationService:
         reports,
         inventory,
         updates,
+        host_health=None,
     ):
 
         self.health = health
+        self.host_health = host_health
         self.reports = reports
         self.inventory = inventory
         self.updates = updates
@@ -89,7 +99,17 @@ class AutomationService:
 
     def run(self, task_id):
 
-        if task_id == "health_check":
+        if task_id == "host_health_check":
+
+            if self.host_health is None:
+                raise RuntimeError(
+                    "Host health service not configured"
+                )
+
+            result = self.host_health.check_all_hosts()
+
+
+        elif task_id == "health_check":
 
             if self.health is None:
                 raise RuntimeError(

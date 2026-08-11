@@ -58,6 +58,15 @@ class SchedulerRepository:
         )
 
         self._seed(
+            task_id="host_health_check",
+            name="Host Health Check",
+            description="Run SSH health checks across active inventory hosts.",
+            frequency="daily",
+            schedule_time="03:30",
+            day_of_week=None,
+        )
+
+        self._seed(
             task_id="generate_reports",
             name="Generate Reports",
             description="Generate HIMP infrastructure reports.",

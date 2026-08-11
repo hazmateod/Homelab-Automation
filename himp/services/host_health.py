@@ -100,6 +100,19 @@ class HostHealthService:
 
         return results
 
+    def check_all_hosts(self):
+
+        hosts = self.inventory.all_hosts()
+
+        hostnames = [
+            host["hostname"]
+            for host in hosts
+        ]
+
+        return self.check_hosts(
+            hostnames
+        )
+
     def latest(
         self,
         hostname,
