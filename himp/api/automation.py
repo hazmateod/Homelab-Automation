@@ -65,6 +65,60 @@ def automation_summary():
 
 
 
+@router.get("/automation/executions")
+def automation_execution_history():
+    return JSONResponse(
+        himp.automation.execution_repository.history(
+            limit=50
+        )
+    )
+
+
+@router.get("/automation/executions/id/{execution_id}")
+def automation_execution_detail(
+    execution_id: int,
+):
+    result = (
+        himp.automation.execution_repository.find(
+            execution_id
+        )
+    )
+
+    if result is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Automation execution not found",
+        )
+
+    return JSONResponse(result)
+
+
+@router.get("/automation/executions/{task_id}")
+def automation_task_execution_history(
+    task_id: str,
+):
+    history = (
+        himp.automation.execution_repository.task_history(
+            task_id,
+            limit=50,
+        )
+    )
+
+    if not history:
+        raise HTTPException(
+            status_code=404,
+            detail="Automation task execution history not found",
+        )
+
+    return JSONResponse(
+        {
+            "task_id": task_id,
+            "count": len(history),
+            "history": history,
+        }
+    )
+
+
 @router.post("/automation/{task_id}/run")
 def run_automation(
     task_id: str,

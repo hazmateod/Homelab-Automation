@@ -4,7 +4,13 @@ Automation Service.
 Provides HIMP automation task definitions and execution.
 """
 
+import time
+
 from datetime import datetime, timezone
+
+from himp.database.automation_executions import (
+    AutomationExecutionRepository,
+)
 
 
 class AutomationService:
@@ -16,6 +22,9 @@ class AutomationService:
         self.reports = None
         self.inventory = None
         self.updates = None
+        self.execution_repository = (
+            AutomationExecutionRepository()
+        )
 
         self.tasks = [
             {
@@ -103,71 +112,121 @@ class AutomationService:
         limit=None,
     ):
 
-        if task_id == "host_health_check":
+        started = time.perf_counter()
 
-            if self.host_health is None:
-                raise RuntimeError(
-                    "Host health service not configured"
+        executed_at = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+        try:
+
+            if task_id == "host_health_check":
+
+                if self.host_health is None:
+                    raise RuntimeError(
+                        "Host health service not configured"
+                    )
+
+                result = self.host_health.check_all_hosts()
+
+            elif task_id == "health_check":
+
+                if self.health is None:
+                    raise RuntimeError(
+                        "Health service not configured"
+                    )
+
+                result = self.health.summary()
+
+            elif task_id == "generate_reports":
+
+                if self.reports is None:
+                    raise RuntimeError(
+                        "Report service not configured"
+                    )
+
+                result = self.reports.generate(
+                    limit=limit,
                 )
 
-            result = self.host_health.check_all_hosts()
+            elif task_id == "inventory_refresh":
 
+                if self.inventory is None:
+                    raise RuntimeError(
+                        "Inventory service not configured"
+                    )
 
-        elif task_id == "health_check":
+                result = self.inventory.sync()
 
-            if self.health is None:
-                raise RuntimeError(
-                    "Health service not configured"
+            elif task_id == "scheduled_updates":
+
+                if self.updates is None:
+                    raise RuntimeError(
+                        "Update service not configured"
+                    )
+
+                result = self.updates.update(
+                    "maintenance",
+                    limit=limit,
                 )
 
-            result = self.health.summary()
+            else:
 
-
-        elif task_id == "generate_reports":
-
-            if self.reports is None:
-                raise RuntimeError(
-                    "Report service not configured"
+                raise ValueError(
+                    f"Unknown automation task: {task_id}"
                 )
 
-            result = self.reports.generate(
-                limit=limit,
+            elapsed = round(
+                time.perf_counter() - started,
+                3,
             )
 
+            success = True
 
-        elif task_id == "inventory_refresh":
+            if isinstance(result, dict):
+                if "success" in result:
+                    success = bool(
+                        result["success"]
+                    )
 
-            if self.inventory is None:
-                raise RuntimeError(
-                    "Inventory service not configured"
-                )
+            execution = {
+                "task": task_id,
+                "executed_at": executed_at,
+                "result": result,
+            }
 
-            result = self.inventory.sync()
-
-        elif task_id == "scheduled_updates":
-
-            if self.updates is None:
-                raise RuntimeError(
-                    "Update service not configured"
-                )
-
-            result = self.updates.update(
-                "maintenance",
-                limit=limit,
+            self.execution_repository.save(
+                task_id=task_id,
+                success=success,
+                elapsed=elapsed,
+                result=execution,
+                executed_at=executed_at,
             )
 
+            return execution
 
-        else:
+        except Exception as error:
 
-            raise ValueError(
-                f"Unknown automation task: {task_id}"
+            elapsed = round(
+                time.perf_counter() - started,
+                3,
             )
 
+            failure = {
+                "task": task_id,
+                "executed_at": executed_at,
+                "result": {
+                    "success": False,
+                    "error": str(error),
+                },
+            }
 
-        return {
-            "task": task_id,
-            "executed_at": datetime.now(
-                timezone.utc
-            ).isoformat(),
-            "result": result,
-        }
+            self.execution_repository.save(
+                task_id=task_id,
+                success=False,
+                elapsed=elapsed,
+                result=failure,
+                executed_at=executed_at,
+            )
+
+            raise
