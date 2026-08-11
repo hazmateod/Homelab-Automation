@@ -15,6 +15,7 @@ class SchedulerUpdate(BaseModel):
     frequency: str
     schedule_time: str | None = None
     day_of_week: int | None = None
+    day_of_month: int | None = None
 
 
 router = APIRouter(
@@ -71,6 +72,7 @@ async def update_scheduler_task(
             frequency=request.frequency,
             schedule_time=request.schedule_time,
             day_of_week=request.day_of_week,
+            day_of_month=request.day_of_month,
         )
 
     except ValueError as exc:

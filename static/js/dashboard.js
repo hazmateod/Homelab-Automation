@@ -993,8 +993,14 @@ document.addEventListener("DOMContentLoaded", () => {
     const frequency = document.getElementById("scheduleFrequency");
     const scheduleTime = document.getElementById("scheduleTime");
     const scheduleDay = document.getElementById("scheduleDay");
+    const scheduleDayOfMonth = document.getElementById(
+        "scheduleDayOfMonth"
+    );
     const timeGroup = document.getElementById("scheduleTimeGroup");
     const dayGroup = document.getElementById("scheduleDayGroup");
+    const dayOfMonthGroup = document.getElementById(
+        "scheduleDayOfMonthGroup"
+    );
     const saveButton = document.getElementById("saveScheduleButton");
     const error = document.getElementById("scheduleError");
 
@@ -1009,6 +1015,11 @@ document.addEventListener("DOMContentLoaded", () => {
         dayGroup.classList.toggle(
             "d-none",
             value !== "weekly"
+        );
+
+        dayOfMonthGroup.classList.toggle(
+            "d-none",
+            value !== "monthly"
         );
     }
 
@@ -1061,6 +1072,11 @@ document.addEventListener("DOMContentLoaded", () => {
                     ? String(data.day_of_week)
                     : "0";
 
+            scheduleDayOfMonth.value =
+                data.day_of_month !== null
+                    ? String(data.day_of_month)
+                    : "";
+
             updateScheduleFields();
         } catch (err) {
             showError(err.message);
@@ -1089,6 +1105,11 @@ document.addEventListener("DOMContentLoaded", () => {
             day_of_week:
                 selectedFrequency === "weekly"
                     ? Number(scheduleDay.value)
+                    : null,
+
+            day_of_month:
+                selectedFrequency === "monthly"
+                    ? Number(scheduleDayOfMonth.value)
                     : null,
         };
 

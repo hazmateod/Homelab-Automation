@@ -39,6 +39,8 @@ class SchedulerRepository:
 
                 day_of_week INTEGER,
 
+                day_of_month INTEGER,
+
                 last_run TIMESTAMP,
 
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -47,6 +49,21 @@ class SchedulerRepository:
             )
             """
         )
+
+        columns = {
+            row[1]
+            for row in self.database.query(
+                "PRAGMA table_info(automation_schedules)"
+            )
+        }
+
+        if "day_of_month" not in columns:
+            self.database.execute(
+                """
+                ALTER TABLE automation_schedules
+                ADD COLUMN day_of_month INTEGER
+                """
+            )
 
         self._seed(
             task_id="health_check",
@@ -101,6 +118,7 @@ class SchedulerRepository:
         frequency,
         schedule_time,
         day_of_week,
+        day_of_month=None,
     ):
         existing = self.database.query(
             """
@@ -127,7 +145,8 @@ class SchedulerRepository:
                 enabled,
                 frequency,
                 schedule_time,
-                day_of_week
+                day_of_week,
+                day_of_month
             )
             VALUES
             (
@@ -135,6 +154,7 @@ class SchedulerRepository:
                 ?,
                 ?,
                 1,
+                ?,
                 ?,
                 ?,
                 ?
@@ -147,6 +167,7 @@ class SchedulerRepository:
                 frequency,
                 schedule_time,
                 day_of_week,
+                day_of_month,
             ),
         )
 
@@ -187,6 +208,7 @@ class SchedulerRepository:
         frequency,
         schedule_time,
         day_of_week,
+        day_of_month,
     ):
         self.database.execute(
             """
@@ -195,6 +217,7 @@ class SchedulerRepository:
                 frequency=?,
                 schedule_time=?,
                 day_of_week=?,
+                day_of_month=?,
                 updated_at=?
             WHERE task_id=?
             """,
@@ -203,6 +226,7 @@ class SchedulerRepository:
                 frequency,
                 schedule_time,
                 day_of_week,
+                day_of_month,
                 datetime.utcnow(),
                 task_id,
             ),

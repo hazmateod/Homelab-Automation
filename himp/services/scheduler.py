@@ -52,6 +52,7 @@ class SchedulerService:
         frequency,
         schedule_time=None,
         day_of_week=None,
+        day_of_month=None,
     ):
         self.find(task_id)
 
@@ -69,12 +70,18 @@ class SchedulerService:
             day_of_week,
         )
 
+        self._validate_day_of_month(
+            frequency,
+            day_of_month,
+        )
+
         return self.repository.update(
             task_id=task_id,
             enabled=enabled,
             frequency=frequency,
             schedule_time=schedule_time,
             day_of_week=day_of_week,
+            day_of_month=day_of_month,
         )
 
     def record_run(
@@ -108,7 +115,11 @@ class SchedulerService:
         if schedule_time is None:
             return False
 
-        if frequency == "daily":
+        if frequency == "hourly":
+            if now.strftime("%M") != schedule_time[-2:]:
+                return False
+
+        elif frequency == "daily":
             if now.strftime("%H:%M") != schedule_time:
                 return False
 
@@ -120,6 +131,16 @@ class SchedulerService:
             if (
                 sunday_based_weekday
                 != schedule["day_of_week"]
+            ):
+                return False
+
+            if now.strftime("%H:%M") != schedule_time:
+                return False
+
+        elif frequency == "monthly":
+            if (
+                now.day
+                != schedule["day_of_month"]
             ):
                 return False
 
@@ -142,13 +163,30 @@ class SchedulerService:
             except ValueError:
                 return True
 
+        if frequency == "hourly":
+            return (
+                last_run.replace(
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                )
+                != now.replace(
+                    minute=0,
+                    second=0,
+                    microsecond=0,
+                )
+            )
+
         if frequency == "daily":
             return last_run.date() != now.date()
 
         if frequency == "weekly":
+            return last_run.date() != now.date()
+
+        if frequency == "monthly":
             return (
-                last_run.date()
-                != now.date()
+                last_run.year != now.year
+                or last_run.month != now.month
             )
 
         return True
@@ -236,4 +274,36 @@ class SchedulerService:
         if day_of_week < 0 or day_of_week > 6:
             raise ValueError(
                 "Day of week must be an integer from 0 to 6"
+            )
+
+
+    def _validate_day_of_month(
+        self,
+        frequency,
+        day_of_month,
+    ):
+        if frequency != "monthly":
+            if day_of_month is not None:
+                raise ValueError(
+                    "Day of month is only valid for monthly schedules"
+                )
+
+            return
+
+        if day_of_month is None:
+            raise ValueError(
+                "Monthly schedules require a day of month"
+            )
+
+        if not isinstance(
+            day_of_month,
+            int,
+        ):
+            raise ValueError(
+                "Day of month must be an integer from 1 to 31"
+            )
+
+        if day_of_month < 1 or day_of_month > 31:
+            raise ValueError(
+                "Day of month must be an integer from 1 to 31"
             )
