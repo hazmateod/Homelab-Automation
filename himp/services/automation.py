@@ -37,7 +37,7 @@ class AutomationService:
                 "name": "Generate Reports",
                 "description": "Generate HIMP infrastructure reports.",
                 "enabled": True,
-                "schedule": "manual",
+                "schedule": "weekly 03:00 Sunday",
             },
             {
                 "id": "inventory_refresh",
@@ -97,7 +97,11 @@ class AutomationService:
         }
 
 
-    def run(self, task_id):
+    def run(
+        self,
+        task_id,
+        limit=None,
+    ):
 
         if task_id == "host_health_check":
 
@@ -126,7 +130,9 @@ class AutomationService:
                     "Report service not configured"
                 )
 
-            result = self.reports.summary()
+            result = self.reports.generate(
+                limit=limit,
+            )
 
 
         elif task_id == "inventory_refresh":

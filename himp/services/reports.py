@@ -6,6 +6,8 @@ Provides report inventory and dashboard report information.
 
 from pathlib import Path
 
+from himp.config import config
+from himp.lib.ansible import run_playbook
 from himp.models.dashboard import Dashboard
 
 
@@ -14,6 +16,22 @@ class ReportService:
     def __init__(self):
 
         self.root = Path("reports")
+
+
+    def generate(
+        self,
+        limit=None,
+    ):
+
+        success, elapsed = run_playbook(
+            config.report_playbook,
+            limit,
+        )
+
+        return {
+            "success": success,
+            "elapsed": elapsed,
+        }
 
 
     def summary(self):
