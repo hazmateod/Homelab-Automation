@@ -19,7 +19,11 @@ class PluginHealthRunner:
 
         self.loader = PluginLoader()
 
-    def health(self, name):
+    def health(
+        self,
+        name,
+        timeout=None,
+    ):
 
         plugin = self.loader.find(name)
 
@@ -48,6 +52,7 @@ class PluginHealthRunner:
                 f"inventory_group={plugin.inventory_group}",
             ],
             check=False,
+            timeout=timeout,
         )
 
         result.elapsed = round(
@@ -65,10 +70,16 @@ class PluginHealthRunner:
 
         return result
 
-    def health_all(self):
+    def health_all(
+        self,
+        timeout=None,
+    ):
 
         return [
-            self.health(plugin.id)
+            self.health(
+                plugin.id,
+                timeout=timeout,
+            )
             for plugin in self.loader.plugins()
             if plugin.supports_health()
         ]

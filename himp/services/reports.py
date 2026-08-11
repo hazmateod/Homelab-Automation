@@ -21,11 +21,13 @@ class ReportService:
     def generate(
         self,
         limit=None,
+        timeout=None,
     ):
 
         success, elapsed = run_playbook(
             config.report_playbook,
             limit,
+            timeout=timeout,
         )
 
         return {

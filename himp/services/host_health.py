@@ -9,6 +9,8 @@ from himp.health.models import (
     HealthStatus,
     HostHealthResult,
 )
+import time
+
 from himp.services.ssh import SSHService
 
 
@@ -30,14 +32,13 @@ class HostHealthService:
     def check_host(
         self,
         hostname,
+        timeout=None,
     ):
-
         host = self.inventory.find_host(
             hostname
         )
 
         if host is None:
-
             raise ValueError(
                 f"Inventory host not found: {hostname}"
             )
@@ -46,6 +47,7 @@ class HostHealthService:
             hostname=host["hostname"],
             ip=host["ip"],
             user=host["ansible_user"],
+            timeout=timeout,
         )
 
         status = (
@@ -83,25 +85,47 @@ class HostHealthService:
             results=[result],
         )
 
+
     def check_hosts(
         self,
         hostnames,
+        timeout=None,
     ):
-
         results = []
+        started = time.perf_counter()
 
         for hostname in hostnames:
 
+            remaining = None
+
+            if timeout is not None:
+                remaining = (
+                    timeout
+                    - (
+                        time.perf_counter()
+                        - started
+                    )
+                )
+
+                if remaining <= 0:
+                    raise TimeoutError(
+                        "Host health check timed out."
+                    )
+
             results.append(
                 self.check_host(
-                    hostname
+                    hostname,
+                    timeout=remaining,
                 )
             )
 
         return results
 
-    def check_all_hosts(self):
 
+    def check_all_hosts(
+        self,
+        timeout=None,
+    ):
         hosts = self.inventory.all_hosts()
 
         hostnames = [
@@ -110,8 +134,10 @@ class HostHealthService:
         ]
 
         return self.check_hosts(
-            hostnames
+            hostnames,
+            timeout=timeout,
         )
+
 
     def latest(
         self,

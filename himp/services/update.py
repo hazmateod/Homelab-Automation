@@ -17,10 +17,12 @@ class UpdateService:
         self,
         target,
         limit=None,
+        timeout=None,
     ):
         success, elapsed = run_playbook(
             config.maintenance_playbook,
             limit or target,
+            timeout=timeout,
         )
 
         return {

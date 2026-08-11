@@ -8,7 +8,11 @@ import time
 from himp.config import config
 
 
-def run_playbook(playbook, limit=None):
+def run_playbook(
+    playbook,
+    limit=None,
+    timeout=None,
+):
     cmd = [
         "ansible-playbook",
         "-i",
@@ -24,14 +28,21 @@ def run_playbook(playbook, limit=None):
 
     start = time.perf_counter()
 
-    result = subprocess.run(
-        cmd,
-        check=False,
-    )
+    try:
+        result = subprocess.run(
+            cmd,
+            check=False,
+            timeout=timeout,
+        )
+
+        success = result.returncode == 0
+
+    except subprocess.TimeoutExpired:
+        success = False
 
     elapsed = time.perf_counter() - start
 
     return (
-        result.returncode == 0,
+        success,
         elapsed,
     )

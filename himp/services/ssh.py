@@ -20,6 +20,7 @@ class SSHService:
         hostname,
         ip,
         user,
+        timeout=None,
     ):
         result = SSHResult(
             hostname=hostname,
@@ -27,12 +28,21 @@ class SSHService:
             user=user,
         )
 
+        connect_timeout = (
+            self.CONNECT_TIMEOUT
+            if timeout is None
+            else min(
+                self.CONNECT_TIMEOUT,
+                max(float(timeout), 0.1),
+            )
+        )
+
         command = [
             "ssh",
             "-o",
             "BatchMode=yes",
             "-o",
-            f"ConnectTimeout={self.CONNECT_TIMEOUT}",
+            f"ConnectTimeout={connect_timeout}",
             f"{user}@{ip}",
             "true",
         ]
@@ -45,7 +55,9 @@ class SSHService:
                 capture_output=True,
                 text=True,
                 check=False,
-                timeout=self.CONNECT_TIMEOUT + 2,
+                timeout=(
+                    connect_timeout + 2
+                ),
             )
 
         except subprocess.TimeoutExpired:

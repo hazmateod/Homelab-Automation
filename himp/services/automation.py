@@ -554,6 +554,71 @@ class AutomationService:
         }
 
 
+    def _execute_task(
+        self,
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        if task_id == "host_health_check":
+
+            if self.host_health is None:
+                raise RuntimeError(
+                    "Host health service not configured"
+                )
+
+            return self.host_health.check_all_hosts(
+                timeout=timeout,
+            )
+
+        if task_id == "health_check":
+
+            if self.health is None:
+                raise RuntimeError(
+                    "Health service not configured"
+                )
+
+            return self.health.summary()
+
+        if task_id == "generate_reports":
+
+            if self.reports is None:
+                raise RuntimeError(
+                    "Report service not configured"
+                )
+
+            return self.reports.generate(
+                limit=limit,
+                timeout=timeout,
+            )
+
+        if task_id == "inventory_refresh":
+
+            if self.inventory is None:
+                raise RuntimeError(
+                    "Inventory service not configured"
+                )
+
+            return self.inventory.sync()
+
+        if task_id == "scheduled_updates":
+
+            if self.updates is None:
+                raise RuntimeError(
+                    "Update service not configured"
+                )
+
+            return self.updates.update(
+                "maintenance",
+                limit=limit,
+                timeout=timeout,
+            )
+
+        raise ValueError(
+            f"Unknown automation task: {task_id}"
+        )
+
+
     def run(
         self,
         task_id,
@@ -583,6 +648,10 @@ class AutomationService:
             task_id
         )
 
+        policy = self.validate_retry_policy(
+            task_id
+        )
+
         if not self.lock_repository.acquire(
             task_id
         ):
@@ -596,122 +665,114 @@ class AutomationService:
             timezone.utc
         ).isoformat()
 
+        attempts = policy["retry_attempts"]
+        delay = policy["retry_delay_seconds"]
+
         try:
 
-            if task_id == "host_health_check":
+            last_error = None
 
-                if self.host_health is None:
-                    raise RuntimeError(
-                        "Host health service not configured"
-                    )
+            for attempt in range(
+                1,
+                attempts + 1,
+            ):
 
-                result = self.host_health.check_all_hosts()
-
-            elif task_id == "health_check":
-
-                if self.health is None:
-                    raise RuntimeError(
-                        "Health service not configured"
-                    )
-
-                result = self.health.summary()
-
-            elif task_id == "generate_reports":
-
-                if self.reports is None:
-                    raise RuntimeError(
-                        "Report service not configured"
-                    )
-
-                result = self.reports.generate(
-                    limit=limit,
+                attempt_started = (
+                    time.perf_counter()
                 )
 
-            elif task_id == "inventory_refresh":
-
-                if self.inventory is None:
-                    raise RuntimeError(
-                        "Inventory service not configured"
-                    )
-
-                result = self.inventory.sync()
-
-            elif task_id == "scheduled_updates":
-
-                if self.updates is None:
-                    raise RuntimeError(
-                        "Update service not configured"
-                    )
-
-                result = self.updates.update(
-                    "maintenance",
-                    limit=limit,
+                attempt_executed_at = (
+                    datetime.now(
+                        timezone.utc
+                    ).isoformat()
                 )
 
-            else:
+                try:
 
-                raise ValueError(
-                    f"Unknown automation task: {task_id}"
-                )
-
-            elapsed = round(
-                time.perf_counter() - started,
-                3,
-            )
-
-            result = self._normalize_result(
-                result
-            )
-
-            success = True
-
-            if isinstance(result, dict):
-                if "success" in result:
-                    success = bool(
-                        result["success"]
+                    result = self._execute_task(
+                        task_id,
+                        limit=limit,
+                        timeout=policy["timeout_seconds"],
                     )
 
-            execution = {
-                "task": task_id,
-                "executed_at": executed_at,
-                "result": result,
-            }
+                    result = self._normalize_result(
+                        result
+                    )
 
-            self.execution_repository.save(
-                task_id=task_id,
-                success=success,
-                elapsed=elapsed,
-                result=execution,
-                executed_at=executed_at,
-            )
+                    success = True
+
+                    if isinstance(result, dict):
+                        if "success" in result:
+                            success = bool(
+                                result["success"]
+                            )
+
+                    attempt_elapsed = round(
+                        time.perf_counter()
+                        - attempt_started,
+                        3,
+                    )
+
+                    execution = {
+                        "task": task_id,
+                        "executed_at": executed_at,
+                        "attempt": attempt,
+                        "attempts": attempts,
+                        "result": result,
+                    }
+
+                    self.execution_repository.save(
+                        task_id=task_id,
+                        success=success,
+                        elapsed=attempt_elapsed,
+                        result=execution,
+                        executed_at=attempt_executed_at,
+                    )
+
+                    if success:
+                        return execution
+
+                    last_error = None
+
+                except Exception as error:
+
+                    attempt_elapsed = round(
+                        time.perf_counter()
+                        - attempt_started,
+                        3,
+                    )
+
+                    failure = {
+                        "task": task_id,
+                        "executed_at": executed_at,
+                        "attempt": attempt,
+                        "attempts": attempts,
+                        "result": {
+                            "success": False,
+                            "error": str(error),
+                        },
+                    }
+
+                    self.execution_repository.save(
+                        task_id=task_id,
+                        success=False,
+                        elapsed=attempt_elapsed,
+                        result=failure,
+                        executed_at=attempt_executed_at,
+                    )
+
+                    last_error = error
+
+                if attempt < attempts:
+                    if delay > 0:
+                        time.sleep(
+                            delay
+                        )
+
+            if last_error is not None:
+                raise last_error
 
             return execution
-
-        except Exception as error:
-
-            elapsed = round(
-                time.perf_counter() - started,
-                3,
-            )
-
-            failure = {
-                "task": task_id,
-                "executed_at": executed_at,
-                "result": {
-                    "success": False,
-                    "error": str(error),
-                },
-            }
-
-            self.execution_repository.save(
-                task_id=task_id,
-                success=False,
-                elapsed=elapsed,
-                result=failure,
-                executed_at=executed_at,
-            )
-
-            raise
 
         finally:
             self.lock_repository.release(
