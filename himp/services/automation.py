@@ -151,7 +151,10 @@ class AutomationService:
                     "Update service not configured"
                 )
 
-            result = self.updates.update("maintenance")
+            result = self.updates.update(
+                "maintenance",
+                limit=limit,
+            )
 
 
         else:

@@ -13,10 +13,14 @@ class UpdateService:
     Provides maintenance update operations.
     """
 
-    def update(self, target):
+    def update(
+        self,
+        target,
+        limit=None,
+    ):
         success, elapsed = run_playbook(
             config.maintenance_playbook,
-            target,
+            limit or target,
         )
 
         return {
