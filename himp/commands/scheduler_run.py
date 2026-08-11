@@ -58,6 +58,37 @@ def run(args):
                 task_id
             )
 
+            task_result = result.get(
+                "result",
+                {},
+            )
+
+            if isinstance(
+                task_result,
+                dict,
+            ) and task_result.get(
+                "success",
+                True,
+            ) is False:
+                failed = True
+
+                print(
+                    "Automation task failed."
+                )
+                print(
+                    f"Task       : {result['task']}"
+                )
+                print(
+                    f"Executed   : {result['executed_at']}"
+                )
+                print(
+                    f"Error      : "
+                    f"{task_result.get('error', 'Unknown error')}",
+                    file=sys.stderr,
+                )
+
+                continue
+
             scheduler.record_run(
                 task_id
             )
