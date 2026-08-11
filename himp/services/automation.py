@@ -85,6 +85,8 @@ class AutomationService:
                 "enabled": True,
                 "schedule": "manual",
                 "timeout_seconds": 300,
+                "retry_attempts": 1,
+                "retry_delay_seconds": 0,
                 "risk_level": "read_only",
             },
             {
@@ -94,6 +96,8 @@ class AutomationService:
                 "enabled": True,
                 "schedule": "manual",
                 "timeout_seconds": 900,
+                "retry_attempts": 1,
+                "retry_delay_seconds": 0,
                 "risk_level": "read_only",
             },
             {
@@ -103,6 +107,8 @@ class AutomationService:
                 "enabled": True,
                 "schedule": "weekly 03:00 Sunday",
                 "timeout_seconds": 1800,
+                "retry_attempts": 1,
+                "retry_delay_seconds": 0,
                 "risk_level": "read_only",
             },
             {
@@ -112,6 +118,8 @@ class AutomationService:
                 "enabled": True,
                 "schedule": "daily 03:00",
                 "timeout_seconds": 300,
+                "retry_attempts": 1,
+                "retry_delay_seconds": 0,
                 "risk_level": "read_only",
             },
             {
@@ -121,6 +129,8 @@ class AutomationService:
                 "enabled": True,
                 "schedule": "daily 03:15",
                 "timeout_seconds": 3600,
+                "retry_attempts": 1,
+                "retry_delay_seconds": 0,
                 "risk_level": "maintenance",
             },
         ]
@@ -155,6 +165,72 @@ class AutomationService:
             }
 
         return value
+
+
+    def validate_retry_policy(
+        self,
+        task_id,
+    ):
+        task = self.find_task(
+            task_id
+        )
+
+        attempts = task.get(
+            "retry_attempts",
+            1,
+        )
+
+        delay = task.get(
+            "retry_delay_seconds",
+            0,
+        )
+
+        timeout = task.get(
+            "timeout_seconds"
+        )
+
+        if (
+            not isinstance(attempts, int)
+            or isinstance(attempts, bool)
+            or attempts < 1
+        ):
+            raise ValueError(
+                "Automation retry_attempts must be "
+                "an integer greater than or equal to 1: "
+                f"{task_id}"
+            )
+
+        if (
+            not isinstance(delay, int | float)
+            or isinstance(delay, bool)
+            or delay < 0
+        ):
+            raise ValueError(
+                "Automation retry_delay_seconds must be "
+                "a non-negative number: "
+                f"{task_id}"
+            )
+
+        if (
+            timeout is not None
+            and (
+                not isinstance(timeout, int | float)
+                or isinstance(timeout, bool)
+                or timeout <= 0
+            )
+        ):
+            raise ValueError(
+                "Automation timeout_seconds must be "
+                "a positive number: "
+                f"{task_id}"
+            )
+
+        return {
+            "task_id": task_id,
+            "retry_attempts": attempts,
+            "retry_delay_seconds": delay,
+            "timeout_seconds": timeout,
+        }
 
 
     def configure(
