@@ -43,6 +43,12 @@ class AutomationDependencyNotSatisfiedError(
     """Raised when an automation dependency is not satisfied."""
 
 
+class AutomationDependencyNotFoundError(
+    RuntimeError
+):
+    """Raised when an automation dependency does not exist."""
+
+
 class AutomationService:
 
     def __init__(self):
@@ -209,6 +215,59 @@ class AutomationService:
                 )
 
         return dependencies
+
+
+    def add_dependency(
+        self,
+        task_id,
+        depends_on_task_id,
+    ):
+        self.find_task(
+            task_id
+        )
+
+        self.find_task(
+            depends_on_task_id
+        )
+
+        return self.dependency_repository.add(
+            task_id,
+            depends_on_task_id,
+        )
+
+
+    def remove_dependency(
+        self,
+        task_id,
+        depends_on_task_id,
+    ):
+        self.find_task(
+            task_id
+        )
+
+        self.find_task(
+            depends_on_task_id
+        )
+
+        dependency = (
+            self.dependency_repository.find(
+                task_id,
+                depends_on_task_id,
+            )
+        )
+
+        if dependency is None:
+            raise AutomationDependencyNotFoundError(
+                "Automation dependency does not exist: "
+                f"{task_id} -> {depends_on_task_id}"
+            )
+
+        self.dependency_repository.remove(
+            task_id,
+            depends_on_task_id,
+        )
+
+        return dependency
 
 
     def dependency_status(

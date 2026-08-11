@@ -15,6 +15,7 @@ from himp.app import HIMP
 from himp.services.automation import (
     AutomationAlreadyRunningError,
     AutomationConfirmationRequiredError,
+    AutomationDependencyNotFoundError,
     AutomationDisabledError,
 )
 
@@ -138,6 +139,39 @@ def automation_task_execution_history(
     )
 
 
+class AutomationDependencyRequest(BaseModel):
+    depends_on_task_id: str
+
+
+@router.post("/automation/{task_id}/dependencies")
+def add_automation_dependency(
+    task_id: str,
+    request: AutomationDependencyRequest,
+):
+    try:
+        dependency = (
+            himp.automation.add_dependency(
+                task_id,
+                request.depends_on_task_id,
+            )
+        )
+
+        return JSONResponse(
+            {
+                "dependency": dependency,
+                "message": (
+                    "Automation dependency added successfully."
+                ),
+            }
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        )
+
+
 @router.get("/automation/{task_id}/dependencies")
 def automation_dependency_status(
     task_id: str,
@@ -147,6 +181,43 @@ def automation_dependency_status(
             himp.automation.dependency_status(
                 task_id
             )
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        )
+
+
+@router.delete(
+    "/automation/{task_id}/dependencies/{dependency_task_id}"
+)
+def remove_automation_dependency(
+    task_id: str,
+    dependency_task_id: str,
+):
+    try:
+        dependency = (
+            himp.automation.remove_dependency(
+                task_id,
+                dependency_task_id,
+            )
+        )
+
+        return JSONResponse(
+            {
+                "dependency": dependency,
+                "message": (
+                    "Automation dependency removed successfully."
+                ),
+            }
+        )
+
+    except AutomationDependencyNotFoundError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
         )
 
     except ValueError as error:
