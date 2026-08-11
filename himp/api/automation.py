@@ -12,6 +12,11 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from himp.app import HIMP
+from himp.services.automation import (
+    AutomationAlreadyRunningError,
+    AutomationConfirmationRequiredError,
+    AutomationDisabledError,
+)
 
 
 router = APIRouter(
@@ -133,15 +138,69 @@ def automation_task_execution_history(
     )
 
 
+@router.post("/automation/{task_id}/enable")
+def enable_automation(
+    task_id: str,
+):
+    try:
+        task = himp.automation.enable(
+            task_id
+        )
+
+        return {
+            "task": task,
+            "message": "Automation task enabled successfully.",
+        }
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        )
+
+
+@router.post("/automation/{task_id}/disable")
+def disable_automation(
+    task_id: str,
+):
+    try:
+        task = himp.automation.disable(
+            task_id
+        )
+
+        return {
+            "task": task,
+            "message": "Automation task disabled successfully.",
+        }
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        )
+
+
+class AutomationRunRequest(BaseModel):
+    confirmed: bool = False
+
+
 @router.post("/automation/{task_id}/run")
 def run_automation(
     task_id: str,
+    request: AutomationRunRequest | None = None,
 ):
+
+    confirmed = (
+        request.confirmed
+        if request is not None
+        else False
+    )
 
     try:
 
         result = himp.automation.run(
-            task_id
+            task_id,
+            confirmed=confirmed,
         )
 
         return JSONResponse(
@@ -153,6 +212,30 @@ def run_automation(
 
         raise HTTPException(
             status_code=404,
+            detail=str(error),
+        )
+
+
+    except AutomationAlreadyRunningError as error:
+
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        )
+
+
+    except AutomationDisabledError as error:
+
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        )
+
+
+    except AutomationConfirmationRequiredError as error:
+
+        raise HTTPException(
+            status_code=409,
             detail=str(error),
         )
 

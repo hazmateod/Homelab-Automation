@@ -1180,13 +1180,19 @@ document.addEventListener("DOMContentLoaded", () => {
 
             try {
                 const response = await fetch(
-                    `/api/automation/${encodeURIComponent(taskId)}/run`,
-                    {
-                        method: "POST"
-                    }
-                );
+                      `/api/automation/${encodeURIComponent(taskId)}/run`,
+                      {
+                          method: "POST",
+                          headers: {
+                              "Content-Type": "application/json"
+                          },
+                          body: JSON.stringify({
+                              confirmed: true
+                          })
+                      }
+                  );
 
-                const result = await response.json();
+                  const result = await response.json();
 
                 if (!response.ok) {
                     throw new Error(

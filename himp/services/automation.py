@@ -11,6 +11,27 @@ from datetime import datetime, timezone
 from himp.database.automation_executions import (
     AutomationExecutionRepository,
 )
+from himp.database.automation_locks import (
+    AutomationLockRepository,
+)
+
+
+class AutomationAlreadyRunningError(
+    RuntimeError
+):
+    """Raised when an automation is already executing."""
+
+
+class AutomationDisabledError(
+    RuntimeError
+):
+    """Raised when an automation is disabled."""
+
+
+class AutomationConfirmationRequiredError(
+    RuntimeError
+):
+    """Raised when a destructive automation lacks confirmation."""
 
 
 class AutomationService:
@@ -25,6 +46,9 @@ class AutomationService:
         self.execution_repository = (
             AutomationExecutionRepository()
         )
+        self.lock_repository = (
+            AutomationLockRepository()
+        )
 
         self.tasks = [
             {
@@ -33,6 +57,8 @@ class AutomationService:
                 "description": "Run health validation across plugins.",
                 "enabled": True,
                 "schedule": "manual",
+                "timeout_seconds": 300,
+                "risk_level": "read_only",
             },
             {
                 "id": "host_health_check",
@@ -40,6 +66,8 @@ class AutomationService:
                 "description": "Run SSH health checks across active inventory hosts.",
                 "enabled": True,
                 "schedule": "manual",
+                "timeout_seconds": 900,
+                "risk_level": "read_only",
             },
             {
                 "id": "generate_reports",
@@ -47,6 +75,8 @@ class AutomationService:
                 "description": "Generate HIMP infrastructure reports.",
                 "enabled": True,
                 "schedule": "weekly 03:00 Sunday",
+                "timeout_seconds": 1800,
+                "risk_level": "read_only",
             },
             {
                 "id": "inventory_refresh",
@@ -54,6 +84,8 @@ class AutomationService:
                 "description": "Refresh inventory data.",
                 "enabled": True,
                 "schedule": "daily 03:00",
+                "timeout_seconds": 300,
+                "risk_level": "read_only",
             },
             {
                 "id": "scheduled_updates",
@@ -61,6 +93,8 @@ class AutomationService:
                 "description": "Run maintenance updates across the homelab.",
                 "enabled": True,
                 "schedule": "daily 03:15",
+                "timeout_seconds": 3600,
+                "risk_level": "maintenance",
             },
         ]
 
@@ -80,6 +114,51 @@ class AutomationService:
         self.inventory = inventory
         self.updates = updates
 
+
+    def find_task(
+        self,
+        task_id,
+    ):
+        for task in self.tasks:
+            if task["id"] == task_id:
+                return task
+
+        raise ValueError(
+            f"Automation task does not exist: {task_id}"
+        )
+
+    def set_enabled(
+        self,
+        task_id,
+        enabled,
+    ):
+        task = self.find_task(
+            task_id
+        )
+
+        task["enabled"] = bool(
+            enabled
+        )
+
+        return task
+
+    def enable(
+        self,
+        task_id,
+    ):
+        return self.set_enabled(
+            task_id,
+            True,
+        )
+
+    def disable(
+        self,
+        task_id,
+    ):
+        return self.set_enabled(
+            task_id,
+            False,
+        )
 
     def summary(self):
 
@@ -110,7 +189,33 @@ class AutomationService:
         self,
         task_id,
         limit=None,
+        confirmed=False,
     ):
+
+        task = self.find_task(
+            task_id
+        )
+
+        if not task["enabled"]:
+            raise AutomationDisabledError(
+                f"Automation task is disabled: {task_id}"
+            )
+
+        if (
+            task["risk_level"] == "destructive"
+            and not confirmed
+        ):
+            raise AutomationConfirmationRequiredError(
+                "Destructive automation requires explicit confirmation: "
+                f"{task_id}"
+            )
+
+        if not self.lock_repository.acquire(
+            task_id
+        ):
+            raise AutomationAlreadyRunningError(
+                f"Automation task is already running: {task_id}"
+            )
 
         started = time.perf_counter()
 
@@ -230,3 +335,8 @@ class AutomationService:
             )
 
             raise
+
+        finally:
+            self.lock_repository.release(
+                task_id
+            )
