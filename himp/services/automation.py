@@ -6,7 +6,10 @@ Provides HIMP automation task definitions and execution.
 
 import time
 
+from dataclasses import asdict, is_dataclass
 from datetime import datetime, timezone
+
+from pydantic import BaseModel
 
 from himp.database.automation_dependencies import (
     AutomationDependencyRepository,
@@ -121,6 +124,37 @@ class AutomationService:
                 "risk_level": "maintenance",
             },
         ]
+
+
+    @staticmethod
+    def _normalize_result(
+        value,
+    ):
+        if isinstance(value, BaseModel):
+            return value.model_dump(
+                mode="json"
+            )
+
+        if is_dataclass(value):
+            return asdict(value)
+
+        if isinstance(value, list):
+            return [
+                AutomationService._normalize_result(
+                    item
+                )
+                for item in value
+            ]
+
+        if isinstance(value, dict):
+            return {
+                key: AutomationService._normalize_result(
+                    item
+                )
+                for key, item in value.items()
+            }
+
+        return value
 
 
     def configure(
@@ -547,6 +581,10 @@ class AutomationService:
             elapsed = round(
                 time.perf_counter() - started,
                 3,
+            )
+
+            result = self._normalize_result(
+                result
             )
 
             success = True
