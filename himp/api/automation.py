@@ -138,6 +138,24 @@ def automation_task_execution_history(
     )
 
 
+@router.get("/automation/{task_id}/dependencies")
+def automation_dependency_status(
+    task_id: str,
+):
+    try:
+        return JSONResponse(
+            himp.automation.dependency_status(
+                task_id
+            )
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        )
+
+
 @router.post("/automation/{task_id}/enable")
 def enable_automation(
     task_id: str,

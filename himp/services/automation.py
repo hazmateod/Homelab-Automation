@@ -8,6 +8,9 @@ import time
 
 from datetime import datetime, timezone
 
+from himp.database.automation_dependencies import (
+    AutomationDependencyRepository,
+)
 from himp.database.automation_executions import (
     AutomationExecutionRepository,
 )
@@ -34,6 +37,12 @@ class AutomationConfirmationRequiredError(
     """Raised when a destructive automation lacks confirmation."""
 
 
+class AutomationDependencyNotSatisfiedError(
+    RuntimeError
+):
+    """Raised when an automation dependency is not satisfied."""
+
+
 class AutomationService:
 
     def __init__(self):
@@ -45,6 +54,9 @@ class AutomationService:
         self.updates = None
         self.execution_repository = (
             AutomationExecutionRepository()
+        )
+        self.dependency_repository = (
+            AutomationDependencyRepository()
         )
         self.lock_repository = (
             AutomationLockRepository()
@@ -160,6 +172,114 @@ class AutomationService:
             False,
         )
 
+    def validate_dependencies(
+        self,
+        task_id,
+    ):
+        dependencies = self.dependency_repository.list(
+            task_id
+        )
+
+        for dependency in dependencies:
+            dependency_task_id = dependency[
+                "depends_on_task_id"
+            ]
+
+            self.find_task(
+                dependency_task_id
+            )
+
+            execution = (
+                self.execution_repository.latest(
+                    dependency_task_id
+                )
+            )
+
+            if execution is None:
+                raise AutomationDependencyNotSatisfiedError(
+                    "Automation dependency has never "
+                    "completed successfully: "
+                    f"{task_id} -> {dependency_task_id}"
+                )
+
+            if not execution["success"]:
+                raise AutomationDependencyNotSatisfiedError(
+                    "Automation dependency failed: "
+                    f"{task_id} -> {dependency_task_id}"
+                )
+
+        return dependencies
+
+
+    def dependency_status(
+        self,
+        task_id,
+    ):
+        self.find_task(
+            task_id
+        )
+
+        dependencies = (
+            self.dependency_repository.list(
+                task_id
+            )
+        )
+
+        status = []
+
+        for dependency in dependencies:
+            dependency_task_id = (
+                dependency["depends_on_task_id"]
+            )
+
+            self.find_task(
+                dependency_task_id
+            )
+
+            execution = (
+                self.execution_repository.latest(
+                    dependency_task_id
+                )
+            )
+
+            if execution is None:
+                status.append(
+                    {
+                        "task_id": dependency_task_id,
+                        "satisfied": False,
+                        "status": "never_run",
+                        "latest_execution": None,
+                    }
+                )
+                continue
+
+            success = bool(
+                execution["success"]
+            )
+
+            status.append(
+                {
+                    "task_id": dependency_task_id,
+                    "satisfied": success,
+                    "status": (
+                        "satisfied"
+                        if success
+                        else "failed"
+                    ),
+                    "latest_execution": execution,
+                }
+            )
+
+        return {
+            "task_id": task_id,
+            "dependencies": status,
+            "satisfied": all(
+                dependency["satisfied"]
+                for dependency in status
+            ),
+        }
+
+
     def summary(self):
 
         return {
@@ -209,6 +329,10 @@ class AutomationService:
                 "Destructive automation requires explicit confirmation: "
                 f"{task_id}"
             )
+
+        self.validate_dependencies(
+            task_id
+        )
 
         if not self.lock_repository.acquire(
             task_id
