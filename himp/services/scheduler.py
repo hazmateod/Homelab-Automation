@@ -94,6 +94,32 @@ class SchedulerService:
             task_id
         )
 
+    def _localize_last_run(
+        self,
+        last_run,
+    ):
+        if last_run is None:
+            return None
+
+        if isinstance(last_run, str):
+            try:
+                last_run = datetime.fromisoformat(
+                    last_run
+                )
+            except ValueError:
+                return None
+
+        if last_run.tzinfo is None:
+            from datetime import UTC
+
+            last_run = last_run.replace(
+                tzinfo=UTC,
+            )
+
+        return last_run.astimezone().replace(
+            tzinfo=None,
+        )
+
     def due(
         self,
         schedule,
@@ -115,81 +141,153 @@ class SchedulerService:
         if schedule_time is None:
             return False
 
+        hour, minute = (
+            int(value)
+            for value in schedule_time.split(":")
+        )
+
         if frequency == "hourly":
-            if now.strftime("%M") != schedule_time[-2:]:
-                return False
+            occurrence = now.replace(
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
 
         elif frequency == "daily":
-            if now.strftime("%H:%M") != schedule_time:
-                return False
+            occurrence = now.replace(
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
 
         elif frequency == "weekly":
             sunday_based_weekday = (
                 now.weekday() + 1
             ) % 7
 
-            if (
+            days_since_schedule = (
                 sunday_based_weekday
-                != schedule["day_of_week"]
-            ):
-                return False
+                - schedule["day_of_week"]
+            ) % 7
 
-            if now.strftime("%H:%M") != schedule_time:
-                return False
+            occurrence = now.replace(
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
+
+            from datetime import timedelta
+
+            occurrence = occurrence - timedelta(
+                days=days_since_schedule,
+            )
 
         elif frequency == "monthly":
-            if (
-                now.day
-                != schedule["day_of_month"]
-            ):
+            from calendar import monthrange
+
+            day = schedule["day_of_month"]
+
+            if day is None:
                 return False
 
-            if now.strftime("%H:%M") != schedule_time:
+            if day > monthrange(
+                now.year,
+                now.month,
+            )[1]:
                 return False
+
+            occurrence = now.replace(
+                day=day,
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
 
         else:
             return False
 
-        last_run = schedule["last_run"]
+        if occurrence > now:
+            return False
+
+        last_run = self._localize_last_run(
+            schedule["last_run"]
+        )
 
         if last_run is None:
             return True
 
-        if isinstance(last_run, str):
-            try:
-                last_run = datetime.fromisoformat(
-                    last_run
-                )
-            except ValueError:
-                return True
-
         if frequency == "hourly":
-            return (
-                last_run.replace(
-                    minute=0,
-                    second=0,
-                    microsecond=0,
-                )
-                != now.replace(
-                    minute=0,
-                    second=0,
-                    microsecond=0,
+            last_occurrence = last_run.replace(
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
+
+        elif frequency == "daily":
+            last_occurrence = last_run.replace(
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
+
+        elif frequency == "weekly":
+            last_occurrence = last_run.replace(
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
+            )
+
+            last_sunday_based_weekday = (
+                last_run.weekday() + 1
+            ) % 7
+
+            days_since_schedule = (
+                last_sunday_based_weekday
+                - schedule["day_of_week"]
+            ) % 7
+
+            from datetime import timedelta
+
+            last_occurrence = (
+                last_occurrence
+                - timedelta(
+                    days=days_since_schedule,
                 )
             )
 
-        if frequency == "daily":
-            return last_run.date() != now.date()
-
-        if frequency == "weekly":
-            return last_run.date() != now.date()
-
-        if frequency == "monthly":
-            return (
-                last_run.year != now.year
-                or last_run.month != now.month
+        elif frequency == "monthly":
+            last_occurrence = last_run.replace(
+                day=1,
+                hour=hour,
+                minute=minute,
+                second=0,
+                microsecond=0,
             )
 
-        return True
+            from calendar import monthrange
+
+            if schedule["day_of_month"] <= monthrange(
+                last_run.year,
+                last_run.month,
+            )[1]:
+                last_occurrence = last_occurrence.replace(
+                    day=schedule["day_of_month"],
+                )
+            else:
+                last_occurrence = None
+
+        else:
+            return False
+
+        if last_occurrence is None:
+            return True
+
+        return last_occurrence < occurrence
 
     def next_run(
         self,
