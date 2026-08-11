@@ -385,6 +385,12 @@ def automation(request: Request):
         for schedule in schedules
     }
 
+    context["automation_executions"] = (
+        himp.automation.execution_repository.history(
+            limit=10
+        )
+    )
+
     return templates.TemplateResponse(
         request=request,
         name="automation.html",
@@ -399,6 +405,28 @@ def plugins(request: Request):
         request=request,
         name="plugins.html",
         context=dashboard_context(),
+    )
+
+
+@app.get("/automation/executions/{execution_id}")
+def automation_execution_details(
+    request: Request,
+    execution_id: int,
+):
+
+    execution = (
+        himp.automation.execution_repository.find(
+            execution_id
+        )
+    )
+
+    context = dashboard_context()
+    context["execution"] = execution
+
+    return templates.TemplateResponse(
+        request=request,
+        name="automation_execution_details.html",
+        context=context,
     )
 
 

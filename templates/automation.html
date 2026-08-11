@@ -385,4 +385,102 @@ Disabled
 </div>
 
 
+
+<!-- Recent Automation Executions -->
+
+<div class="card bg-dark border-secondary text-light mt-4">
+
+    <div class="card-header border-secondary">
+        <h5 class="mb-0">
+            Recent Automation Executions
+        </h5>
+    </div>
+
+    <div class="card-body p-0">
+
+        {% if automation_executions %}
+
+        <div class="table-responsive">
+
+            <table class="table table-dark table-hover mb-0">
+
+                <thead>
+                    <tr>
+                        <th>Task</th>
+                        <th>Status</th>
+                        <th>Duration</th>
+                        <th>Executed</th>
+                        <th class="text-end">Details</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                {% for execution in automation_executions %}
+
+                    <tr>
+
+                        <td>
+                            <strong>
+                                {{ execution.task_id }}
+                            </strong>
+                        </td>
+
+                        <td>
+                            {% if execution.success %}
+                                <span class="badge text-bg-success">
+                                    Success
+                                </span>
+                            {% else %}
+                                <span class="badge text-bg-danger">
+                                    Failed
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ "%.3f"|format(execution.elapsed) }}s
+                        </td>
+
+                        <td>
+                            <small class="text-secondary">
+                                {{ execution.executed_at }}
+                            </small>
+                        </td>
+
+                        <td class="text-end">
+
+                            <a
+                                href="/automation/executions/{{ execution.id }}"
+                                class="btn btn-sm btn-outline-info"
+                                target="_blank"
+                            >
+                                View
+                            </a>
+
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+        <div class="p-4 text-secondary">
+            No automation executions have been recorded yet.
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+
 {% endblock %}

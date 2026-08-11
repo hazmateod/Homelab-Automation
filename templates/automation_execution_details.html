@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="container-fluid">
+
+    <div class="d-flex justify-content-between align-items-center mb-4">
+
+        <div>
+            <h1>
+                Automation Execution Details
+            </h1>
+
+            <p class="text-secondary">
+                Detailed results for a HIMP automation execution.
+            </p>
+        </div>
+
+        <div>
+            <a
+                href="/automation"
+                class="btn btn-outline-light"
+            >
+                Back to Automation
+            </a>
+        </div>
+
+    </div>
+
+
+    {% if execution %}
+
+    <div class="card bg-secondary text-light mb-4">
+
+        <div class="card-header border-secondary">
+            <strong>
+                Execution Summary
+            </strong>
+        </div>
+
+        <div class="card-body">
+
+            <div class="row g-3">
+
+                <div class="col-md-3">
+                    <div class="text-secondary">
+                        Execution ID
+                    </div>
+
+                    <strong>
+                        {{ execution.id }}
+                    </strong>
+                </div>
+
+
+                <div class="col-md-3">
+                    <div class="text-secondary">
+                        Task
+                    </div>
+
+                    <strong>
+                        {{ execution.task_id }}
+                    </strong>
+                </div>
+
+
+                <div class="col-md-3">
+                    <div class="text-secondary">
+                        Status
+                    </div>
+
+                    {% if execution.success %}
+
+                    <span class="badge bg-success">
+                        Success
+                    </span>
+
+                    {% else %}
+
+                    <span class="badge bg-danger">
+                        Failed
+                    </span>
+
+                    {% endif %}
+                </div>
+
+
+                <div class="col-md-3">
+                    <div class="text-secondary">
+                        Runtime
+                    </div>
+
+                    <strong>
+                        {{ "%.3f"|format(execution.elapsed) }} sec
+                    </strong>
+                </div>
+
+
+                <div class="col-md-12">
+                    <div class="text-secondary">
+                        Executed
+                    </div>
+
+                    <strong>
+                        {{ execution.executed_at }}
+                    </strong>
+                </div>
+
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="card bg-secondary text-light mb-4">
+
+        <div class="card-header border-secondary">
+            <strong>
+                Execution Result
+            </strong>
+        </div>
+
+        <div class="card-body">
+
+            {% if execution.result %}
+
+            <pre
+                class="bg-black border border-secondary rounded p-3 text-light"
+                style="max-height: 600px; overflow: auto;"
+            >{{ execution.result | tojson(indent=2) }}</pre>
+
+            {% else %}
+
+            <p class="mb-0">
+                No result data was recorded.
+            </p>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+
+    {% else %}
+
+    <div class="alert alert-danger" role="alert">
+
+        Automation execution not found.
+
+    </div>
+
+    {% endif %}
+
+</div>
+
+{% endblock %}
