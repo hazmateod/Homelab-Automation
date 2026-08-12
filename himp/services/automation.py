@@ -78,6 +78,46 @@ class AutomationService:
                 "retryable": True,
             }
 
+        if isinstance(
+            error,
+            AutomationAlreadyRunningError,
+        ):
+            return {
+                "category": "concurrency",
+                "retryable": False,
+            }
+
+        if isinstance(
+            error,
+            AutomationDisabledError,
+        ):
+            return {
+                "category": "disabled",
+                "retryable": False,
+            }
+
+        if isinstance(
+            error,
+            AutomationConfirmationRequiredError,
+        ):
+            return {
+                "category": "confirmation",
+                "retryable": False,
+            }
+
+        if isinstance(
+            error,
+            (
+                AutomationDependencyNotSatisfiedError,
+                AutomationDependencyNotFoundError,
+                AutomationDependencyCycleError,
+            ),
+        ):
+            return {
+                "category": "dependency",
+                "retryable": False,
+            }
+
         if isinstance(error, RuntimeError):
             return {
                 "category": "execution",

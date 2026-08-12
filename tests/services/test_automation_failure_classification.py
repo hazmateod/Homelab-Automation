@@ -1,6 +1,14 @@
 import pytest
 
-from himp.services.automation import AutomationService
+from himp.services.automation import (
+    AutomationAlreadyRunningError,
+    AutomationConfirmationRequiredError,
+    AutomationDependencyCycleError,
+    AutomationDependencyNotFoundError,
+    AutomationDependencyNotSatisfiedError,
+    AutomationDisabledError,
+    AutomationService,
+)
 
 
 @pytest.mark.parametrize(
@@ -131,3 +139,64 @@ def test_non_retryable_failure_is_not_retried():
     assert len(
         service.execution_repository.saved
     ) == 1
+
+@pytest.mark.parametrize(
+    "error,category,retryable",
+    [
+        (
+            AutomationAlreadyRunningError(
+                "already running"
+            ),
+            "concurrency",
+            False,
+        ),
+        (
+            AutomationDisabledError(
+                "disabled"
+            ),
+            "disabled",
+            False,
+        ),
+        (
+            AutomationConfirmationRequiredError(
+                "confirmation required"
+            ),
+            "confirmation",
+            False,
+        ),
+        (
+            AutomationDependencyNotSatisfiedError(
+                "dependency not satisfied"
+            ),
+            "dependency",
+            False,
+        ),
+        (
+            AutomationDependencyNotFoundError(
+                "dependency not found"
+            ),
+            "dependency",
+            False,
+        ),
+        (
+            AutomationDependencyCycleError(
+                "dependency cycle"
+            ),
+            "dependency",
+            False,
+        ),
+    ],
+)
+def test_classify_automation_policy_errors_as_non_retryable(
+    error,
+    category,
+    retryable,
+):
+    result = AutomationService._classify_error(
+        error
+    )
+
+    assert result == {
+        "category": category,
+        "retryable": retryable,
+    }
