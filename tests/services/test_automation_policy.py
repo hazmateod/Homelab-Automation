@@ -510,3 +510,427 @@ def test_execution_failure_still_releases_lock():
 
     assert len(history.saved) == 1
     assert history.saved[0]["success"] is False
+
+
+def test_failed_result_retries_and_stops_after_success():
+    service = make_service()
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    service.find_task(
+        "health_check"
+    )["retry_attempts"] = 3
+
+    executions = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        executions.append(
+            {
+                "task_id": task_id,
+                "timeout": timeout,
+            }
+        )
+
+        if len(executions) == 1:
+            return {
+                "success": False,
+                "message": "temporary failure",
+            }
+
+        return {
+            "success": True,
+            "message": "recovered",
+        }
+
+    service._execute_task = fake_execute_task
+
+    result = service.run(
+        "health_check"
+    )
+
+    assert result["result"]["success"] is True
+    assert result["attempt"] == 2
+    assert result["attempts"] == 3
+
+    assert len(executions) == 2
+
+    assert executions == [
+        {
+            "task_id": "health_check",
+            "timeout": 300,
+        },
+        {
+            "task_id": "health_check",
+            "timeout": 300,
+        },
+    ]
+
+    assert len(history.saved) == 2
+
+    assert history.saved[0]["success"] is False
+    assert history.saved[1]["success"] is True
+
+    assert lock.acquire_calls == [
+        "health_check"
+    ]
+
+    assert lock.release_calls == [
+        "health_check"
+    ]
+
+
+def test_execution_exception_retries_and_stops_after_success():
+    service = make_service()
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    service.find_task(
+        "health_check"
+    )["retry_attempts"] = 3
+
+    executions = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        executions.append(
+            {
+                "task_id": task_id,
+                "timeout": timeout,
+            }
+        )
+
+        if len(executions) < 3:
+            raise RuntimeError(
+                f"temporary failure {len(executions)}"
+            )
+
+        return {
+            "success": True,
+            "message": "recovered",
+        }
+
+    service._execute_task = fake_execute_task
+
+    result = service.run(
+        "health_check"
+    )
+
+    assert result["result"]["success"] is True
+    assert result["attempt"] == 3
+    assert result["attempts"] == 3
+
+    assert len(executions) == 3
+
+    assert len(history.saved) == 3
+
+    assert history.saved[0]["success"] is False
+    assert history.saved[1]["success"] is False
+    assert history.saved[2]["success"] is True
+
+    assert lock.acquire_calls == [
+        "health_check"
+    ]
+
+    assert lock.release_calls == [
+        "health_check"
+    ]
+
+
+def test_execution_exception_exhausts_retries_and_raises_final_error():
+    service = make_service()
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    service.find_task(
+        "health_check"
+    )["retry_attempts"] = 3
+
+    executions = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        executions.append(
+            {
+                "task_id": task_id,
+                "timeout": timeout,
+            }
+        )
+
+        raise RuntimeError(
+            f"failure {len(executions)}"
+        )
+
+    service._execute_task = fake_execute_task
+
+    with pytest.raises(
+        RuntimeError,
+        match="failure 3",
+    ):
+        service.run(
+            "health_check"
+        )
+
+    assert len(executions) == 3
+
+    assert len(history.saved) == 3
+
+    assert [
+        item["success"]
+        for item in history.saved
+    ] == [
+        False,
+        False,
+        False,
+    ]
+
+    assert lock.acquire_calls == [
+        "health_check"
+    ]
+
+    assert lock.release_calls == [
+        "health_check"
+    ]
+
+
+def test_retry_delay_is_applied_between_attempts(
+    monkeypatch,
+):
+    service = make_service()
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    task = service.find_task(
+        "health_check"
+    )
+
+    task["retry_attempts"] = 3
+    task["retry_delay_seconds"] = 5
+
+    sleep_calls = []
+
+    def fake_sleep(seconds):
+        sleep_calls.append(seconds)
+
+    monkeypatch.setattr(
+        "himp.services.automation.time.sleep",
+        fake_sleep,
+    )
+
+    executions = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        executions.append(len(executions) + 1)
+
+        if len(executions) < 3:
+            raise RuntimeError(
+                f"temporary failure {len(executions)}"
+            )
+
+        return {
+            "success": True,
+        }
+
+    service._execute_task = fake_execute_task
+
+    result = service.run(
+        "health_check"
+    )
+
+    assert result["attempt"] == 3
+    assert executions == [1, 2, 3]
+
+    assert sleep_calls == [
+        5,
+        5,
+    ]
+
+    assert len(history.saved) == 3
+
+
+def test_timeout_exception_is_persisted_and_retried():
+    service = make_service()
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    task = service.find_task(
+        "health_check"
+    )
+
+    task["retry_attempts"] = 2
+    task["timeout_seconds"] = 30
+
+    executions = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        executions.append(
+            {
+                "task_id": task_id,
+                "timeout": timeout,
+            }
+        )
+
+        if len(executions) == 1:
+            raise TimeoutError(
+                "automation execution timed out"
+            )
+
+        return {
+            "success": True,
+            "message": "recovered",
+        }
+
+    service._execute_task = fake_execute_task
+
+    result = service.run(
+        "health_check"
+    )
+
+    assert result["result"]["success"] is True
+    assert result["attempt"] == 2
+    assert result["attempts"] == 2
+
+    assert executions == [
+        {
+            "task_id": "health_check",
+            "timeout": 30,
+        },
+        {
+            "task_id": "health_check",
+            "timeout": 30,
+        },
+    ]
+
+    assert len(history.saved) == 2
+
+    assert history.saved[0]["success"] is False
+    assert (
+        history.saved[0]["result"]["result"]["error"]
+        == "automation execution timed out"
+    )
+
+    assert history.saved[1]["success"] is True
+
+    assert lock.acquire_calls == [
+        "health_check"
+    ]
+
+    assert lock.release_calls == [
+        "health_check"
+    ]
+
+
+def test_timeout_exhausts_retries_and_raises_final_error():
+    service = make_service()
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    task = service.find_task(
+        "health_check"
+    )
+
+    task["retry_attempts"] = 2
+    task["timeout_seconds"] = 30
+
+    executions = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        executions.append(
+            {
+                "task_id": task_id,
+                "timeout": timeout,
+            }
+        )
+
+        raise TimeoutError(
+            f"timeout attempt {len(executions)}"
+        )
+
+    service._execute_task = fake_execute_task
+
+    with pytest.raises(
+        TimeoutError,
+        match="timeout attempt 2",
+    ):
+        service.run(
+            "health_check"
+        )
+
+    assert executions == [
+        {
+            "task_id": "health_check",
+            "timeout": 30,
+        },
+        {
+            "task_id": "health_check",
+            "timeout": 30,
+        },
+    ]
+
+    assert len(history.saved) == 2
+
+    assert [
+        item["success"]
+        for item in history.saved
+    ] == [
+        False,
+        False,
+    ]
+
+    assert (
+        history.saved[1]["result"]["result"]["error"]
+        == "timeout attempt 2"
+    )
+
+    assert lock.acquire_calls == [
+        "health_check"
+    ]
+
+    assert lock.release_calls == [
+        "health_check"
+    ]
