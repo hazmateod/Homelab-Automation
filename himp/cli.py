@@ -4,6 +4,8 @@ Command Line Interface
 
 import argparse
 
+from himp.lib.logging_config import configure_logging
+
 from himp.commands import (
     automation_run,
     dashboard,
@@ -24,6 +26,8 @@ from himp.commands import (
 
 
 def main():
+
+    configure_logging()
 
     parser = argparse.ArgumentParser(
         prog="himp",

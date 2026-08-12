@@ -4,6 +4,7 @@ Automation Service.
 Provides HIMP automation task definitions and execution.
 """
 
+import logging
 import time
 
 from dataclasses import asdict, is_dataclass
@@ -20,6 +21,9 @@ from himp.database.automation_executions import (
 from himp.database.automation_locks import (
     AutomationLockRepository,
 )
+
+
+logger = logging.getLogger("himp.automation")
 
 
 class AutomationAlreadyRunningError(
@@ -712,6 +716,11 @@ class AutomationService:
                 f"Automation task is already running: {task_id}"
             )
 
+        logger.info(
+            "Automation execution started: %s",
+            task_id,
+        )
+
         started = time.perf_counter()
 
         executed_at = datetime.now(
@@ -788,6 +797,7 @@ class AutomationService:
                         return execution
 
                     last_error = None
+                    retry_error_category = "result"
 
                 except Exception as error:
 
@@ -806,6 +816,10 @@ class AutomationService:
                         error
                     )
 
+                    retry_error_category = classification[
+                        "category"
+                    ]
+
                     failure_result.update(
                         {
                             "error_category": classification[
@@ -815,6 +829,17 @@ class AutomationService:
                                 "retryable"
                             ],
                         }
+                    )
+
+                    logger.error(
+                        "Automation execution failed: %s",
+                        task_id,
+                        extra={
+                            "attempt": attempt,
+                            "attempts": attempts,
+                            "error_category": classification["category"],
+                            "retryable": classification["retryable"],
+                        },
                     )
 
                     if isinstance(
@@ -849,6 +874,16 @@ class AutomationService:
                         break
 
                 if attempt < attempts:
+                    logger.info(
+                        "Automation execution retrying: %s",
+                        task_id,
+                        extra={
+                            "attempt": attempt,
+                            "next_attempt": attempt + 1,
+                            "error_category": retry_error_category,
+                        },
+                    )
+
                     if delay > 0:
                         time.sleep(
                             delay

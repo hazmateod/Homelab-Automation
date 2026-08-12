@@ -1,6 +1,7 @@
 """
 HIMP Application.
 """
+import logging
 
 from himp.services.automation import AutomationService
 from himp.services.dashboard import DashboardService
@@ -15,6 +16,9 @@ from himp.services.reports import ReportService
 from himp.services.settings import SettingsService
 from himp.services.validation import ValidationService
 from himp.services.update import UpdateService
+
+
+logger = logging.getLogger("himp")
 
 
 class HIMP:
@@ -54,3 +58,5 @@ class HIMP:
             self.updates,
             self.dashboard.host_health.health,
         )
+
+        logger.info("HIMP application initialized")
