@@ -15,6 +15,7 @@ from himp.lib.logging_config import configure_logging
 
 configure_logging()
 
+from himp.api.auth import router as auth_router
 from himp.api.dashboard import router as dashboard_router
 from himp.api.discovery import router as discovery_router
 from himp.api.execution import router as execution_router
@@ -39,6 +40,11 @@ app.mount(
     "/static",
     StaticFiles(directory="static"),
     name="static",
+)
+
+app.include_router(
+    auth_router,
+    prefix="/api",
 )
 
 app.include_router(

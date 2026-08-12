@@ -3,7 +3,29 @@ SQLite Database Manager.
 """
 
 import sqlite3
+from datetime import datetime
 from pathlib import Path
+
+
+def _adapt_datetime(value):
+    return value.isoformat(" ")
+
+
+def _convert_timestamp(value):
+    return datetime.fromisoformat(
+        value.decode()
+    )
+
+
+sqlite3.register_adapter(
+    datetime,
+    _adapt_datetime,
+)
+
+sqlite3.register_converter(
+    "TIMESTAMP",
+    _convert_timestamp,
+)
 
 
 class Database:
@@ -19,6 +41,7 @@ class Database:
         self.connection = sqlite3.connect(
             self.filename,
             check_same_thread=False,
+            detect_types=sqlite3.PARSE_DECLTYPES,
         )
 
         self.connection.row_factory = sqlite3.Row

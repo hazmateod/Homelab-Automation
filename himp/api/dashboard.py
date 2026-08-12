@@ -2,8 +2,9 @@
 Dashboard API.
 """
 
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
+from himp.api.dependencies import require_session
 from himp.services.dashboard import DashboardService
 
 
@@ -17,12 +18,16 @@ service = DashboardService()
 
 
 @router.get("")
-async def dashboard_summary():
+async def dashboard_summary(
+    _user=Depends(require_session),
+):
 
     return service.summary()
 
 
 @router.get("/")
-async def dashboard_summary_slash():
+async def dashboard_summary_slash(
+    _user=Depends(require_session),
+):
 
     return service.summary()
