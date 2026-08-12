@@ -845,6 +845,9 @@ class AutomationService:
 
                     last_error = error
 
+                    if not classification["retryable"]:
+                        break
+
                 if attempt < attempts:
                     if delay > 0:
                         time.sleep(
