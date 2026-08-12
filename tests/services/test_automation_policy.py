@@ -1159,3 +1159,39 @@ def test_ordinary_execution_failure_has_no_timeout_error_type():
         == "ordinary execution failure"
     )
     assert "error_type" not in result["result"]
+
+
+def test_keyboard_interrupt_still_releases_lock():
+    service = make_service()
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        raise KeyboardInterrupt()
+
+    service._execute_task = fake_execute_task
+
+    with pytest.raises(
+        KeyboardInterrupt
+    ):
+        service.run(
+            "health_check"
+        )
+
+    assert lock.acquire_calls == [
+        "health_check"
+    ]
+
+    assert lock.release_calls == [
+        "health_check"
+    ]
+
+    assert len(history.saved) == 0
