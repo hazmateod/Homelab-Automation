@@ -341,3 +341,266 @@ def test_execution_history_applies_limit(
     assert response.status_code == 200
     assert len(body) == 1
     assert body[0]["id"] == 7
+
+
+def test_run_automation_returns_successful_execution(monkeypatch):
+    class FakeAutomation:
+        def __init__(self):
+            self.received_task_id = None
+            self.received_confirmed = None
+
+        def run(self, task_id, confirmed=False):
+            self.received_task_id = task_id
+            self.received_confirmed = confirmed
+
+            return {
+                "id": 42,
+                "task": task_id,
+                "success": True,
+                "attempt": 1,
+                "result": {
+                    "success": True,
+                    "message": "test execution",
+                },
+            }
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    fake_himp = FakeHIMP()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        fake_himp,
+    )
+
+    response = automation.run_automation(
+        "health_check",
+        automation.AutomationRunRequest(
+            confirmed=True,
+        ),
+    )
+
+    import json
+
+    body = json.loads(response.body)
+
+    assert response.status_code == 200
+
+    assert body == {
+        "id": 42,
+        "task": "health_check",
+        "success": True,
+        "attempt": 1,
+        "result": {
+            "success": True,
+            "message": "test execution",
+        },
+    }
+
+    assert (
+        fake_himp.automation.received_task_id
+        == "health_check"
+    )
+
+    assert (
+        fake_himp.automation.received_confirmed
+        is True
+    )
+
+
+def test_run_automation_defaults_confirmation_to_false(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def __init__(self):
+            self.received_confirmed = None
+
+        def run(self, task_id, confirmed=False):
+            self.received_confirmed = confirmed
+
+            return {
+                "id": 43,
+                "task": task_id,
+                "success": True,
+                "result": {
+                    "success": True,
+                },
+            }
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    fake_himp = FakeHIMP()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        fake_himp,
+    )
+
+    response = automation.run_automation(
+        "health_check"
+    )
+
+    import json
+
+    body = json.loads(response.body)
+
+    assert response.status_code == 200
+    assert body["id"] == 43
+    assert body["task"] == "health_check"
+    assert body["success"] is True
+
+    assert (
+        fake_himp.automation.received_confirmed
+        is False
+    )
+
+
+def test_run_automation_unknown_task_returns_404(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def run(self, task_id, confirmed=False):
+            raise ValueError(
+                f"Automation task not found: {task_id}"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.run_automation(
+            "missing_task"
+        )
+
+    assert captured.value.status_code == 404
+    assert (
+        captured.value.detail
+        == "Automation task not found: missing_task"
+    )
+
+
+@pytest.mark.parametrize(
+    "exception",
+    [
+        automation.AutomationAlreadyRunningError(
+            "Automation is already running."
+        ),
+        automation.AutomationDisabledError(
+            "Automation is disabled."
+        ),
+        automation.AutomationConfirmationRequiredError(
+            "Confirmation is required."
+        ),
+        automation.AutomationDependencyNotSatisfiedError(
+            "Automation dependency is not satisfied."
+        ),
+    ],
+)
+def test_run_automation_conflict_errors_return_409(
+    monkeypatch,
+    exception,
+):
+    class FakeAutomation:
+        def run(self, task_id, confirmed=False):
+            raise exception
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.run_automation(
+            "health_check"
+        )
+
+    assert captured.value.status_code == 409
+    assert captured.value.detail == str(exception)
+
+
+def test_run_automation_unexpected_runtime_error_returns_500(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def run(self, task_id, confirmed=False):
+            raise RuntimeError(
+                "unexpected automation execution failure"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.run_automation(
+            "health_check"
+        )
+
+    assert captured.value.status_code == 500
+    assert (
+        captured.value.detail
+        == "unexpected automation execution failure"
+    )
+
+
+def test_run_automation_timeout_returns_500(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def run(self, task_id, confirmed=False):
+            raise TimeoutError(
+                "Ansible playbook timed out"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.run_automation(
+            "scheduled_updates"
+        )
+
+    assert captured.value.status_code == 500
+    assert (
+        captured.value.detail
+        == "Ansible playbook timed out"
+    )

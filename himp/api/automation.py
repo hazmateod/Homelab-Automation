@@ -352,6 +352,14 @@ def run_automation(
         )
 
 
+    except TimeoutError as error:
+
+        raise HTTPException(
+            status_code=500,
+            detail=str(error),
+        )
+
+
     except RuntimeError as error:
 
         raise HTTPException(
