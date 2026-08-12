@@ -934,3 +934,228 @@ def test_timeout_exhausts_retries_and_raises_final_error():
     assert lock.release_calls == [
         "health_check"
     ]
+
+
+def test_timeout_execution_is_persisted_as_timeout_failure():
+    service = make_service()
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        raise TimeoutError(
+            "automation execution timed out"
+        )
+
+    service._execute_task = fake_execute_task
+
+    with pytest.raises(
+        TimeoutError,
+        match="automation execution timed out",
+    ):
+        service.run(
+            "health_check"
+        )
+
+    assert lock.acquire_calls == [
+        "health_check"
+    ]
+
+    assert lock.release_calls == [
+        "health_check"
+    ]
+
+    assert len(history.saved) == 1
+    assert history.saved[0]["success"] is False
+
+    result = history.saved[0]["result"]
+
+    assert result["result"]["success"] is False
+    assert (
+        result["result"]["error"]
+        == "automation execution timed out"
+    )
+
+
+def test_timeout_execution_retries():
+    service = make_service()
+
+    service.find_task(
+        "health_check"
+    )["retry_attempts"] = 2
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    attempts = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        attempts.append(timeout)
+
+        raise TimeoutError(
+            "automation execution timed out"
+        )
+
+    service._execute_task = fake_execute_task
+
+    with pytest.raises(
+        TimeoutError,
+        match="automation execution timed out",
+    ):
+        service.run(
+            "health_check"
+        )
+
+    assert attempts == [
+        300,
+        300,
+    ]
+
+    assert len(history.saved) == 2
+
+    assert all(
+        item["success"] is False
+        for item in history.saved
+    )
+
+
+def test_timeout_retry_can_recover():
+    service = make_service()
+
+    service.find_task(
+        "health_check"
+    )["retry_attempts"] = 2
+
+    lock = FakeLockRepository()
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = lock
+    service.execution_repository = history
+
+    attempts = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        attempts.append(timeout)
+
+        if len(attempts) == 1:
+            raise TimeoutError(
+                "automation execution timed out"
+            )
+
+        return {
+            "success": True,
+            "message": "recovered",
+        }
+
+    service._execute_task = fake_execute_task
+
+    result = service.run(
+        "health_check"
+    )
+
+    assert attempts == [
+        300,
+        300,
+    ]
+
+    assert result["result"]["success"] is True
+
+    assert len(history.saved) == 2
+
+    assert history.saved[0]["success"] is False
+    assert history.saved[1]["success"] is True
+
+    assert lock.acquire_calls == [
+        "health_check"
+    ]
+
+    assert lock.release_calls == [
+        "health_check"
+    ]
+
+
+def test_timeout_failure_has_stable_error_type():
+    service = make_service()
+
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = FakeLockRepository()
+    service.execution_repository = history
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        raise TimeoutError(
+            "automation execution timed out"
+        )
+
+    service._execute_task = fake_execute_task
+
+    with pytest.raises(
+        TimeoutError,
+        match="automation execution timed out",
+    ):
+        service.run(
+            "health_check"
+        )
+
+    result = history.saved[0]["result"]
+
+    assert result["result"]["error_type"] == "timeout"
+
+
+def test_ordinary_execution_failure_has_no_timeout_error_type():
+    service = make_service()
+
+    history = RecordingExecutionRepository()
+
+    service.lock_repository = FakeLockRepository()
+    service.execution_repository = history
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        raise RuntimeError(
+            "ordinary execution failure"
+        )
+
+    service._execute_task = fake_execute_task
+
+    with pytest.raises(
+        RuntimeError,
+        match="ordinary execution failure",
+    ):
+        service.run(
+            "health_check"
+        )
+
+    result = history.saved[0]["result"]
+
+    assert result["result"]["success"] is False
+    assert (
+        result["result"]["error"]
+        == "ordinary execution failure"
+    )
+    assert "error_type" not in result["result"]

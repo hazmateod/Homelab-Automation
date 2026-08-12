@@ -771,15 +771,25 @@ class AutomationService:
                         3,
                     )
 
+                    failure_result = {
+                        "success": False,
+                        "error": str(error),
+                    }
+
+                    if isinstance(
+                        error,
+                        TimeoutError,
+                    ):
+                        failure_result["error_type"] = (
+                            "timeout"
+                        )
+
                     failure = {
                         "task": task_id,
                         "executed_at": executed_at,
                         "attempt": attempt,
                         "attempts": attempts,
-                        "result": {
-                            "success": False,
-                            "error": str(error),
-                        },
+                        "result": failure_result,
                     }
 
                     execution_id = self.execution_repository.save(
