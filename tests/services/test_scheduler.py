@@ -107,3 +107,24 @@ def test_timezone_aware_last_run_prevents_duplicate_occurrence():
         schedule,
         datetime(2026, 8, 12, 2, 30),
     ) is False
+
+
+def test_successful_execution_without_record_run_leaves_occurrence_due():
+    service = make_service()
+
+    schedule = make_daily_schedule(
+        last_run="2026-08-11T02:05:00-04:00",
+    )
+
+    evaluation_time = datetime(
+        2026,
+        8,
+        12,
+        2,
+        30,
+    )
+
+    assert service.due(
+        schedule,
+        evaluation_time,
+    ) is True

@@ -442,3 +442,66 @@ def test_scheduler_run_passes_explicit_at_to_scheduler(
     assert scheduler.recorded == [
         "health_check",
     ]
+
+
+def test_scheduler_run_reports_failure_when_record_run_fails(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def __init__(self):
+            self.calls = []
+
+        def run(self, task_id):
+            self.calls.append(task_id)
+
+            return {
+                "task": task_id,
+                "executed_at": "2026-08-11T03:00:00",
+                "result": {
+                    "success": True,
+                },
+            }
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    class FakeScheduler:
+        def due_tasks(self, now):
+            return [
+                {
+                    "task_id": "health_check",
+                },
+            ]
+
+        def record_run(self, task_id):
+            raise RuntimeError(
+                "scheduler acknowledgement failed"
+            )
+
+    class Args:
+        at = None
+
+    himp = FakeHIMP()
+    scheduler = FakeScheduler()
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "HIMP",
+        lambda: himp,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "SchedulerService",
+        lambda: scheduler,
+    )
+
+    result = scheduler_run.run(
+        Args()
+    )
+
+    assert result == 1
+    assert himp.automation.calls == [
+        "health_check",
+    ]

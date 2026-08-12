@@ -1195,3 +1195,29 @@ def test_keyboard_interrupt_still_releases_lock():
     ]
 
     assert len(history.saved) == 0
+
+
+def test_maintenance_task_is_allowed_without_confirmation():
+    service = make_service()
+
+    service.tasks.append(
+        {
+            "id": "scheduled_updates",
+            "name": "Scheduled Updates",
+            "description": "Run maintenance updates.",
+            "enabled": True,
+            "schedule": "daily 03:15",
+            "timeout_seconds": 3600,
+            "retry_attempts": 1,
+            "retry_delay_seconds": 0,
+            "risk_level": "maintenance",
+        }
+    )
+
+    policy = service.validate_execution_policy(
+        "scheduled_updates"
+    )
+
+    assert policy["task_id"] == "scheduled_updates"
+    assert policy["risk_level"] == "maintenance"
+    assert policy["confirmed"] is False
