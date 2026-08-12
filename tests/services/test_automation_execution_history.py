@@ -116,3 +116,42 @@ def test_run_returns_persisted_execution_id():
     assert persisted["id"] == execution["id"]
     assert persisted["task_id"] == "health_check"
     assert persisted["success"] is True
+
+
+def test_run_persists_failure_classification():
+    service = make_service()
+
+    service.health.summary = lambda: (
+        (_ for _ in ()).throw(
+            OSError("connection refused")
+        )
+    )
+
+    service.tasks[0]["retry_attempts"] = 1
+
+    try:
+        service.run(
+            "health_check"
+        )
+    except OSError:
+        pass
+    else:
+        raise AssertionError(
+            "Expected OSError from failed automation."
+        )
+
+    assert len(
+        service.execution_repository.saved
+    ) == 1
+
+    persisted = (
+        service.execution_repository.saved[0]
+    )
+
+    assert persisted["success"] is False
+
+    result = persisted["result"]["result"]
+
+    assert result["error"] == "connection refused"
+    assert result["error_category"] == "unreachable"
+    assert result["retryable"] is True

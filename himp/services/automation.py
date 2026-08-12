@@ -60,6 +60,32 @@ class AutomationDependencyCycleError(
 
 class AutomationService:
 
+    @staticmethod
+    def _classify_error(error):
+        if isinstance(error, TimeoutError):
+            return {
+                "category": "timeout",
+                "retryable": True,
+            }
+
+        if isinstance(error, OSError):
+            return {
+                "category": "unreachable",
+                "retryable": True,
+            }
+
+        if isinstance(error, RuntimeError):
+            return {
+                "category": "execution",
+                "retryable": True,
+            }
+
+        return {
+            "category": "internal",
+            "retryable": False,
+        }
+
+
     def __init__(self):
 
         self.health = None
@@ -775,6 +801,21 @@ class AutomationService:
                         "success": False,
                         "error": str(error),
                     }
+
+                    classification = self._classify_error(
+                        error
+                    )
+
+                    failure_result.update(
+                        {
+                            "error_category": classification[
+                                "category"
+                            ],
+                            "retryable": classification[
+                                "retryable"
+                            ],
+                        }
+                    )
 
                     if isinstance(
                         error,
