@@ -8,6 +8,10 @@ import time
 from himp.config import config
 
 
+class AnsiblePlaybookTimeoutError(TimeoutError):
+    """Raised when an Ansible playbook exceeds its timeout."""
+
+
 def run_playbook(
     playbook,
     limit=None,
@@ -37,8 +41,10 @@ def run_playbook(
 
         success = result.returncode == 0
 
-    except subprocess.TimeoutExpired:
-        success = False
+    except subprocess.TimeoutExpired as error:
+        raise AnsiblePlaybookTimeoutError(
+            "Ansible playbook timed out"
+        ) from error
 
     elapsed = time.perf_counter() - start
 

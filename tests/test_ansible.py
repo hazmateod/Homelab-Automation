@@ -1,5 +1,7 @@
 import subprocess
 
+import pytest
+
 from himp.lib import ansible
 
 
@@ -52,10 +54,11 @@ def test_run_playbook_timeout_is_identifiable(monkeypatch):
         fake_run,
     )
 
-    result = ansible.run_playbook(
-        "site.yml",
-        timeout=30,
-    )
-
-    assert result[0] is False
-    assert result[1] >= 0
+    with pytest.raises(
+        ansible.AnsiblePlaybookTimeoutError,
+        match="Ansible playbook timed out",
+    ):
+        ansible.run_playbook(
+            "site.yml",
+            timeout=30,
+        )
