@@ -40,6 +40,13 @@ class FakeExecutionRepository:
 
         return None
 
+    def latest(self, task_id):
+        for item in reversed(self._history):
+            if item["task_id"] == task_id:
+                return item
+
+        return None
+
     def task_history(
         self,
         task_id,
@@ -97,6 +104,117 @@ class FakeAutomation:
                 },
             ]
         )
+
+
+class FakeAutomation:
+    def __init__(self):
+        self.execution_repository = FakeExecutionRepository(
+            [
+                {
+                    "id": 7,
+                    "task_id": "health_check",
+                    "success": True,
+                    "elapsed": 1.25,
+                    "result": {
+                        "success": True,
+                        "message": "healthy",
+                    },
+                    "executed_at": (
+                        "2026-08-11T20:00:00+00:00"
+                    ),
+                },
+                {
+                    "id": 8,
+                    "task_id": "health_check",
+                    "success": False,
+                    "elapsed": 2.50,
+                    "result": {
+                        "success": False,
+                        "error": "health check failed",
+                    },
+                    "executed_at": (
+                        "2026-08-11T20:01:00+00:00"
+                    ),
+                },
+                {
+                    "id": 9,
+                    "task_id": "generate_reports",
+                    "success": True,
+                    "elapsed": 4.75,
+                    "result": {
+                        "success": True,
+                        "message": "reports generated",
+                    },
+                    "executed_at": (
+                        "2026-08-11T20:02:00+00:00"
+                    ),
+                },
+            ]
+        )
+
+        self.dependencies = [
+            {
+                "id": 21,
+                "task_id": "generate_reports",
+                "depends_on_task_id": "health_check",
+                "created_at": (
+                    "2026-08-11T20:10:00"
+                ),
+            },
+        ]
+
+    def add_dependency(
+        self,
+        task_id,
+        depends_on_task_id,
+    ):
+        return self.dependencies[0]
+
+    def dependency_status(
+        self,
+        task_id,
+    ):
+        return {
+            "task_id": task_id,
+            "dependencies": [
+                {
+                    "task_id": "health_check",
+                    "satisfied": True,
+                    "status": "satisfied",
+                    "latest_execution": self.execution_repository.latest(
+                        "health_check"
+                    ),
+                },
+            ],
+            "satisfied": True,
+        }
+
+    def dependency_graph(self):
+        return {
+            "tasks": [
+                {
+                    "task_id": "health_check",
+                    "dependencies": [],
+                    "dependents": [
+                        "generate_reports",
+                    ],
+                },
+                {
+                    "task_id": "generate_reports",
+                    "dependencies": [
+                        "health_check",
+                    ],
+                    "dependents": [],
+                },
+            ]
+        }
+
+    def remove_dependency(
+        self,
+        task_id,
+        depends_on_task_id,
+    ):
+        return self.dependencies[0]
 
 
 class FakeHIMP:
@@ -603,4 +721,340 @@ def test_run_automation_timeout_returns_500(
     assert (
         captured.value.detail
         == "Ansible playbook timed out"
+    )
+
+
+def test_add_automation_dependency_returns_dependency(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    request = automation.AutomationDependencyRequest(
+        depends_on_task_id="health_check"
+    )
+
+    response = automation.add_automation_dependency(
+        "generate_reports",
+        request,
+    )
+
+    import json
+
+    body = json.loads(response.body)
+
+    assert response.status_code == 200
+    assert body["dependency"] == {
+        "id": 21,
+        "task_id": "generate_reports",
+        "depends_on_task_id": "health_check",
+        "created_at": "2026-08-11T20:10:00",
+    }
+    assert (
+        body["message"]
+        == "Automation dependency added successfully."
+    )
+
+
+def test_add_automation_dependency_cycle_returns_400(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def add_dependency(
+            self,
+            task_id,
+            depends_on_task_id,
+        ):
+            raise automation.AutomationDependencyCycleError(
+                "Automation dependency would create a cycle: "
+                "health_check -> generate_reports"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    request = automation.AutomationDependencyRequest(
+        depends_on_task_id="generate_reports"
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.add_automation_dependency(
+            "health_check",
+            request,
+        )
+
+    assert captured.value.status_code == 400
+    assert (
+        captured.value.detail
+        == (
+            "Automation dependency would create a cycle: "
+            "health_check -> generate_reports"
+        )
+    )
+
+
+def test_add_automation_dependency_value_error_returns_400(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def add_dependency(
+            self,
+            task_id,
+            depends_on_task_id,
+        ):
+            raise ValueError(
+                "Automation dependency already exists: "
+                "generate_reports -> health_check"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    request = automation.AutomationDependencyRequest(
+        depends_on_task_id="health_check"
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.add_automation_dependency(
+            "generate_reports",
+            request,
+        )
+
+    assert captured.value.status_code == 400
+    assert (
+        captured.value.detail
+        == (
+            "Automation dependency already exists: "
+            "generate_reports -> health_check"
+        )
+    )
+
+
+def test_automation_dependency_status_returns_status(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    response = automation.automation_dependency_status(
+        "generate_reports"
+    )
+
+    import json
+
+    body = json.loads(response.body)
+
+    assert response.status_code == 200
+    assert body["task_id"] == "generate_reports"
+    assert body["satisfied"] is True
+    assert len(body["dependencies"]) == 1
+
+    dependency = body["dependencies"][0]
+
+    assert dependency["task_id"] == "health_check"
+    assert dependency["satisfied"] is True
+    assert dependency["status"] == "satisfied"
+    assert dependency["latest_execution"]["id"] == 8
+
+
+def test_automation_dependency_status_missing_task_returns_404(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def dependency_status(self, task_id):
+            raise ValueError(
+                f"Unknown automation task: {task_id}"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.automation_dependency_status(
+            "missing_task"
+        )
+
+    assert captured.value.status_code == 404
+    assert (
+        captured.value.detail
+        == "Unknown automation task: missing_task"
+    )
+
+
+def test_automation_dependency_graph_returns_graph(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    response = automation.automation_dependency_graph()
+
+    import json
+
+    body = json.loads(response.body)
+
+    assert response.status_code == 200
+    assert list(body) == ["tasks"]
+    assert body["tasks"] == [
+        {
+            "task_id": "health_check",
+            "dependencies": [],
+            "dependents": [
+                "generate_reports",
+            ],
+        },
+        {
+            "task_id": "generate_reports",
+            "dependencies": [
+                "health_check",
+            ],
+            "dependents": [],
+        },
+    ]
+
+
+def test_remove_automation_dependency_returns_dependency(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    response = automation.remove_automation_dependency(
+        "generate_reports",
+        "health_check",
+    )
+
+    import json
+
+    body = json.loads(response.body)
+
+    assert response.status_code == 200
+    assert body["dependency"] == {
+        "id": 21,
+        "task_id": "generate_reports",
+        "depends_on_task_id": "health_check",
+        "created_at": "2026-08-11T20:10:00",
+    }
+    assert (
+        body["message"]
+        == "Automation dependency removed successfully."
+    )
+
+
+def test_remove_automation_dependency_missing_returns_404(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def remove_dependency(
+            self,
+            task_id,
+            dependency_task_id,
+        ):
+            raise automation.AutomationDependencyNotFoundError(
+                "Automation dependency not found: "
+                "generate_reports -> health_check"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.remove_automation_dependency(
+            "generate_reports",
+            "health_check",
+        )
+
+    assert captured.value.status_code == 404
+    assert (
+        captured.value.detail
+        == (
+            "Automation dependency not found: "
+            "generate_reports -> health_check"
+        )
+    )
+
+
+def test_remove_automation_dependency_value_error_returns_404(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def remove_dependency(
+            self,
+            task_id,
+            dependency_task_id,
+        ):
+            raise ValueError(
+                f"Unknown automation task: {task_id}"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.remove_automation_dependency(
+            "missing_task",
+            "health_check",
+        )
+
+    assert captured.value.status_code == 404
+    assert (
+        captured.value.detail
+        == "Unknown automation task: missing_task"
     )
