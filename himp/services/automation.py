@@ -167,6 +167,54 @@ class AutomationService:
         return value
 
 
+    def validate_execution_policy(
+        self,
+        task_id,
+        confirmed=False,
+    ):
+        """
+        Validate all pre-execution safety policy.
+
+        No task execution should occur before this
+        policy validation succeeds.
+        """
+
+        task = self.find_task(
+            task_id
+        )
+
+        if not task["enabled"]:
+            raise AutomationDisabledError(
+                f"Automation task is disabled: {task_id}"
+            )
+
+        if (
+            task["risk_level"] == "destructive"
+            and not confirmed
+        ):
+            raise AutomationConfirmationRequiredError(
+                "Destructive automation requires explicit confirmation: "
+                f"{task_id}"
+            )
+
+        dependencies = self.validate_dependencies(
+            task_id
+        )
+
+        retry_policy = self.validate_retry_policy(
+            task_id
+        )
+
+        return {
+            "task_id": task_id,
+            "enabled": task["enabled"],
+            "risk_level": task["risk_level"],
+            "confirmed": confirmed,
+            "dependencies": dependencies,
+            **retry_policy,
+        }
+
+
     def validate_retry_policy(
         self,
         task_id,
@@ -626,30 +674,9 @@ class AutomationService:
         confirmed=False,
     ):
 
-        task = self.find_task(
-            task_id
-        )
-
-        if not task["enabled"]:
-            raise AutomationDisabledError(
-                f"Automation task is disabled: {task_id}"
-            )
-
-        if (
-            task["risk_level"] == "destructive"
-            and not confirmed
-        ):
-            raise AutomationConfirmationRequiredError(
-                "Destructive automation requires explicit confirmation: "
-                f"{task_id}"
-            )
-
-        self.validate_dependencies(
-            task_id
-        )
-
-        policy = self.validate_retry_policy(
-            task_id
+        policy = self.validate_execution_policy(
+            task_id,
+            confirmed=confirmed,
         )
 
         if not self.lock_repository.acquire(
