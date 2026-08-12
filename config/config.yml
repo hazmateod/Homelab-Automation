@@ -1,11 +1,5 @@
 # HIMP Configuration
 
-pbs:
-  host: 10.10.37.52
-  token_id: backup@pbs!himp
-  token_secret: 9f0d5fd6-cd8b-47f4-b6c8-6fa3b5362cb4
-  verify_ssl: false
-
 proxmox:
   host: 10.10.37.50
   token_id: CHANGE_ME
