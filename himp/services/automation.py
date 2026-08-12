@@ -748,13 +748,15 @@ class AutomationService:
                         "result": result,
                     }
 
-                    self.execution_repository.save(
+                    execution_id = self.execution_repository.save(
                         task_id=task_id,
                         success=success,
                         elapsed=attempt_elapsed,
                         result=execution,
                         executed_at=attempt_executed_at,
                     )
+
+                    execution["id"] = execution_id
 
                     if success:
                         return execution
@@ -780,13 +782,15 @@ class AutomationService:
                         },
                     }
 
-                    self.execution_repository.save(
+                    execution_id = self.execution_repository.save(
                         task_id=task_id,
                         success=False,
                         elapsed=attempt_elapsed,
                         result=failure,
                         executed_at=attempt_executed_at,
                     )
+
+                    failure["id"] = execution_id
 
                     last_error = error
 

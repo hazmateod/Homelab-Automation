@@ -44,7 +44,7 @@ class AutomationExecutionRepository:
         result,
         executed_at=None,
     ):
-        self.database.execute(
+        cursor = self.database.execute(
             """
             INSERT INTO automation_executions
             (
@@ -71,6 +71,8 @@ class AutomationExecutionRepository:
                 executed_at,
             ),
         )
+
+        return cursor.lastrowid
 
     def find(self, execution_id):
         rows = self.database.query(
