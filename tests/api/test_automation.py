@@ -1058,3 +1058,141 @@ def test_remove_automation_dependency_value_error_returns_404(
         captured.value.detail
         == "Unknown automation task: missing_task"
     )
+
+
+def test_enable_automation_returns_enabled_task(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def enable(self, task_id):
+            return {
+                "id": task_id,
+                "name": "Scheduled Updates",
+                "enabled": True,
+            }
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    response = automation.enable_automation(
+        "scheduled_updates"
+    )
+
+    assert response["task"] == {
+        "id": "scheduled_updates",
+        "name": "Scheduled Updates",
+        "enabled": True,
+    }
+    assert (
+        response["message"]
+        == "Automation task enabled successfully."
+    )
+
+
+def test_disable_automation_returns_disabled_task(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def disable(self, task_id):
+            return {
+                "id": task_id,
+                "name": "Scheduled Updates",
+                "enabled": False,
+            }
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    response = automation.disable_automation(
+        "scheduled_updates"
+    )
+
+    assert response["task"] == {
+        "id": "scheduled_updates",
+        "name": "Scheduled Updates",
+        "enabled": False,
+    }
+    assert (
+        response["message"]
+        == "Automation task disabled successfully."
+    )
+
+
+def test_enable_automation_missing_task_returns_404(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def enable(self, task_id):
+            raise ValueError(
+                f"Unknown automation task: {task_id}"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.enable_automation(
+            "missing_task"
+        )
+
+    assert captured.value.status_code == 404
+    assert (
+        captured.value.detail
+        == "Unknown automation task: missing_task"
+    )
+
+
+def test_disable_automation_missing_task_returns_404(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def disable(self, task_id):
+            raise ValueError(
+                f"Unknown automation task: {task_id}"
+            )
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    monkeypatch.setattr(
+        automation,
+        "himp",
+        FakeHIMP(),
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        automation.disable_automation(
+            "missing_task"
+        )
+
+    assert captured.value.status_code == 404
+    assert (
+        captured.value.detail
+        == "Unknown automation task: missing_task"
+    )
