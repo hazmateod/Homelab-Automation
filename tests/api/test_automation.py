@@ -678,17 +678,12 @@ def test_run_automation_unexpected_runtime_error_returns_500(
     )
 
     with pytest.raises(
-        HTTPException
-    ) as captured:
+        RuntimeError,
+        match="unexpected automation execution failure",
+    ):
         automation.run_automation(
             "health_check"
         )
-
-    assert captured.value.status_code == 500
-    assert (
-        captured.value.detail
-        == "unexpected automation execution failure"
-    )
 
 
 def test_run_automation_timeout_returns_500(
@@ -711,17 +706,12 @@ def test_run_automation_timeout_returns_500(
     )
 
     with pytest.raises(
-        HTTPException
-    ) as captured:
+        TimeoutError,
+        match="Ansible playbook timed out",
+    ):
         automation.run_automation(
             "scheduled_updates"
         )
-
-    assert captured.value.status_code == 500
-    assert (
-        captured.value.detail
-        == "Ansible playbook timed out"
-    )
 
 
 def test_add_automation_dependency_returns_dependency(

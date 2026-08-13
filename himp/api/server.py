@@ -2,6 +2,7 @@
 HIMP REST API Server.
 """
 
+import logging
 import subprocess
 import time
 
@@ -14,6 +15,8 @@ from fastapi.templating import Jinja2Templates
 from himp.lib.logging_config import configure_logging
 
 configure_logging()
+
+logger = logging.getLogger("himp")
 
 from himp.api.auth import router as auth_router
 from himp.api.dependencies import require_admin, require_page_session, require_session
@@ -35,6 +38,29 @@ from himp.app import HIMP
 app = FastAPI(
     title="Homelab Infrastructure Management Platform",
     version="1.0.0",
+)
+
+
+async def unhandled_exception_handler(
+    request: Request,
+    exc: Exception,
+):
+    logger.exception(
+        "Unhandled HIMP API exception: %s",
+        exc,
+    )
+
+    return JSONResponse(
+        status_code=500,
+        content={
+            "detail": "Internal server error"
+        },
+    )
+
+
+app.add_exception_handler(
+    Exception,
+    unhandled_exception_handler,
 )
 
 app.mount(
