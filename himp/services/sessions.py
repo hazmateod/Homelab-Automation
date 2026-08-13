@@ -11,6 +11,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 
 from himp.database.sessions import SessionRepository
+from himp.database.users import UserRepository
 
 
 @dataclass(frozen=True)
@@ -18,6 +19,7 @@ class SessionResult:
     success: bool
     token: str | None = None
     username: str | None = None
+    role: str | None = None
     created_at: datetime | None = None
     expires_at: datetime | None = None
     last_seen_at: datetime | None = None
@@ -30,11 +32,21 @@ class SessionService:
     SESSION_LIFETIME = timedelta(hours=8)
     TOKEN_BYTES = 32
 
-    def __init__(self, repository=None):
+    def __init__(
+        self,
+        repository=None,
+        users=None,
+    ):
         self.repository = (
             repository
             if repository is not None
             else SessionRepository()
+        )
+
+        self.users = (
+            users
+            if users is not None
+            else UserRepository()
         )
 
     def create_session(self, username, now=None):
@@ -86,7 +98,9 @@ class SessionService:
         Authenticate a session token.
 
         The plaintext token is hashed before it is ever passed
-        to the persistence layer.
+        to the persistence layer. The current user record is then
+        checked so account deactivation and role changes take
+        effect immediately.
         """
         if not isinstance(token, str):
             return SessionResult(
@@ -116,6 +130,22 @@ class SessionService:
                 reason="Invalid session",
             )
 
+        user = self.users.get(
+            session["username"]
+        )
+
+        if user is None:
+            return SessionResult(
+                success=False,
+                reason="Invalid session",
+            )
+
+        if not user.active:
+            return SessionResult(
+                success=False,
+                reason="Invalid session",
+            )
+
         self.repository.touch(
             token_hash,
             now,
@@ -124,6 +154,7 @@ class SessionService:
         return SessionResult(
             success=True,
             username=session["username"],
+            role=user.role,
             created_at=session["created_at"],
             expires_at=session["expires_at"],
             last_seen_at=now,

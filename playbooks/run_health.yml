@@ -48,10 +48,11 @@
             {{
               groups[inventory_group]
               | map('extract', hostvars)
-              | map(attribute='host_health_result')
+              | map(attribute='host_health_result', default={})
               | list
             }}
       delegate_to: localhost
+      become: false
       run_once: true
 
     - name: Create health output directory

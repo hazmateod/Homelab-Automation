@@ -144,6 +144,7 @@ def test_login_creates_session_and_sets_cookie(
 
     result = await_login(
         auth.login(
+            make_request(),
             auth.LoginRequest(
                 username="admin",
                 password="CorrectPassword!",
@@ -213,6 +214,7 @@ def test_login_rejects_invalid_credentials(
     ) as captured:
         await_login(
             auth.login(
+                make_request(),
                 auth.LoginRequest(
                     username="admin",
                     password="wrong",
@@ -256,6 +258,7 @@ def test_login_rejects_locked_account(
     ) as captured:
         await_login(
             auth.login(
+                make_request(),
                 auth.LoginRequest(
                     username="admin",
                     password="wrong",
@@ -326,6 +329,7 @@ def test_current_user_returns_session(
         authenticate_result=SessionResult(
             success=True,
             username="admin",
+            role="admin",
             created_at=created,
             expires_at=(
                 created + timedelta(hours=8)
@@ -354,6 +358,7 @@ def test_current_user_returns_session(
 
     assert result == {
         "username": "admin",
+        "role": "admin",
         "created_at": (
             "2026-08-12T14:00:00"
         ),

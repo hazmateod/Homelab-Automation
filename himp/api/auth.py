@@ -9,6 +9,7 @@ from pydantic import BaseModel
 
 from himp.api.dependencies import (
     SESSION_COOKIE_NAME,
+    authenticate_request,
     require_session,
 )
 from himp.services.authentication import AuthenticationService
@@ -35,24 +36,15 @@ def _session_token(request):
     )
 
 
-def require_authentication(request):
-    """Authenticate an API request using the auth service."""
-    from himp.api.dependencies import authenticate_request
-
-    return authenticate_request(
-        request,
-        session_service,
-    )
-
-
 @router.post("/login")
 async def login(
-    request: LoginRequest,
+    request: Request,
+    login_request: LoginRequest,
     response: Response,
 ):
     result = authentication_service.authenticate(
-        request.username,
-        request.password,
+        login_request.username,
+        login_request.password,
     )
 
     if not result.success:
@@ -82,7 +74,7 @@ async def login(
         value=session.token,
         httponly=True,
         samesite="lax",
-        secure=False,
+        secure=request.url.scheme == "https",
         max_age=int(
             SessionService.SESSION_LIFETIME.total_seconds()
         ),
@@ -107,10 +99,15 @@ async def login(
 async def current_user(
     request: Request,
 ):
-    session = require_authentication(request)
+
+    session = authenticate_request(
+        request,
+        session_service,
+    )
 
     return {
         "username": session.username,
+        "role": session.role,
         "created_at": (
             session.created_at.isoformat()
             if session.created_at is not None

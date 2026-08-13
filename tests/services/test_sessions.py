@@ -1,6 +1,7 @@
 import hashlib
 from datetime import datetime, timedelta
 
+from himp.models.user import User
 from himp.services.sessions import SessionService
 
 
@@ -85,16 +86,39 @@ class FakeRepository:
         return 3
 
 
+class FakeUserRepository:
+    def __init__(self):
+        self.users = {
+            "admin": User(
+                username="admin",
+                role="admin",
+                active=True,
+                display_name="Administrator",
+            ),
+            "operator": User(
+                username="operator",
+                role="operator",
+                active=True,
+                display_name="Operator",
+            ),
+        }
+
+    def get(self, username):
+        return self.users.get(username)
+
+
 def make_service():
     repository = FakeRepository()
+    users = FakeUserRepository()
     service = SessionService(
-        repository=repository
+        repository=repository,
+        users=users,
     )
-    return service, repository
+    return service, repository, users
 
 
 def test_create_session_returns_plaintext_token_once():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     now = datetime(2026, 1, 1, 12, 0)
 
@@ -118,7 +142,7 @@ def test_create_session_returns_plaintext_token_once():
 
 
 def test_plaintext_token_is_never_persisted():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     result = service.create_session(
         "admin",
@@ -134,7 +158,7 @@ def test_plaintext_token_is_never_persisted():
 
 
 def test_each_session_gets_a_unique_token():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     first = service.create_session("admin")
     second = service.create_session("admin")
@@ -147,7 +171,7 @@ def test_each_session_gets_a_unique_token():
 
 
 def test_authenticate_session_succeeds():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     created = datetime(2026, 1, 1, 12, 0)
 
@@ -165,6 +189,7 @@ def test_authenticate_session_succeeds():
 
     assert result.success is True
     assert result.username == "admin"
+    assert result.role == "admin"
     assert result.created_at == created
     assert result.expires_at == (
         created + timedelta(hours=8)
@@ -173,8 +198,80 @@ def test_authenticate_session_succeeds():
     assert len(repository.touched) == 1
 
 
+def test_operator_role_is_loaded_from_current_user():
+    service, _, _ = make_service()
+
+    created = datetime(2026, 1, 1, 12, 0)
+
+    created_result = service.create_session(
+        "operator",
+        now=created,
+    )
+
+    result = service.authenticate_session(
+        created_result.token,
+        now=created,
+    )
+
+    assert result.success is True
+    assert result.username == "operator"
+    assert result.role == "operator"
+
+
+def test_deactivated_user_cannot_use_existing_session():
+    service, _, users = make_service()
+
+    created = datetime(2026, 1, 1, 12, 0)
+
+    created_result = service.create_session(
+        "admin",
+        now=created,
+    )
+
+    users.users["admin"] = User(
+        username="admin",
+        role="admin",
+        active=False,
+        display_name="Administrator",
+    )
+
+    result = service.authenticate_session(
+        created_result.token,
+        now=created,
+    )
+
+    assert result.success is False
+    assert result.reason == "Invalid session"
+
+
+def test_role_changes_apply_to_existing_session():
+    service, _, users = make_service()
+
+    created = datetime(2026, 1, 1, 12, 0)
+
+    created_result = service.create_session(
+        "admin",
+        now=created,
+    )
+
+    users.users["admin"] = User(
+        username="admin",
+        role="operator",
+        active=True,
+        display_name="Administrator",
+    )
+
+    result = service.authenticate_session(
+        created_result.token,
+        now=created,
+    )
+
+    assert result.success is True
+    assert result.role == "operator"
+
+
 def test_authentication_hashes_token_before_lookup():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     result = service.create_session(
         "admin",
@@ -189,7 +286,7 @@ def test_authentication_hashes_token_before_lookup():
 
 
 def test_unknown_token_is_rejected():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     result = service.authenticate_session(
         "unknown-token"
@@ -203,7 +300,7 @@ def test_unknown_token_is_rejected():
 
 
 def test_empty_token_is_rejected():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     result = service.authenticate_session("")
 
@@ -213,7 +310,7 @@ def test_empty_token_is_rejected():
 
 
 def test_non_string_token_is_rejected():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     result = service.authenticate_session(None)
 
@@ -223,7 +320,7 @@ def test_non_string_token_is_rejected():
 
 
 def test_expired_session_is_rejected():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     created = datetime(2026, 1, 1, 12, 0)
 
@@ -243,7 +340,7 @@ def test_expired_session_is_rejected():
 
 
 def test_revoke_session():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     created = datetime(2026, 1, 1, 12, 0)
 
@@ -269,7 +366,7 @@ def test_revoke_session():
 
 
 def test_revoke_all_sessions():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     now = datetime(2026, 1, 1, 12, 0)
 
@@ -307,7 +404,7 @@ def test_revoke_all_sessions():
 
 
 def test_cleanup_returns_deleted_count():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     now = datetime(2026, 1, 1, 12, 0)
 
@@ -318,7 +415,7 @@ def test_cleanup_returns_deleted_count():
 
 
 def test_invalid_username_is_rejected():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     result = service.create_session(
         "   ",
@@ -331,7 +428,7 @@ def test_invalid_username_is_rejected():
 
 
 def test_non_string_username_is_rejected():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     result = service.create_session(
         None,
@@ -344,7 +441,7 @@ def test_non_string_username_is_rejected():
 
 
 def test_invalid_revoke_token_is_rejected():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     assert service.revoke_session(
         None
@@ -358,7 +455,7 @@ def test_invalid_revoke_token_is_rejected():
 
 
 def test_invalid_revoke_all_username_is_rejected():
-    service, repository = make_service()
+    service, repository, _ = make_service()
 
     assert service.revoke_all_sessions(
         None

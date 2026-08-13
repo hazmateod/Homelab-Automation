@@ -64,6 +64,7 @@ def test_require_session_returns_authenticated_session(
     result = SessionResult(
         success=True,
         username="admin",
+        role="admin",
         created_at=now,
         expires_at=(
             now + timedelta(hours=8)
@@ -165,3 +166,66 @@ def test_require_session_rejects_invalid_cookie(
     assert service.tokens == [
         "invalid-session-token"
     ]
+
+
+def test_require_admin_allows_admin(
+    monkeypatch,
+):
+    from himp.services.sessions import SessionResult
+
+    result = SessionResult(
+        success=True,
+        username="admin",
+        role="admin",
+    )
+
+    service = FakeSessionService(result)
+
+    monkeypatch.setattr(
+        dependencies,
+        "session_service",
+        service,
+    )
+
+    authenticated = dependencies.require_admin(
+        make_request("admin-token")
+    )
+
+    assert authenticated is result
+
+
+@pytest.mark.parametrize(
+    "role",
+    ["operator", "viewer"],
+)
+def test_require_admin_rejects_non_admin(
+    monkeypatch,
+    role,
+):
+    from himp.services.sessions import SessionResult
+
+    result = SessionResult(
+        success=True,
+        username=role,
+        role=role,
+    )
+
+    service = FakeSessionService(result)
+
+    monkeypatch.setattr(
+        dependencies,
+        "session_service",
+        service,
+    )
+
+    with pytest.raises(
+        HTTPException
+    ) as captured:
+        dependencies.require_admin(
+            make_request(f"{role}-token")
+        )
+
+    assert captured.value.status_code == 403
+    assert captured.value.detail == (
+        "Administrator access required"
+    )

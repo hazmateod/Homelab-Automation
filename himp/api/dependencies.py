@@ -1,8 +1,8 @@
 """
-FastAPI authentication dependencies.
+FastAPI authentication and authorization dependencies.
 
-Provides reusable request authentication for protected
-HIMP API endpoints.
+Provides reusable request authentication and authorization
+for protected HIMP API and web endpoints.
 """
 
 from fastapi import HTTPException, Request
@@ -48,3 +48,38 @@ def require_session(request: Request):
         request,
         session_service,
     )
+
+
+def require_admin(request: Request):
+    """Require an authenticated administrator session."""
+    session = require_session(request)
+
+    if session.role != "admin":
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator access required",
+        )
+
+    return session
+
+
+def require_page_session(request: Request):
+    """
+    Require an authenticated browser session.
+
+    Browser navigation receives a redirect to the login page
+    instead of an API-style JSON 401 response.
+    """
+    try:
+        return require_session(request)
+    except HTTPException as error:
+        if error.status_code == 401:
+            raise HTTPException(
+                status_code=303,
+                detail="Authentication required",
+                headers={
+                    "Location": "/login"
+                },
+            )
+
+        raise

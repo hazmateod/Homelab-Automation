@@ -5,7 +5,7 @@ HIMP REST API Server.
 import subprocess
 import time
 
-from fastapi import FastAPI
+from fastapi import Depends, FastAPI
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
@@ -16,6 +16,7 @@ from himp.lib.logging_config import configure_logging
 configure_logging()
 
 from himp.api.auth import router as auth_router
+from himp.api.dependencies import require_admin, require_page_session, require_session
 from himp.api.dashboard import router as dashboard_router
 from himp.api.discovery import router as discovery_router
 from himp.api.execution import router as execution_router
@@ -50,56 +51,67 @@ app.include_router(
 app.include_router(
     dashboard_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     execution_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     inventory_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     update_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     discovery_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     host_health_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     health_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     health_history_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     health_trends_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     automation_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 app.include_router(
     scheduler_router,
     prefix="/api",
+    dependencies=[Depends(require_session)],
 )
 
 templates = Jinja2Templates(
@@ -109,8 +121,19 @@ templates = Jinja2Templates(
 himp = HIMP()
 
 
+@app.get("/login")
+def login_page(request: Request):
+    return templates.TemplateResponse(
+        request=request,
+        name="login.html",
+        context={},
+    )
+
+
 @app.get("/system/status")
-def himp_status():
+def himp_status(
+    _session=Depends(require_session),
+):
 
     status = subprocess.run(
         [
@@ -156,7 +179,9 @@ def himp_status():
 
 
 @app.post("/system/restart")
-def restart_himp():
+def restart_himp(
+    _session=Depends(require_admin),
+):
 
     subprocess.Popen(
         [
@@ -221,7 +246,7 @@ def dashboard_context():
     }
 
 
-@app.get("/")
+@app.get("/", dependencies=[Depends(require_page_session)])
 def home(request: Request):
 
     return templates.TemplateResponse(
@@ -231,7 +256,7 @@ def home(request: Request):
     )
 
 
-@app.get("/inventory")
+@app.get("/inventory", dependencies=[Depends(require_page_session)])
 def inventory(request: Request):
 
     context = dashboard_context()
@@ -253,7 +278,7 @@ def inventory(request: Request):
     )
 
 
-@app.get("/inventory/hosts/{hostname}")
+@app.get("/inventory/hosts/{hostname}", dependencies=[Depends(require_page_session)])
 def inventory_host(
     request: Request,
     hostname: str,
@@ -301,7 +326,7 @@ def inventory_host(
     )
 
 
-@app.get("/discovery")
+@app.get("/discovery", dependencies=[Depends(require_page_session)])
 def discovery(request: Request):
 
     records = [
@@ -324,7 +349,7 @@ def discovery(request: Request):
 
 
 
-@app.get("/health")
+@app.get("/health", dependencies=[Depends(require_page_session)])
 def health(request: Request):
 
     context = dashboard_context()
@@ -342,7 +367,7 @@ def health(request: Request):
     )
 
 
-@app.get("/reports")
+@app.get("/reports", dependencies=[Depends(require_page_session)])
 def reports(request: Request):
 
     context = dashboard_context()
@@ -362,7 +387,7 @@ def reports(request: Request):
     )
 
 
-@app.get("/settings")
+@app.get("/settings", dependencies=[Depends(require_page_session)])
 def settings(request: Request):
 
     context = dashboard_context()
@@ -378,7 +403,7 @@ def settings(request: Request):
     )
 
 
-@app.get("/automation")
+@app.get("/automation", dependencies=[Depends(require_page_session)])
 def automation(
     request: Request,
     task_id: str | None = None,
@@ -437,7 +462,7 @@ def automation(
     )
 
 
-@app.get("/plugins")
+@app.get("/plugins", dependencies=[Depends(require_page_session)])
 def plugins(request: Request):
 
     return templates.TemplateResponse(
@@ -447,7 +472,7 @@ def plugins(request: Request):
     )
 
 
-@app.get("/automation/executions/{execution_id}")
+@app.get("/automation/executions/{execution_id}", dependencies=[Depends(require_page_session)])
 def automation_execution_details(
     request: Request,
     execution_id: int,
@@ -469,7 +494,7 @@ def automation_execution_details(
     )
 
 
-@app.get("/plugins/{plugin_id}")
+@app.get("/plugins/{plugin_id}", dependencies=[Depends(require_page_session)])
 def plugin_details(
     request: Request,
     plugin_id: str,
@@ -495,7 +520,7 @@ def plugin_details(
     )
 
 
-@app.get("/history")
+@app.get("/history", dependencies=[Depends(require_page_session)])
 def history(request: Request):
 
     context = dashboard_context()
@@ -511,7 +536,7 @@ def history(request: Request):
     )
 
 
-@app.get("/api/reports")
+@app.get("/api/reports", dependencies=[Depends(require_session)])
 def reports_api():
 
     return JSONResponse(
@@ -522,7 +547,7 @@ def reports_api():
     )
 
 
-@app.get("/api/settings")
+@app.get("/api/settings", dependencies=[Depends(require_session)])
 def settings_api():
 
     return JSONResponse(
@@ -530,7 +555,7 @@ def settings_api():
     )
 
 
-@app.get("/api/automation")
+@app.get("/api/automation", dependencies=[Depends(require_session)])
 def automation_api():
 
     return JSONResponse(
@@ -538,7 +563,7 @@ def automation_api():
     )
 
 
-@app.get("/api")
+@app.get("/api", dependencies=[Depends(require_session)])
 def api_root():
 
     return JSONResponse(
