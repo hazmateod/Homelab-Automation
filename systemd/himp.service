@@ -1,0 +1,28 @@
+[Unit]
+Description=Homelab Infrastructure Management Platform
+After=network.target
+
+[Service]
+Type=simple
+
+User=himp
+Group=himp
+
+WorkingDirectory=/opt/himp
+
+Environment=HOME=/var/lib/himp
+Environment=PATH=/opt/himp/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/himp
+Environment=ANSIBLE_PRIVATE_KEY_FILE=/var/lib/himp/.ssh/id_ed25519
+Environment=PYTHONUNBUFFERED=1
+
+ExecStart=/opt/himp/.venv/bin/uvicorn himp.api.server:app --host 0.0.0.0 --port 9347
+
+Restart=always
+RestartSec=5
+
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target
