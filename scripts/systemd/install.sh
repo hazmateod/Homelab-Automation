@@ -30,6 +30,7 @@ if [[ ! -d "$SYSTEMD_DIR" ]]; then
 fi
 
 UNITS=(
+    himp.service
     himp-inventory-sync.service
     himp-scheduled-updates.service
     himp-scheduler.service
