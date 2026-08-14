@@ -350,5 +350,3 @@ def run_automation(
             status_code=409,
             detail=str(error),
         )
-
-
