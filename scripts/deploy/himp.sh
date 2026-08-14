@@ -7,7 +7,8 @@
 set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
-DEPLOY_ROOT="/opt/himp"
+DEPLOY_ROOT="${DEPLOY_ROOT:-/opt/himp}"
+SYSTEMD_TARGET_ROOT="${SYSTEMD_TARGET_ROOT:-/etc/systemd/system}"
 SYSTEMD_INSTALLER="$PROJECT_ROOT/scripts/systemd/install.sh"
 
 cd "$PROJECT_ROOT"
@@ -105,10 +106,10 @@ fi
 
 HIMP_SERVICE_CHANGED=false
 
-if [[ ! -f "/etc/systemd/system/himp.service" ]] || \
+if [[ ! -f "$SYSTEMD_TARGET_ROOT/himp.service" ]] || \
    ! cmp -s \
        "$PROJECT_ROOT/systemd/himp.service" \
-       "/etc/systemd/system/himp.service"; then
+       "$SYSTEMD_TARGET_ROOT/himp.service"; then
     HIMP_SERVICE_CHANGED=true
 fi
 

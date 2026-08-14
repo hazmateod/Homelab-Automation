@@ -8,6 +8,7 @@ set -euo pipefail
 
 PROJECT_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 SYSTEMD_DIR="$PROJECT_ROOT/systemd"
+SYSTEMD_TARGET_ROOT="${SYSTEMD_TARGET_ROOT:-/etc/systemd/system}"
 
 cd "$PROJECT_ROOT"
 
@@ -52,7 +53,7 @@ echo "Installing systemd units..."
 
 for unit in "${UNITS[@]}"; do
     source="$SYSTEMD_DIR/$unit"
-    target="/etc/systemd/system/$unit"
+    target="$SYSTEMD_TARGET_ROOT/$unit"
 
     if [[ -f "$target" ]] && cmp -s "$source" "$target"; then
         echo "  unchanged: $unit"
