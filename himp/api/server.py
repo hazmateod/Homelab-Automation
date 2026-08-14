@@ -31,7 +31,10 @@ from himp.api.health_history import router as health_history_router
 from himp.api.health_trends import router as health_trends_router
 from himp.api.automation import router as automation_router
 from himp.api.scheduler import router as scheduler_router
-from himp.api.workflows import router as workflows_router
+from himp.api.workflows import (
+    router as workflows_router,
+    workflow_execution_service,
+)
 from himp.services.scheduler import SchedulerService
 from himp.app import HIMP
 
@@ -152,6 +155,10 @@ templates = Jinja2Templates(
 )
 
 himp = HIMP()
+
+workflow_execution_service.automation_service = (
+    himp.automation
+)
 
 
 @app.get("/login")

@@ -534,3 +534,185 @@ def test_workflow_routes_require_session():
 
     assert response.status_code == 401
     assert response.json()["detail"] == "Authentication required"
+
+
+class FakeWorkflowExecutionService:
+    def __init__(self):
+        self.calls = []
+        self.result = {
+            "workflow": {
+                "id": 1,
+                "name": "Infrastructure Refresh",
+                "description": "Test workflow",
+                "enabled": 1,
+            },
+            "success": True,
+            "task_count": 2,
+            "executed_tasks": [
+                "inventory_refresh",
+                "generate_reports",
+            ],
+            "failed_tasks": [],
+            "skipped_tasks": [],
+            "executions": [
+                {
+                    "task_id": "inventory_refresh",
+                    "success": True,
+                },
+                {
+                    "task_id": "generate_reports",
+                    "success": True,
+                },
+            ],
+        }
+
+    def execute(
+        self,
+        workflow_id,
+        limit=None,
+        confirmed=False,
+    ):
+        self.calls.append(
+            {
+                "workflow_id": workflow_id,
+                "limit": limit,
+                "confirmed": confirmed,
+            }
+        )
+
+        if workflow_id != 1:
+            raise workflows_api.WorkflowNotFoundError(
+                "Workflow does not exist: 999"
+            )
+
+        return self.result
+
+
+@pytest.fixture
+def execution_service(monkeypatch):
+    fake = FakeWorkflowExecutionService()
+
+    monkeypatch.setattr(
+        workflows_api,
+        "workflow_execution_service",
+        fake,
+    )
+
+    return fake
+
+
+def test_execute_workflow(execution_service):
+    request = workflows_api.WorkflowExecuteRequest(
+        confirmed=True,
+    )
+
+    response = workflows_api.execute_workflow(
+        1,
+        request,
+    )
+
+    assert response.status_code == 200
+    assert body(response)["success"] is True
+    assert body(response)["task_count"] == 2
+    assert body(response)["executed_tasks"] == [
+        "inventory_refresh",
+        "generate_reports",
+    ]
+
+    assert execution_service.calls == [
+        {
+            "workflow_id": 1,
+            "limit": None,
+            "confirmed": True,
+        }
+    ]
+
+
+def test_execute_workflow_without_request_defaults_to_unconfirmed(
+    execution_service,
+):
+    response = workflows_api.execute_workflow(1)
+
+    assert response.status_code == 200
+
+    assert execution_service.calls == [
+        {
+            "workflow_id": 1,
+            "limit": None,
+            "confirmed": False,
+        }
+    ]
+
+
+def test_execute_workflow_not_found(execution_service):
+    with pytest.raises(HTTPException) as captured:
+        workflows_api.execute_workflow(999)
+
+    assert captured.value.status_code == 404
+    assert captured.value.detail == (
+        "Workflow does not exist: 999"
+    )
+
+
+def test_execute_workflow_returns_failure_result(
+    execution_service,
+):
+    execution_service.result = {
+        "workflow": {
+            "id": 1,
+        },
+        "success": False,
+        "task_count": 3,
+        "executed_tasks": [
+            "task_a",
+        ],
+        "failed_tasks": [
+            "task_a",
+        ],
+        "skipped_tasks": [
+            "task_b",
+            "task_c",
+        ],
+        "executions": [
+            {
+                "task_id": "task_a",
+                "success": False,
+                "error": "Task failed",
+            }
+        ],
+    }
+
+    response = workflows_api.execute_workflow(1)
+
+    assert response.status_code == 200
+
+    result = body(response)
+
+    assert result["success"] is False
+    assert result["failed_tasks"] == ["task_a"]
+    assert result["skipped_tasks"] == [
+        "task_b",
+        "task_c",
+    ]
+
+
+def test_execute_workflow_validation_error(
+    execution_service,
+):
+    execution_service.execute = lambda *args, **kwargs: (
+        (_ for _ in ()).throw(
+            ValueError(
+                "Workflow validation failed: "
+                "Workflow contains no tasks"
+            )
+        )
+    )
+
+    with pytest.raises(HTTPException) as captured:
+        workflows_api.execute_workflow(1)
+
+    assert captured.value.status_code == 400
+    assert captured.value.detail == (
+        "Workflow validation failed: "
+        "Workflow contains no tasks"
+    )

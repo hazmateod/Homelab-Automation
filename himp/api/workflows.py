@@ -9,6 +9,9 @@ from pydantic import BaseModel
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import JSONResponse
 
+from himp.services.workflow_execution import (
+    WorkflowExecutionService,
+)
 from himp.services.workflows import (
     WorkflowDependencyCycleError,
     WorkflowDependencyNotFoundError,
@@ -25,6 +28,10 @@ router = APIRouter(
 
 
 workflow_service = WorkflowService()
+
+workflow_execution_service = WorkflowExecutionService(
+    workflow_service=workflow_service,
+)
 
 
 class WorkflowCreateRequest(BaseModel):
@@ -47,6 +54,11 @@ class WorkflowTaskRequest(BaseModel):
 class WorkflowDependencyRequest(BaseModel):
     task_id: str
     depends_on_task_id: str
+
+
+class WorkflowExecuteRequest(BaseModel):
+    limit: int | None = None
+    confirmed: bool = False
 
 
 def _not_found(error):
@@ -288,3 +300,35 @@ def validate_workflow(
 
     except WorkflowNotFoundError as error:
         _not_found(error)
+
+@router.post(
+    "/workflows/{workflow_id}/execute"
+)
+def execute_workflow(
+    workflow_id: int,
+    request: WorkflowExecuteRequest | None = None,
+):
+    confirmed = (
+        request.confirmed
+        if request is not None
+        else False
+    )
+
+    try:
+        return JSONResponse(
+            workflow_execution_service.execute(
+                workflow_id,
+                limit=(
+                    request.limit
+                    if request is not None
+                    else None
+                ),
+                confirmed=confirmed,
+            )
+        )
+
+    except WorkflowNotFoundError as error:
+        _not_found(error)
+
+    except ValueError as error:
+        _invalid(error)
