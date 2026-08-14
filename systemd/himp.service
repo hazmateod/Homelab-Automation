@@ -23,6 +23,14 @@ RestartSec=5
 
 NoNewPrivileges=true
 PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+
+ReadWritePaths=/opt/himp/data
+ReadWritePaths=/opt/himp/inventory
+ReadWritePaths=/opt/himp/logs
+ReadWritePaths=/opt/himp/reports
+ReadWritePaths=/opt/himp/playbooks/reports
 
 [Install]
 WantedBy=multi-user.target
