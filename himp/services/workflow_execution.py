@@ -2,6 +2,8 @@
 Workflow execution orchestration service.
 """
 
+from uuid import uuid4
+
 from himp.services.automation import AutomationService
 from himp.services.workflows import (
     WorkflowNotFoundError,
@@ -59,6 +61,10 @@ class WorkflowExecutionService:
                 )
             )
 
+        workflow_execution_id = str(
+            uuid4()
+        )
+
         task_ids = self._execution_order(
             workflow_id
         )
@@ -106,6 +112,9 @@ class WorkflowExecutionService:
                     task_id,
                     limit=limit,
                     confirmed=confirmed,
+                    workflow_execution_id=(
+                        workflow_execution_id
+                    ),
                 )
 
             except Exception as error:
@@ -131,6 +140,9 @@ class WorkflowExecutionService:
 
         return {
             "workflow": workflow,
+            "workflow_execution_id": (
+                workflow_execution_id
+            ),
             "success": not failed_tasks,
             "task_count": len(task_ids),
             "executed_tasks": [

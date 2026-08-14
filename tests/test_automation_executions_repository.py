@@ -346,3 +346,204 @@ def test_success_is_deserialized_as_boolean():
 
     assert success["success"] is True
     assert failure["success"] is False
+
+
+def test_save_persists_workflow_execution_id():
+    repository = make_repository()
+
+    execution_id = repository.save(
+        task_id="inventory_refresh",
+        workflow_execution_id="workflow-run-001",
+        success=True,
+        elapsed=1.25,
+        result={
+            "task": "inventory_refresh",
+            "success": True,
+        },
+    )
+
+    execution = repository.find(execution_id)
+
+    assert execution["workflow_execution_id"] == (
+        "workflow-run-001"
+    )
+
+
+def test_save_allows_execution_without_workflow_execution_id():
+    repository = make_repository()
+
+    execution_id = repository.save(
+        task_id="health_check",
+        success=True,
+        elapsed=0.5,
+        result={
+            "task": "health_check",
+            "success": True,
+        },
+    )
+
+    execution = repository.find(execution_id)
+
+    assert execution["workflow_execution_id"] is None
+
+
+def test_history_can_filter_by_workflow_execution_id():
+    repository = make_repository()
+
+    repository.save(
+        task_id="inventory_refresh",
+        workflow_execution_id="workflow-run-001",
+        success=True,
+        elapsed=1.0,
+        result={"success": True},
+    )
+
+    repository.save(
+        task_id="generate_reports",
+        workflow_execution_id="workflow-run-001",
+        success=True,
+        elapsed=2.0,
+        result={"success": True},
+    )
+
+    repository.save(
+        task_id="health_check",
+        workflow_execution_id="workflow-run-002",
+        success=True,
+        elapsed=3.0,
+        result={"success": True},
+    )
+
+    history = repository.history(
+        workflow_execution_id="workflow-run-001",
+    )
+
+    assert len(history) == 2
+    assert {
+        execution["task_id"]
+        for execution in history
+    } == {
+        "inventory_refresh",
+        "generate_reports",
+    }
+
+    assert all(
+        execution["workflow_execution_id"]
+        == "workflow-run-001"
+        for execution in history
+    )
+
+
+def test_workflow_history_returns_only_matching_execution():
+    repository = make_repository()
+
+    repository.save(
+        task_id="inventory_refresh",
+        workflow_execution_id="workflow-run-001",
+        success=True,
+        elapsed=1.0,
+        result={"success": True},
+    )
+
+    repository.save(
+        task_id="generate_reports",
+        workflow_execution_id="workflow-run-001",
+        success=False,
+        elapsed=2.0,
+        result={
+            "success": False,
+            "error": "report failure",
+        },
+    )
+
+    repository.save(
+        task_id="health_check",
+        workflow_execution_id="workflow-run-002",
+        success=True,
+        elapsed=3.0,
+        result={"success": True},
+    )
+
+    history = repository.workflow_history(
+        "workflow-run-001",
+    )
+
+    assert len(history) == 2
+    assert [
+        execution["task_id"]
+        for execution in history
+    ] == [
+        "generate_reports",
+        "inventory_refresh",
+    ]
+
+
+def test_task_history_preserves_workflow_execution_id():
+    repository = make_repository()
+
+    repository.save(
+        task_id="inventory_refresh",
+        workflow_execution_id="workflow-run-001",
+        success=True,
+        elapsed=1.0,
+        result={"success": True},
+    )
+
+    history = repository.task_history(
+        "inventory_refresh",
+    )
+
+    assert len(history) == 1
+    assert history[0]["workflow_execution_id"] == (
+        "workflow-run-001"
+    )
+
+
+def test_existing_execution_table_is_upgraded_with_workflow_execution_id():
+    database = TemporaryDatabase()
+
+    database.execute(
+        """
+        CREATE TABLE automation_executions
+        (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT NOT NULL,
+            success INTEGER NOT NULL,
+            elapsed REAL NOT NULL,
+            result TEXT,
+            executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    repository = object.__new__(
+        AutomationExecutionRepository
+    )
+    repository.database = database
+
+    repository._ensure_table()
+
+    columns = {
+        row[1]
+        for row in database.query(
+            "PRAGMA table_info(automation_executions)"
+        )
+    }
+
+    assert "workflow_execution_id" in columns
+
+    execution_id = repository.save(
+        task_id="inventory_refresh",
+        workflow_execution_id="workflow-run-migration",
+        success=True,
+        elapsed=1.0,
+        result={
+            "success": True,
+        },
+    )
+
+    execution = repository.find(execution_id)
+
+    assert execution["workflow_execution_id"] == (
+        "workflow-run-migration"
+    )

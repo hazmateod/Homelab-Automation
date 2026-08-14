@@ -128,12 +128,16 @@ class FakeAutomationService:
         task_id,
         limit=None,
         confirmed=False,
+        workflow_execution_id=None,
     ):
         self.calls.append(
             {
                 "task_id": task_id,
                 "limit": limit,
                 "confirmed": confirmed,
+                "workflow_execution_id": (
+                    workflow_execution_id
+                ),
             }
         )
 
@@ -240,7 +244,14 @@ def test_execute_passes_limit_and_confirmation_to_every_task():
 
     assert result["success"] is True
 
-    assert automation.calls == [
+    assert [
+        {
+            key: value
+            for key, value in call.items()
+            if key != "workflow_execution_id"
+        }
+        for call in automation.calls
+    ] == [
         {
             "task_id": "inventory_refresh",
             "limit": 25,
@@ -257,6 +268,18 @@ def test_execute_passes_limit_and_confirmation_to_every_task():
             "confirmed": True,
         },
     ]
+
+    workflow_execution_ids = {
+        call["workflow_execution_id"]
+        for call in automation.calls
+    }
+
+    assert len(workflow_execution_ids) == 1
+
+    assert (
+        next(iter(workflow_execution_ids))
+        == result["workflow_execution_id"]
+    )
 
 
 def test_execute_rejects_invalid_workflow():
@@ -735,3 +758,24 @@ def test_successful_task_allows_dependents_to_execute():
         "task_a",
         "task_b",
     ]
+
+
+def test_workflow_execution_uses_one_correlation_id_for_all_tasks():
+    service, _, automation = make_service()
+
+    result = service.execute(1)
+
+    assert result["success"] is True
+    assert result["workflow_execution_id"]
+
+    workflow_execution_ids = [
+        call["workflow_execution_id"]
+        for call in automation.calls
+    ]
+
+    assert len(workflow_execution_ids) == 3
+    assert len(set(workflow_execution_ids)) == 1
+
+    assert workflow_execution_ids[0] == (
+        result["workflow_execution_id"]
+    )

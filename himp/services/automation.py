@@ -742,6 +742,7 @@ class AutomationService:
         task_id,
         limit=None,
         confirmed=False,
+        workflow_execution_id=None,
     ):
 
         policy = self.validate_execution_policy(
@@ -829,6 +830,7 @@ class AutomationService:
                         elapsed=attempt_elapsed,
                         result=execution,
                         executed_at=attempt_executed_at,
+                        workflow_execution_id=workflow_execution_id,
                     )
 
                     execution["id"] = execution_id
@@ -904,6 +906,7 @@ class AutomationService:
                         elapsed=attempt_elapsed,
                         result=failure,
                         executed_at=attempt_executed_at,
+                        workflow_execution_id=workflow_execution_id,
                     )
 
                     failure["id"] = execution_id

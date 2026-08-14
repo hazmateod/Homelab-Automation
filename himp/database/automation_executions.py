@@ -25,6 +25,8 @@ class AutomationExecutionRepository:
 
                 task_id TEXT NOT NULL,
 
+                workflow_execution_id TEXT,
+
                 success INTEGER NOT NULL,
 
                 elapsed REAL NOT NULL,
@@ -36,6 +38,21 @@ class AutomationExecutionRepository:
             """
         )
 
+        columns = {
+            row[1]
+            for row in self.database.query(
+                "PRAGMA table_info(automation_executions)"
+            )
+        }
+
+        if "workflow_execution_id" not in columns:
+            self.database.execute(
+                """
+                ALTER TABLE automation_executions
+                ADD COLUMN workflow_execution_id TEXT
+                """
+            )
+
     def save(
         self,
         task_id,
@@ -43,12 +60,14 @@ class AutomationExecutionRepository:
         elapsed,
         result,
         executed_at=None,
+        workflow_execution_id=None,
     ):
         cursor = self.database.execute(
             """
             INSERT INTO automation_executions
             (
                 task_id,
+                workflow_execution_id,
                 success,
                 elapsed,
                 result,
@@ -60,11 +79,13 @@ class AutomationExecutionRepository:
                 ?,
                 ?,
                 ?,
+                ?,
                 COALESCE(?, CURRENT_TIMESTAMP)
             )
             """,
             (
                 task_id,
+                workflow_execution_id,
                 int(success),
                 elapsed,
                 json.dumps(result),
@@ -116,6 +137,7 @@ class AutomationExecutionRepository:
         limit=50,
         task_id=None,
         success=None,
+        workflow_execution_id=None,
     ):
         clauses = []
         parameters = []
@@ -127,6 +149,10 @@ class AutomationExecutionRepository:
         if success is not None:
             clauses.append("success=?")
             parameters.append(int(success))
+
+        if workflow_execution_id is not None:
+            clauses.append("workflow_execution_id=?")
+            parameters.append(workflow_execution_id)
 
         query = """
             SELECT *
@@ -148,6 +174,30 @@ class AutomationExecutionRepository:
         rows = self.database.query(
             query,
             tuple(parameters),
+        )
+
+        return [
+            self._deserialize(row)
+            for row in rows
+        ]
+
+    def workflow_history(
+        self,
+        workflow_execution_id,
+        limit=50,
+    ):
+        rows = self.database.query(
+            """
+            SELECT *
+            FROM automation_executions
+            WHERE workflow_execution_id=?
+            ORDER BY id DESC
+            LIMIT ?
+            """,
+            (
+                workflow_execution_id,
+                limit,
+            ),
         )
 
         return [

@@ -26,6 +26,7 @@ class FakeExecutionRepository:
         elapsed,
         result,
         executed_at=None,
+        workflow_execution_id=None,
     ):
         execution_id = self.next_id
         self.next_id += 1
@@ -38,6 +39,9 @@ class FakeExecutionRepository:
                 "elapsed": elapsed,
                 "result": result,
                 "executed_at": executed_at,
+                "workflow_execution_id": (
+                    workflow_execution_id
+                ),
             }
         )
 
@@ -207,3 +211,67 @@ def test_retry_attempts_persist_individual_execution_records():
     assert execution["attempt"] == 2
     assert execution["attempts"] == 2
     assert execution["result"]["success"] is True
+
+
+def test_run_persists_workflow_execution_id():
+    service = make_service()
+
+    execution = service.run(
+        "health_check",
+        workflow_execution_id="workflow-run-001",
+    )
+
+    persisted = service.execution_repository.find(
+        execution["id"]
+    )
+
+    assert persisted is not None
+    assert persisted["workflow_execution_id"] == (
+        "workflow-run-001"
+    )
+
+
+def test_retry_attempts_preserve_workflow_execution_id():
+    service = make_service()
+
+    service.tasks[0]["retry_attempts"] = 2
+
+    calls = []
+
+    def fake_execute_task(
+        task_id,
+        limit=None,
+        timeout=None,
+    ):
+        calls.append(task_id)
+
+        if len(calls) == 1:
+            raise RuntimeError(
+                "transient failure"
+            )
+
+        return {
+            "success": True,
+            "message": "recovered",
+        }
+
+    service._execute_task = fake_execute_task
+
+    execution = service.run(
+        "health_check",
+        workflow_execution_id="workflow-run-002",
+    )
+
+    saved = service.execution_repository.saved
+
+    assert len(saved) == 2
+
+    assert saved[0]["workflow_execution_id"] == (
+        "workflow-run-002"
+    )
+
+    assert saved[1]["workflow_execution_id"] == (
+        "workflow-run-002"
+    )
+
+    assert execution["id"] == saved[1]["id"]

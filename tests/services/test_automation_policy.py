@@ -329,6 +329,7 @@ class RecordingExecutionRepository:
         elapsed,
         result,
         executed_at=None,
+        workflow_execution_id=None,
     ):
         self.saved.append(
             {
