@@ -64,23 +64,82 @@ class WorkflowExecutionService:
         )
 
         executions = []
+        failed_tasks = []
+        skipped_tasks = []
+
+        dependency_map = self._dependency_map
+
+        task_results = {}
 
         for task_id in task_ids:
-            execution = self.automation_service.run(
+            prerequisites = dependency_map.get(
                 task_id,
-                limit=limit,
-                confirmed=confirmed,
+                [],
             )
 
-            executions.append(
-                execution
-            )
+            failed_prerequisites = [
+                prerequisite
+                for prerequisite in prerequisites
+                if prerequisite in failed_tasks
+                or prerequisite in skipped_tasks
+            ]
+
+            if failed_prerequisites:
+                skipped_tasks.append(task_id)
+
+                task_results[task_id] = {
+                    "task_id": task_id,
+                    "success": False,
+                    "skipped": True,
+                    "reason": (
+                        "Dependency failed or was skipped"
+                    ),
+                    "failed_dependencies": (
+                        failed_prerequisites
+                    ),
+                }
+
+                continue
+
+            try:
+                execution = self.automation_service.run(
+                    task_id,
+                    limit=limit,
+                    confirmed=confirmed,
+                )
+
+            except Exception as error:
+                execution = {
+                    "task_id": task_id,
+                    "success": False,
+                    "error": str(error),
+                }
+
+            executions.append(execution)
+            task_results[task_id] = execution
+
+            success = True
+
+            if isinstance(execution, dict):
+                if "success" in execution:
+                    success = bool(
+                        execution["success"]
+                    )
+
+            if not success:
+                failed_tasks.append(task_id)
 
         return {
             "workflow": workflow,
-            "success": True,
+            "success": not failed_tasks,
             "task_count": len(task_ids),
-            "executed_tasks": task_ids,
+            "executed_tasks": [
+                task_id
+                for task_id in task_ids
+                if task_id not in skipped_tasks
+            ],
+            "failed_tasks": failed_tasks,
+            "skipped_tasks": skipped_tasks,
             "executions": executions,
         }
 
@@ -116,6 +175,8 @@ class WorkflowExecutionService:
                     "depends_on_task_id"
                 ]
             )
+
+        self._dependency_map = graph
 
         order = []
         visiting = set()

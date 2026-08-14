@@ -114,8 +114,14 @@ class FakeWorkflowService:
 
 
 class FakeAutomationService:
-    def __init__(self):
+    def __init__(
+        self,
+        outcomes=None,
+        exceptions=None,
+    ):
         self.calls = []
+        self.outcomes = outcomes or {}
+        self.exceptions = exceptions or {}
 
     def run(
         self,
@@ -131,10 +137,16 @@ class FakeAutomationService:
             }
         )
 
-        return {
-            "task_id": task_id,
-            "success": True,
-        }
+        if task_id in self.exceptions:
+            raise self.exceptions[task_id]
+
+        return self.outcomes.get(
+            task_id,
+            {
+                "task_id": task_id,
+                "success": True,
+            },
+        )
 
 
 def make_service(
@@ -452,3 +464,274 @@ def test_empty_workflow_returns_success_without_execution():
     assert result["executed_tasks"] == []
     assert result["executions"] == []
     assert automation.calls == []
+
+
+def test_failed_task_skips_direct_and_transitive_dependents():
+    workflow_service = FakeWorkflowService(
+        tasks=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_a",
+                "position": 1,
+            },
+            {
+                "id": 2,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "position": 2,
+            },
+            {
+                "id": 3,
+                "workflow_id": 1,
+                "task_id": "task_c",
+                "position": 3,
+            },
+            {
+                "id": 4,
+                "workflow_id": 1,
+                "task_id": "task_d",
+                "position": 4,
+            },
+        ],
+        dependencies=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "depends_on_task_id": "task_a",
+            },
+            {
+                "id": 2,
+                "workflow_id": 1,
+                "task_id": "task_c",
+                "depends_on_task_id": "task_b",
+            },
+        ],
+    )
+
+    automation = FakeAutomationService(
+        outcomes={
+            "task_a": {
+                "task_id": "task_a",
+                "success": False,
+                "result": {
+                    "success": False,
+                    "error": "Task failed",
+                },
+            },
+        }
+    )
+
+    service, _, automation = make_service(
+        workflow_service=workflow_service,
+        automation_service=automation,
+    )
+
+    result = service.execute(1)
+
+    assert result["success"] is False
+    assert result["failed_tasks"] == ["task_a"]
+    assert result["skipped_tasks"] == [
+        "task_b",
+        "task_c",
+    ]
+
+    assert result["executed_tasks"] == [
+        "task_a",
+        "task_d",
+    ]
+
+    assert [
+        call["task_id"]
+        for call in automation.calls
+    ] == [
+        "task_a",
+        "task_d",
+    ]
+
+
+def test_failed_task_does_not_block_independent_branch():
+    workflow_service = FakeWorkflowService(
+        tasks=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_a",
+                "position": 1,
+            },
+            {
+                "id": 2,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "position": 2,
+            },
+            {
+                "id": 3,
+                "workflow_id": 1,
+                "task_id": "task_c",
+                "position": 3,
+            },
+            {
+                "id": 4,
+                "workflow_id": 1,
+                "task_id": "task_d",
+                "position": 4,
+            },
+        ],
+        dependencies=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "depends_on_task_id": "task_a",
+            },
+            {
+                "id": 2,
+                "workflow_id": 1,
+                "task_id": "task_d",
+                "depends_on_task_id": "task_c",
+            },
+        ],
+    )
+
+    automation = FakeAutomationService(
+        outcomes={
+            "task_a": {
+                "task_id": "task_a",
+                "success": False,
+            },
+        }
+    )
+
+    service, _, automation = make_service(
+        workflow_service=workflow_service,
+        automation_service=automation,
+    )
+
+    result = service.execute(1)
+
+    assert result["success"] is False
+    assert result["failed_tasks"] == ["task_a"]
+    assert result["skipped_tasks"] == ["task_b"]
+
+    assert result["executed_tasks"] == [
+        "task_a",
+        "task_c",
+        "task_d",
+    ]
+
+    assert [
+        call["task_id"]
+        for call in automation.calls
+    ] == [
+        "task_a",
+        "task_c",
+        "task_d",
+    ]
+
+
+def test_task_exception_fails_task_and_skips_dependents():
+    workflow_service = FakeWorkflowService(
+        tasks=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_a",
+                "position": 1,
+            },
+            {
+                "id": 2,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "position": 2,
+            },
+        ],
+        dependencies=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "depends_on_task_id": "task_a",
+            },
+        ],
+    )
+
+    automation = FakeAutomationService(
+        exceptions={
+            "task_a": RuntimeError(
+                "execution failed"
+            ),
+        }
+    )
+
+    service, _, automation = make_service(
+        workflow_service=workflow_service,
+        automation_service=automation,
+    )
+
+    result = service.execute(1)
+
+    assert result["success"] is False
+    assert result["failed_tasks"] == ["task_a"]
+    assert result["skipped_tasks"] == ["task_b"]
+    assert result["executed_tasks"] == ["task_a"]
+
+    assert [
+        call["task_id"]
+        for call in automation.calls
+    ] == ["task_a"]
+
+    assert result["executions"][0]["success"] is False
+    assert result["executions"][0]["error"] == (
+        "execution failed"
+    )
+
+
+def test_successful_task_allows_dependents_to_execute():
+    workflow_service = FakeWorkflowService(
+        tasks=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_a",
+                "position": 1,
+            },
+            {
+                "id": 2,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "position": 2,
+            },
+        ],
+        dependencies=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "depends_on_task_id": "task_a",
+            },
+        ],
+    )
+
+    service, _, automation = make_service(
+        workflow_service=workflow_service,
+    )
+
+    result = service.execute(1)
+
+    assert result["success"] is True
+    assert result["failed_tasks"] == []
+    assert result["skipped_tasks"] == []
+    assert result["executed_tasks"] == [
+        "task_a",
+        "task_b",
+    ]
+
+    assert [
+        call["task_id"]
+        for call in automation.calls
+    ] == [
+        "task_a",
+        "task_b",
+    ]
