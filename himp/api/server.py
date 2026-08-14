@@ -37,7 +37,7 @@ from himp.app import HIMP
 
 app = FastAPI(
     title="Homelab Infrastructure Management Platform",
-    version="1.0.0",
+    version="1.0.1",
 )
 
 
