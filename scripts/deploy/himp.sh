@@ -71,35 +71,100 @@ for file in "${DEPLOY_FILES[@]}"; do
 done
 
 echo
+echo "Checking deployment changes..."
+
+APPLICATION_CHANGED=false
+
+for dir in "${DEPLOY_DIRS[@]}"; do
+    source="$PROJECT_ROOT/$dir"
+    target="$DEPLOY_ROOT/$dir"
+
+    if [[ ! -d "$target" ]] || \
+       ! diff -qr \
+           --exclude='__pycache__' \
+           --exclude='*.pyc' \
+           "$source" \
+           "$target" >/dev/null; then
+        APPLICATION_CHANGED=true
+        break
+    fi
+done
+
+if [[ "$APPLICATION_CHANGED" == "false" ]]; then
+    for file in "${DEPLOY_FILES[@]}"; do
+        source="$PROJECT_ROOT/$file"
+        target="$DEPLOY_ROOT/$file"
+
+        if [[ ! -f "$target" ]] || \
+           ! cmp -s "$source" "$target"; then
+            APPLICATION_CHANGED=true
+            break
+        fi
+    done
+fi
+
+HIMP_SERVICE_CHANGED=false
+
+if [[ ! -f "/etc/systemd/system/himp.service" ]] || \
+   ! cmp -s \
+       "$PROJECT_ROOT/systemd/himp.service" \
+       "/etc/systemd/system/himp.service"; then
+    HIMP_SERVICE_CHANGED=true
+fi
+
+echo "  Application changed: $APPLICATION_CHANGED"
+echo "  HIMP service changed: $HIMP_SERVICE_CHANGED"
+
+echo
 echo "Deploying application directories..."
 
 for dir in "${DEPLOY_DIRS[@]}"; do
-    cp -a         "$PROJECT_ROOT/$dir/."         "$DEPLOY_ROOT/$dir/"
+    cp -a \
+        "$PROJECT_ROOT/$dir/." \
+        "$DEPLOY_ROOT/$dir/"
 done
 
 echo
 echo "Deploying application files..."
 
 for file in "${DEPLOY_FILES[@]}"; do
-    install -m 0644         "$PROJECT_ROOT/$file"         "$DEPLOY_ROOT/$file"
+    install -m 0644 \
+        "$PROJECT_ROOT/$file" \
+        "$DEPLOY_ROOT/$file"
 done
 
 echo
 echo "Setting application ownership..."
 
-chown -R himp:himp     "$DEPLOY_ROOT/himp"     "$DEPLOY_ROOT/plugins"     "$DEPLOY_ROOT/playbooks"     "$DEPLOY_ROOT/inventory"     "$DEPLOY_ROOT/roles"     "$DEPLOY_ROOT/templates"     "$DEPLOY_ROOT/static"     "$DEPLOY_ROOT/config"
+chown -R himp:himp \
+    "$DEPLOY_ROOT/himp" \
+    "$DEPLOY_ROOT/plugins" \
+    "$DEPLOY_ROOT/playbooks" \
+    "$DEPLOY_ROOT/inventory" \
+    "$DEPLOY_ROOT/roles" \
+    "$DEPLOY_ROOT/templates" \
+    "$DEPLOY_ROOT/static" \
+    "$DEPLOY_ROOT/config"
 
-chown himp:himp     "$DEPLOY_ROOT/ansible.cfg"     "$DEPLOY_ROOT/requirements.txt"     "$DEPLOY_ROOT/requirements-dev.txt"
+chown himp:himp \
+    "$DEPLOY_ROOT/ansible.cfg" \
+    "$DEPLOY_ROOT/requirements.txt" \
+    "$DEPLOY_ROOT/requirements-dev.txt"
 
 echo
 echo "Installing Git-managed systemd units..."
 
 "$SYSTEMD_INSTALLER"
 
-echo
-echo "Restarting HIMP..."
-
-systemctl restart himp
+if [[ "$APPLICATION_CHANGED" == "true" ]] || \
+   [[ "$HIMP_SERVICE_CHANGED" == "true" ]]; then
+    echo
+    echo "Restarting HIMP..."
+    systemctl restart himp
+else
+    echo
+    echo "No HIMP changes detected; restart not required."
+fi
 
 echo
 echo "Waiting for HIMP..."

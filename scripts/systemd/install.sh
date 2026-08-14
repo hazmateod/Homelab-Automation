@@ -45,17 +45,37 @@ for unit in "${UNITS[@]}"; do
     fi
 done
 
+SYSTEMD_CHANGED=false
+TIMER_CHANGED=false
+
 echo "Installing systemd units..."
 
 for unit in "${UNITS[@]}"; do
-    install -m 0644 \
-        "$SYSTEMD_DIR/$unit" \
-        "/etc/systemd/system/$unit"
+    source="$SYSTEMD_DIR/$unit"
+    target="/etc/systemd/system/$unit"
+
+    if [[ -f "$target" ]] && cmp -s "$source" "$target"; then
+        echo "  unchanged: $unit"
+        continue
+    fi
+
+    install -m 0644 "$source" "$target"
+    echo "  updated:   $unit"
+    SYSTEMD_CHANGED=true
+
+    if [[ "$unit" == "himp-scheduler.timer" ]]; then
+        TIMER_CHANGED=true
+    fi
 done
 
-echo
-echo "Reloading systemd..."
-systemctl daemon-reload
+if [[ "$SYSTEMD_CHANGED" == "true" ]]; then
+    echo
+    echo "Reloading systemd..."
+    systemctl daemon-reload
+else
+    echo
+    echo "No systemd unit changes detected."
+fi
 
 echo
 echo "Disabling legacy timers..."
@@ -69,8 +89,13 @@ echo "Enabling scheduler timer..."
 systemctl enable himp-scheduler.timer
 
 echo
-echo "Starting scheduler timer..."
-systemctl start himp-scheduler.timer
+if [[ "$TIMER_CHANGED" == "true" ]]; then
+    echo "Restarting scheduler timer..."
+    systemctl restart himp-scheduler.timer
+else
+    echo "Starting scheduler timer..."
+    systemctl start himp-scheduler.timer
+fi
 
 echo
 echo "========================================="
