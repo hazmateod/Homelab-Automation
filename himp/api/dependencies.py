@@ -8,6 +8,10 @@ for protected HIMP API and web endpoints.
 from fastapi import HTTPException, Request
 
 from himp.services.sessions import SessionService
+from himp.lib.security_events import (
+    AUTHORIZATION_DENIED,
+    log_security_event,
+)
 
 
 SESSION_COOKIE_NAME = "himp_session"
@@ -55,6 +59,14 @@ def require_admin(request: Request):
     session = require_session(request)
 
     if session.role != "admin":
+        log_security_event(
+            AUTHORIZATION_DENIED,
+            username=session.username,
+            outcome="failure",
+            reason="Administrator access required",
+            role=session.role,
+        )
+
         raise HTTPException(
             status_code=403,
             detail="Administrator access required",

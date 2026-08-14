@@ -466,3 +466,88 @@ def test_invalid_revoke_all_username_is_rejected():
     ) is False
 
     assert repository.revoked_all == []
+
+
+def test_revoke_session_logs_security_event():
+    import logging
+
+    from himp.lib.security_events import (
+        SESSION_REVOKED,
+    )
+
+    service, _, _ = make_service()
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    created = datetime(2026, 1, 1, 12, 0)
+
+    try:
+        created_result = service.create_session(
+            "admin",
+            now=created,
+        )
+
+        revoked = created + timedelta(minutes=5)
+
+        result = service.revoke_session(
+            created_result.token,
+            now=revoked,
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert result is True
+    assert len(records) == 1
+    assert records[0].event == SESSION_REVOKED
+    assert records[0].outcome == "success"
+    assert created_result.token not in records[0].getMessage()
+
+
+def test_revoke_session_does_not_log_token_as_structured_data():
+    import logging
+
+    from himp.lib.security_events import (
+        SESSION_REVOKED,
+    )
+
+    service, _, _ = make_service()
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    created_result = service.create_session(
+        "admin",
+        now=datetime(2026, 1, 1, 12, 0),
+    )
+
+    token = created_result.token
+
+    try:
+        service.revoke_session(
+            token,
+            now=datetime(2026, 1, 1, 12, 5),
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    record = records[0]
+
+    assert record.event == SESSION_REVOKED
+    assert token not in record.getMessage()
+    assert not hasattr(record, "token")
+    assert not hasattr(record, "session_token")

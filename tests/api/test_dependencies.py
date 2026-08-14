@@ -229,3 +229,100 @@ def test_require_admin_rejects_non_admin(
     assert captured.value.detail == (
         "Administrator access required"
     )
+
+
+def test_require_admin_logs_authorization_denied_for_non_admin(
+    monkeypatch,
+):
+    import logging
+
+    from himp.lib.security_events import (
+        AUTHORIZATION_DENIED,
+    )
+    from himp.services.sessions import SessionResult
+
+    session = SessionResult(
+        success=True,
+        username="operator",
+        role="operator",
+    )
+
+    monkeypatch.setattr(
+        dependencies,
+        "require_session",
+        lambda request: session,
+    )
+
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    request = make_request()
+
+    try:
+        with pytest.raises(HTTPException) as captured:
+            dependencies.require_admin(request)
+    finally:
+        logger.removeHandler(handler)
+
+    assert captured.value.status_code == 403
+    assert captured.value.detail == (
+        "Administrator access required"
+    )
+
+    assert len(records) == 1
+    assert records[0].event == AUTHORIZATION_DENIED
+    assert records[0].username == "operator"
+    assert records[0].outcome == "failure"
+    assert records[0].role == "operator"
+    assert records[0].reason == (
+        "Administrator access required"
+    )
+
+
+def test_require_admin_does_not_log_authorization_denial_for_admin(
+    monkeypatch,
+):
+    import logging
+
+    from himp.services.sessions import SessionResult
+
+    session = SessionResult(
+        success=True,
+        username="admin",
+        role="admin",
+    )
+
+    monkeypatch.setattr(
+        dependencies,
+        "require_session",
+        lambda request: session,
+    )
+
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    request = make_request()
+
+    try:
+        result = dependencies.require_admin(request)
+    finally:
+        logger.removeHandler(handler)
+
+    assert result is session
+    assert records == []

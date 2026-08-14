@@ -12,6 +12,10 @@ from datetime import datetime, timedelta, timezone
 
 from himp.database.sessions import SessionRepository
 from himp.database.users import UserRepository
+from himp.lib.security_events import (
+    SESSION_REVOKED,
+    log_security_event,
+)
 
 
 @dataclass(frozen=True)
@@ -173,6 +177,11 @@ class SessionService:
         self.repository.revoke(
             token_hash,
             now,
+        )
+
+        log_security_event(
+            SESSION_REVOKED,
+            outcome="success",
         )
 
         return True

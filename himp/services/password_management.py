@@ -11,6 +11,11 @@ from dataclasses import dataclass
 
 from himp.database.users import UserRepository
 from himp.services.passwords import PasswordService
+from himp.lib.security_events import (
+    PASSWORD_CHANGED,
+    PASSWORD_RESET,
+    log_security_event,
+)
 
 
 @dataclass(frozen=True)
@@ -134,6 +139,12 @@ class PasswordManagementService:
             password_change_required=False,
         )
 
+        log_security_event(
+            PASSWORD_CHANGED,
+            username=normalized,
+            outcome="success",
+        )
+
         return PasswordChangeResult(
             success=True,
             username=normalized,
@@ -208,6 +219,12 @@ class PasswordManagementService:
             normalized,
             password_hash,
             password_change_required=True,
+        )
+
+        log_security_event(
+            PASSWORD_RESET,
+            username=normalized,
+            outcome="success",
         )
 
         return PasswordResetResult(

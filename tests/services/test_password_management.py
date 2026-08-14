@@ -372,3 +372,88 @@ def test_locked_user_cannot_change_password():
     assert passwords.verifications == []
     assert passwords.hashes == []
     assert repository.password_changes == []
+
+
+def test_change_password_logs_password_changed_event():
+    import logging
+
+    from himp.lib.security_events import (
+        PASSWORD_CHANGED,
+    )
+
+    service, _, _ = make_service()
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    try:
+        result = service.change_password(
+            "admin",
+            "CurrentPassword!",
+            "NewPassword!",
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert result.success is True
+    assert len(records) == 1
+    assert records[0].event == PASSWORD_CHANGED
+    assert records[0].username == "admin"
+    assert records[0].outcome == "success"
+    assert "CurrentPassword!" not in records[0].getMessage()
+    assert "NewPassword!" not in records[0].getMessage()
+
+
+def test_reset_password_logs_password_reset_event_without_temporary_password():
+    import logging
+
+    from himp.lib.security_events import (
+        PASSWORD_RESET,
+    )
+
+    service, _, _ = make_service()
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    temporary_password = (
+        "Temporary-Password-123!"
+    )
+
+    try:
+        result = service.reset_password(
+            "admin",
+            "operator",
+            temporary_password=temporary_password,
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert result.success is True
+    assert len(records) == 1
+    assert records[0].event == PASSWORD_RESET
+    assert records[0].username == "operator"
+    assert records[0].outcome == "success"
+    assert temporary_password not in records[0].getMessage()
+    assert not hasattr(
+        records[0],
+        "temporary_password",
+    )
+    assert not hasattr(
+        records[0],
+        "password",
+    )

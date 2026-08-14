@@ -297,3 +297,144 @@ def test_non_string_password_is_rejected():
 
     assert result.success is False
     assert result.reason == "Invalid credentials"
+
+
+def test_successful_authentication_logs_security_event(
+    monkeypatch,
+):
+    import logging
+
+    from himp.lib.security_events import (
+        LOGIN_SUCCESS,
+    )
+
+    service, _ = make_service()
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    try:
+        result = service.authenticate(
+            "admin",
+            "CorrectPassword!",
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert result.success is True
+    assert len(records) == 1
+    assert records[0].event == LOGIN_SUCCESS
+    assert records[0].username == "admin"
+    assert records[0].outcome == "success"
+    assert "CorrectPassword!" not in records[0].getMessage()
+
+
+def test_failed_authentication_logs_security_event(
+    monkeypatch,
+):
+    import logging
+
+    from himp.lib.security_events import (
+        LOGIN_FAILURE,
+    )
+
+    service, _ = make_service(valid=False)
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    try:
+        result = service.authenticate(
+            "admin",
+            "WrongPassword!",
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert result.success is False
+    assert result.reason == "Invalid credentials"
+    assert len(records) == 1
+    assert records[0].event == LOGIN_FAILURE
+    assert records[0].username == "admin"
+    assert records[0].outcome == "failure"
+    assert records[0].reason == "Invalid credentials"
+    assert "WrongPassword!" not in records[0].getMessage()
+
+
+def test_locked_account_logs_security_event(
+    monkeypatch,
+):
+    import logging
+
+    from himp.lib.security_events import (
+        ACCOUNT_LOCKED,
+        LOGIN_FAILURE,
+    )
+
+    service, repository = make_service(valid=False)
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    try:
+        for _ in range(5):
+            result = service.authenticate(
+                "admin",
+                "WrongPassword!",
+            )
+    finally:
+        logger.removeHandler(handler)
+
+    assert result.success is False
+    assert result.reason == "Account locked"
+
+    assert len(records) == 5
+
+    assert [
+        record.event
+        for record in records
+    ] == [
+        LOGIN_FAILURE,
+        LOGIN_FAILURE,
+        LOGIN_FAILURE,
+        LOGIN_FAILURE,
+        ACCOUNT_LOCKED,
+    ]
+
+    assert all(
+        record.username == "admin"
+        for record in records
+    )
+
+    assert all(
+        record.outcome == "failure"
+        for record in records
+    )
+
+    assert records[-1].reason == "Account locked"
+
+    assert all(
+        "WrongPassword!" not in record.getMessage()
+        for record in records
+    )

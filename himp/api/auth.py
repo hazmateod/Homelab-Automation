@@ -14,6 +14,10 @@ from himp.api.dependencies import (
 )
 from himp.services.authentication import AuthenticationService
 from himp.services.sessions import SessionService
+from himp.lib.security_events import (
+    LOGOUT,
+    log_security_event,
+)
 
 
 router = APIRouter(
@@ -135,6 +139,11 @@ async def logout(
 
     if token:
         session_service.revoke_session(token)
+
+    log_security_event(
+        LOGOUT,
+        outcome="success",
+    )
 
     response.delete_cookie(
         key=SESSION_COOKIE_NAME,

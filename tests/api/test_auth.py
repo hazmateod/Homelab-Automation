@@ -458,3 +458,74 @@ def await_logout(coroutine):
     import asyncio
 
     return asyncio.run(coroutine)
+
+
+def test_logout_logs_security_event_without_logging_session_token(
+    monkeypatch,
+):
+    import logging
+
+    from himp.lib.security_events import LOGOUT
+
+    session = FakeSessionService()
+
+    monkeypatch.setattr(
+        auth,
+        "session_service",
+        session,
+    )
+
+    records = []
+
+    class CaptureHandler(logging.Handler):
+        def emit(self, record):
+            records.append(record)
+
+    logger = logging.getLogger("himp.security")
+    handler = CaptureHandler()
+    logger.addHandler(handler)
+    logger.setLevel(logging.INFO)
+
+    token = "test-session-token"
+
+    request = make_request(
+        {
+            "himp_session": token,
+        }
+    )
+
+    response = Response()
+
+    try:
+        result = await_logout(
+            auth.logout(
+                request,
+                response,
+            )
+        )
+    finally:
+        logger.removeHandler(handler)
+
+    assert result == {
+        "success": True,
+        "message": (
+            "Logged out successfully."
+        ),
+    }
+
+    assert session.revoked == [
+        token
+    ]
+
+    assert len(records) == 1
+    assert records[0].event == LOGOUT
+    assert records[0].outcome == "success"
+    assert token not in records[0].getMessage()
+    assert not hasattr(
+        records[0],
+        "token",
+    )
+    assert not hasattr(
+        records[0],
+        "session_token",
+    )

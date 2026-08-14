@@ -9,6 +9,12 @@ from dataclasses import dataclass
 
 from himp.database.users import UserRepository
 from himp.services.passwords import PasswordService
+from himp.lib.security_events import (
+    ACCOUNT_LOCKED,
+    LOGIN_FAILURE,
+    LOGIN_SUCCESS,
+    log_security_event,
+)
 
 
 @dataclass(frozen=True)
@@ -66,6 +72,13 @@ class AuthenticationService:
             )
 
         if not isinstance(password, str):
+            log_security_event(
+                LOGIN_FAILURE,
+                username=normalized,
+                outcome="failure",
+                reason="Invalid credentials",
+            )
+
             return self._failure(
                 "Invalid credentials"
             )
@@ -80,6 +93,13 @@ class AuthenticationService:
                 self.DUMMY_PASSWORD_HASH,
             )
 
+            log_security_event(
+                LOGIN_FAILURE,
+                username=normalized,
+                outcome="failure",
+                reason="Invalid credentials",
+            )
+
             return self._failure(
                 "Invalid credentials"
             )
@@ -92,6 +112,13 @@ class AuthenticationService:
         )
 
         if not credentials["active"]:
+            log_security_event(
+                LOGIN_FAILURE,
+                username=normalized,
+                outcome="failure",
+                reason="Invalid credentials",
+            )
+
             return self._failure(
                 "Invalid credentials"
             )
@@ -100,24 +127,45 @@ class AuthenticationService:
             credentials["failed_login_attempts"]
             >= self.MAX_FAILED_ATTEMPTS
         ):
+            log_security_event(
+                ACCOUNT_LOCKED,
+                username=normalized,
+                outcome="failure",
+                reason="Account locked",
+            )
+
             return self._failure(
                 "Account locked"
             )
 
         if not password_valid:
-            self.repository.record_login_failure(
-                normalized
-            )
-
             attempts = (
                 credentials["failed_login_attempts"]
                 + 1
             )
 
+            self.repository.record_login_failure(
+                normalized
+            )
+
             if attempts >= self.MAX_FAILED_ATTEMPTS:
+                log_security_event(
+                    ACCOUNT_LOCKED,
+                    username=normalized,
+                    outcome="failure",
+                    reason="Account locked",
+                )
+
                 return self._failure(
                     "Account locked"
                 )
+
+            log_security_event(
+                LOGIN_FAILURE,
+                username=normalized,
+                outcome="failure",
+                reason="Invalid credentials",
+            )
 
             return self._failure(
                 "Invalid credentials"
@@ -125,6 +173,12 @@ class AuthenticationService:
 
         self.repository.update_login_success(
             normalized
+        )
+
+        log_security_event(
+            LOGIN_SUCCESS,
+            username=credentials["username"],
+            outcome="success",
         )
 
         return AuthenticationResult(
