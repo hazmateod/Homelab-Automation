@@ -598,6 +598,7 @@ def remediation(
     source_type: str | None = None,
     source_id: str | None = None,
     decision: str | None = None,
+    audit_id: int | None = None,
 ):
 
     context = dashboard_context()
@@ -614,6 +615,12 @@ def remediation(
     context["source_type"] = source_type
     context["source_id"] = source_id
     context["decision"] = decision
+    context["remediation_detail_id"] = audit_id
+    context["remediation_detail"] = (
+        remediation_audit_repository.find(audit_id)
+        if audit_id is not None
+        else None
+    )
 
     return templates.TemplateResponse(
         request=request,

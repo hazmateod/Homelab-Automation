@@ -294,6 +294,97 @@ def test_authenticated_remediation_renders_audit_record(
     assert "Package drift detected" in response.text
 
 
+def test_authenticated_remediation_renders_audit_detail(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        server.remediation_audit_repository,
+        "history",
+        lambda limit=50, source_type=None, source_id=None, decision=None: [],
+    )
+
+    monkeypatch.setattr(
+        server.remediation_audit_repository,
+        "find",
+        lambda audit_id: {
+            "id": audit_id,
+            "source_type": "host",
+            "source_id": "pve02",
+            "task_id": "scheduled_updates",
+            "decision": "ALLOW",
+            "reason": "Package drift detected",
+            "evidence": {
+                "baseline": "production",
+                "change_count": 3,
+            },
+            "risk_level": "LOW",
+            "confirmation_required": False,
+            "confirmed": False,
+            "execution_id": 123,
+            "execution_success": True,
+            "created_at": "2026-08-15 08:00:00",
+        },
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/remediation",
+                params={"audit_id": 42},
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "Remediation Audit Detail" in response.text
+    assert "pve02" in response.text
+    assert "scheduled_updates" in response.text
+    assert "Package drift detected" in response.text
+    assert "production" in response.text
+    assert "change_count" in response.text
+    assert "3" in response.text
+    assert "Close" in response.text
+
+
+def test_authenticated_remediation_handles_missing_audit_detail(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        server.remediation_audit_repository,
+        "history",
+        lambda limit=50, source_type=None, source_id=None, decision=None: [],
+    )
+
+    monkeypatch.setattr(
+        server.remediation_audit_repository,
+        "find",
+        lambda audit_id: None,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/remediation",
+                params={"audit_id": 99999},
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert (
+        "Remediation audit record 99999 was not found."
+        in response.text
+    )
+
+
 def test_authenticated_remediation_passes_audit_filters(
     monkeypatch,
 ):

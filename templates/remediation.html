@@ -154,7 +154,12 @@
                     <tr>
 
                         <td>
-                            {{ item.id }}
+                            <a
+                                href="/remediation?audit_id={{ item.id }}"
+                                class="link-light"
+                            >
+                                {{ item.id }}
+                            </a>
                         </td>
 
                         <td>
@@ -249,6 +254,207 @@
 
         <div class="p-4 text-secondary">
             No remediation audit records are available.
+        </div>
+
+        {% endif %}
+
+        {% if remediation_detail_id is not none %}
+
+        <div class="card bg-dark border-secondary mt-4">
+
+            <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+
+                <strong>
+                    Remediation Audit Detail
+                </strong>
+
+                <a
+                    href="/remediation"
+                    class="btn btn-sm btn-outline-light"
+                >
+                    Close
+                </a>
+
+            </div>
+
+            <div class="card-body">
+
+                {% if remediation_detail %}
+
+                <div class="row g-3">
+
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Audit ID
+                        </div>
+
+                        <div>
+                            {{ remediation_detail.id }}
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Source
+                        </div>
+
+                        <div>
+                            {{ remediation_detail.source_type }}
+                            /
+                            {{ remediation_detail.source_id }}
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Task
+                        </div>
+
+                        <div>
+                            {{ remediation_detail.task_id }}
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Created
+                        </div>
+
+                        <div>
+                            {{ remediation_detail.created_at }}
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Decision
+                        </div>
+
+                        <div>
+                            {{ remediation_detail.decision }}
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Risk
+                        </div>
+
+                        <div>
+                            {{ remediation_detail.risk_level or "—" }}
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Confirmation
+                        </div>
+
+                        <div>
+
+                            {% if remediation_detail.confirmed %}
+
+                                Confirmed
+
+                            {% elif remediation_detail.confirmation_required %}
+
+                                Required
+
+                            {% else %}
+
+                                Not required
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Execution
+                        </div>
+
+                        <div>
+
+                            {% if remediation_detail.execution_id is not none %}
+
+                                ID {{ remediation_detail.execution_id }}
+
+                                —
+
+                                {% if remediation_detail.execution_success is true %}
+
+                                    SUCCESS
+
+                                {% elif remediation_detail.execution_success is false %}
+
+                                    FAILED
+
+                                {% else %}
+
+                                    PENDING
+
+                                {% endif %}
+
+                            {% else %}
+
+                                Not executed
+
+                            {% endif %}
+
+                        </div>
+
+                    </div>
+
+                    <div class="col-12">
+
+                        <div class="text-secondary small">
+                            Reason
+                        </div>
+
+                        <div>
+                            {{ remediation_detail.reason }}
+                        </div>
+
+                    </div>
+
+                    <div class="col-12">
+
+                        <div class="text-secondary small mb-2">
+                            Evidence
+                        </div>
+
+                        <pre class="bg-black text-light border border-secondary rounded p-3 mb-0">{{ remediation_detail.evidence | tojson(indent=2) }}</pre>
+
+                    </div>
+
+                </div>
+
+                {% else %}
+
+                <div class="text-secondary">
+                    Remediation audit record {{ remediation_detail_id }} was not found.
+                </div>
+
+                {% endif %}
+
+            </div>
+
         </div>
 
         {% endif %}
