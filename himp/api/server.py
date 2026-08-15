@@ -593,13 +593,21 @@ def history(request: Request):
 
 
 @app.get("/remediation", dependencies=[Depends(require_page_session)])
-def remediation(request: Request):
+def remediation(
+    request: Request,
+    source_type: str | None = None,
+    source_id: str | None = None,
+    decision: str | None = None,
+):
 
     context = dashboard_context()
 
     context["remediation"] = (
         remediation_audit_repository.history(
             limit=50,
+            source_type=source_type,
+            source_id=source_id,
+            decision=decision,
         )
     )
 

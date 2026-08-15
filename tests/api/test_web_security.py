@@ -254,7 +254,7 @@ def test_authenticated_remediation_renders_audit_record(
     monkeypatch.setattr(
         server.remediation_audit_repository,
         "history",
-        lambda limit=50: [
+        lambda limit=50, source_type=None, source_id=None, decision=None: [
             {
                 "id": 42,
                 "source_type": "host",
@@ -294,13 +294,62 @@ def test_authenticated_remediation_renders_audit_record(
     assert "Package drift detected" in response.text
 
 
+def test_authenticated_remediation_passes_audit_filters(
+    monkeypatch,
+):
+    captured = {}
+
+    def fake_history(
+        limit=50,
+        source_type=None,
+        source_id=None,
+        decision=None,
+    ):
+        captured["limit"] = limit
+        captured["source_type"] = source_type
+        captured["source_id"] = source_id
+        captured["decision"] = decision
+        return []
+
+    monkeypatch.setattr(
+        server.remediation_audit_repository,
+        "history",
+        fake_history,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/remediation",
+                params={
+                    "source_type": "host",
+                    "source_id": "pve02",
+                    "decision": "ALLOW",
+                },
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert captured == {
+        "limit": 50,
+        "source_type": "host",
+        "source_id": "pve02",
+        "decision": "ALLOW",
+    }
+
+
 def test_authenticated_remediation_is_allowed(
     monkeypatch,
 ):
     monkeypatch.setattr(
         server.remediation_audit_repository,
         "history",
-        lambda limit=50: [],
+        lambda limit=50, source_type=None, source_id=None, decision=None: [],
     )
 
     server.app.dependency_overrides[
