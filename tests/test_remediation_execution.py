@@ -234,3 +234,43 @@ def test_automation_execution_errors_propagate():
         service.execute(
             proposal()
         )
+
+
+def test_unknown_policy_decision_fails_closed():
+    class UnknownPolicy(FakePolicy):
+        def evaluate(
+            self,
+            proposal,
+            confirmed=False,
+        ):
+            self.calls.append(
+                (
+                    proposal,
+                    confirmed,
+                )
+            )
+
+            return {
+                "decision": "UNKNOWN",
+                "task_id": proposal["task_id"],
+                "reason": "unexpected policy decision",
+                "evidence": proposal["evidence"],
+                "risk_level": "maintenance",
+                "confirmation_required": False,
+            }
+
+    policy = UnknownPolicy()
+    automation = FakeAutomation()
+
+    service = RemediationExecutionService(
+        policy=policy,
+        automation=automation,
+    )
+
+    result = service.execute(
+        proposal()
+    )
+
+    assert result["decision"] == "UNKNOWN"
+    assert "execution" not in result
+    assert automation.run_calls == []

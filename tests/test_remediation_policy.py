@@ -1,5 +1,9 @@
 import pytest
 
+from himp.services.automation import (
+    AutomationConfirmationRequiredError,
+    AutomationDisabledError,
+)
 from himp.services.remediation_policy import (
     RemediationPolicyService,
 )
@@ -31,16 +35,17 @@ class FakeAutomation:
         confirmed=False,
     ):
         if not self.task["enabled"]:
-            raise RuntimeError(
-                "automation disabled"
+            raise AutomationDisabledError(
+                f"Automation task is disabled: {task_id}"
             )
 
         if (
             self.task["risk_level"] == "destructive"
             and not confirmed
         ):
-            raise RuntimeError(
-                "confirmation required"
+            raise AutomationConfirmationRequiredError(
+                "Destructive automation requires explicit confirmation: "
+                f"{task_id}"
             )
 
         return {
@@ -116,7 +121,7 @@ def test_disabled_automation_is_denied():
     assert result["decision"] == "DENY"
     assert result["task_id"] == "scheduled_updates"
     assert result["reason"] == (
-        "automation disabled"
+        "Automation task is disabled: scheduled_updates"
     )
 
 
@@ -206,3 +211,73 @@ def test_policy_does_not_execute_automation():
 
     assert result["decision"] == "ALLOW"
     assert automation.run_calls == []
+
+
+def test_unexpected_policy_error_is_not_converted_to_denial():
+    class BrokenAutomation(FakeAutomation):
+        def validate_execution_policy(
+            self,
+            task_id,
+            confirmed=False,
+        ):
+            raise RuntimeError(
+                "unexpected policy failure"
+            )
+
+    service = make_service(
+        BrokenAutomation()
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="unexpected policy failure",
+    ):
+        service.evaluate(
+            proposal()
+        )
+
+
+def test_dependency_policy_error_is_not_converted_to_allow():
+    from himp.services.automation import (
+        AutomationDependencyNotSatisfiedError,
+    )
+
+    class DependencyFailureAutomation(FakeAutomation):
+        def validate_execution_policy(
+            self,
+            task_id,
+            confirmed=False,
+        ):
+            raise AutomationDependencyNotSatisfiedError(
+                f"Dependency failed for {task_id}"
+            )
+
+    service = make_service(
+        DependencyFailureAutomation()
+    )
+
+    with pytest.raises(
+        AutomationDependencyNotSatisfiedError,
+        match="Dependency failed for scheduled_updates",
+    ):
+        service.evaluate(
+            proposal()
+        )
+
+
+def test_confirmation_cannot_override_disabled_automation():
+    service = make_service(
+        FakeAutomation(
+            enabled=False,
+            risk_level="destructive",
+        )
+    )
+
+    result = service.evaluate(
+        proposal(),
+        confirmed=True,
+    )
+
+    assert result["decision"] == "DENY"
+    assert result["confirmation_required"] is False
+    assert result["risk_level"] == "destructive"

@@ -5,6 +5,11 @@ Evaluates proposed remediation actions against the existing
 automation execution policy without executing the automation.
 """
 
+from himp.services.automation import (
+    AutomationConfirmationRequiredError,
+    AutomationDisabledError,
+)
+
 
 class RemediationPolicyService:
     """
@@ -34,31 +39,25 @@ class RemediationPolicyService:
                 confirmed=confirmed,
             )
 
-        except RuntimeError as error:
+        except AutomationDisabledError as error:
+            return {
+                "decision": "DENY",
+                "task_id": task_id,
+                "reason": str(error),
+                "evidence": proposal["evidence"],
+                "risk_level": task["risk_level"],
+                "confirmation_required": False,
+            }
 
-            message = str(error)
-
-            if message == "automation disabled":
-                return {
-                    "decision": "DENY",
-                    "task_id": task_id,
-                    "reason": message,
-                    "evidence": proposal["evidence"],
-                    "risk_level": task["risk_level"],
-                    "confirmation_required": False,
-                }
-
-            if message == "confirmation required":
-                return {
-                    "decision": "CONFIRM_REQUIRED",
-                    "task_id": task_id,
-                    "reason": proposal["reason"],
-                    "evidence": proposal["evidence"],
-                    "risk_level": task["risk_level"],
-                    "confirmation_required": True,
-                }
-
-            raise
+        except AutomationConfirmationRequiredError:
+            return {
+                "decision": "CONFIRM_REQUIRED",
+                "task_id": task_id,
+                "reason": proposal["reason"],
+                "evidence": proposal["evidence"],
+                "risk_level": task["risk_level"],
+                "confirmation_required": True,
+            }
 
         return {
             "decision": "ALLOW",
