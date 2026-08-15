@@ -2,10 +2,10 @@
 
 **Checkpoint date:** 2026-08-14
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `97056fb` — `feat: correlate workflow execution history`
-**Remote:** `origin/feature/plugin-sdk` synchronized to `97056fb`
+**Latest confirmed commit:** `93283e6` — `feat: add workflow execution history`
+**Remote:** `origin/feature/plugin-sdk` synchronized to `93283e6`
 **Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `431 passed`
+**Latest full regression:** `460 passed`
 **Current phase:** Phase 6 — Orchestration
 **Overall Phase 6 status:** IN PROGRESS
 
@@ -244,47 +244,40 @@ with:
 - clean repository
 - local/remote synchronization: PASS
 
-## 7. Remaining Phase 6.3 Work
+## 7. Phase 6.3 — Workflow History
 
-### 6.3.5 — Workflow history service/API
+**Status: COMPLETE**
 
-Expose a coherent workflow-level history model and reuse `workflow_execution_id`.
+Completed the workflow history vertical slice without creating duplicate execution infrastructure.
 
-Required information:
+### 6.3.5 — Workflow History Service
 
-- Workflow execution ID
-- Workflow
-- Execution timestamp
-- Overall success/failure
-- Task count
-- Executed tasks
-- Failed tasks
-- Skipped tasks
-- Individual task executions
-- Attempt information
-- Elapsed time
-- Error information
+Implemented `WorkflowHistoryService` as a read-only composition layer over the existing workflow, workflow-execution, and automation-execution repositories.
+
+The service exposes workflow-run metadata together with correlated task execution history using `workflow_execution_id`.
 
 ### 6.3.6 — History API
 
-Provide a stable API for retrieving workflow execution history.
+Added:
 
-### 6.3.7 — History tests
+```text
+GET /workflows/{workflow_id}/history
+GET /workflows/{workflow_id}/history/{workflow_execution_id}
+```
 
-Cover:
+The API returns workflow-run metadata and the existing correlated task execution records.
 
-- Successful workflow history
-- Failed workflow history
-- Skipped dependent tasks
-- Independent branches
-- Multiple workflow runs
-- Multiple retries
-- Workflow/task correlation
-- Empty history
-- History ordering
-- Limits/filtering
+### 6.3.7 — History Tests
 
-**Estimated remaining effort: approximately 2–3 hours.**
+Added repository, service, API, and workflow-execution failure-path coverage.
+
+Final full regression:
+
+```text
+460 passed in 2.29s
+```
+
+The workflow execution lifecycle now persists the workflow run at start, completes it on normal execution, and marks it failed before re-raising orchestration exceptions.
 
 ## 8. Phase 6.4 — Workflow Dashboard
 
@@ -307,9 +300,9 @@ The dashboard must consume workflow execution/history services and must not impl
 |---|---|---:|---:|
 | 6.1 Workflow Model | COMPLETE | 4–6h | — |
 | 6.2 Workflow Execution | COMPLETE | 5–8h | — |
-| 6.3 Workflow History | IN PROGRESS | 3–4h | ~2–3h |
+| 6.3 Workflow History | COMPLETE | 3–4h | — |
 | 6.4 Workflow Dashboard | NOT STARTED | 4–6h | 4–6h |
-| **Phase 6** | **IN PROGRESS** | **18–28h** | **~6–9h** |
+| **Phase 6** | **IN PROGRESS** | **18–28h** | **4–6h** |
 
 ## 10. Future Roadmap
 
@@ -350,15 +343,15 @@ Reuse the existing automation policy/execution framework.
 
 | Work | Remaining |
 |---|---:|
-| Phase 6.3 | 2–3h |
+| Phase 6.3 | — |
 | Phase 6.4 | 4–6h |
-| Phase 6 total | 6–9h |
+| Phase 6 total | 4–6h |
 | Phase 7 | 18–28h |
 | Phase 8 | 18–28h |
 | Phase 9 | 20–30h |
-| **Overall remaining** | **62–95h** |
+| **Overall remaining** | **60–92h** |
 
-At approximately 8 hours/week: **~8–12 weeks**. This is a planning estimate, not a commitment.
+At approximately 8 hours/week: **~7.5–11.5 weeks**. This is a planning estimate, not a commitment.
 
 ## 12. Development Rules
 
@@ -386,10 +379,10 @@ Branch:
 feature/plugin-sdk
 
 Latest confirmed commit:
-97056fb
+93283e6
 
 Commit:
-feat: correlate workflow execution history
+feat: add workflow execution history
 
 Remote:
 origin/feature/plugin-sdk
@@ -401,35 +394,18 @@ Working tree:
 clean
 
 Latest confirmed full regression:
-431 passed
+460 passed
 ```
 
 ## 14. Exact Next-Session Starting Point
 
-Do not begin Phase 6.4 yet.
+Begin Phase 6.4 — Workflow Dashboard.
 
-Complete the remaining workflow-history slice first:
-
-```text
-1. Inspect existing workflow history/repository APIs
-2. Define the workflow-history response contract
-3. Add focused repository/service tests
-4. Implement workflow history service
-5. Add workflow history API
-6. Add API tests
-7. Run focused workflow-history tests
-8. Run full regression
-9. Compile changed modules
-10. Run git diff --check
-11. Review diff
-12. Commit the completed slice
-13. Push to origin
-14. Verify local == remote
-```
+Phase 6.3 Workflow History is complete, committed, pushed, and synchronized with origin.
 
 Immediate target:
 
-> Finish Phase 6.3 Workflow History without creating duplicate history infrastructure.
+> Review the existing dashboard architecture and define the dashboard view that consumes the completed workflow execution/history services.
 
 Then:
 
