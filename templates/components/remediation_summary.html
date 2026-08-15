@@ -1,0 +1,96 @@
+{% macro remediation_summary(remediation) %}
+
+<div class="card bg-dark text-light mb-4">
+
+    <div class="card-header border-secondary d-flex justify-content-between align-items-center">
+
+        <h5 class="mb-0">
+            Remediation Summary
+        </h5>
+
+        <a
+            href="/remediation"
+            class="btn btn-sm btn-outline-primary"
+        >
+            Manage Remediation
+        </a>
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="row g-3">
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Total Audits
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.total }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Allowed
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.allow_count }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Denied
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.deny_count }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Confirmation Required
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.confirmation_required_count }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Executed Successfully
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.execution_success_count }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Execution Failed
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.execution_failure_count }}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endmacro %}

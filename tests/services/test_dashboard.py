@@ -177,6 +177,18 @@ def test_workflow_summary_requests_only_latest_history():
     ]
 
 
+class FakeRemediationAuditRepository:
+    def summary(self):
+        return {
+            "total": 12,
+            "allow_count": 7,
+            "deny_count": 2,
+            "confirmation_required_count": 1,
+            "execution_success_count": 6,
+            "execution_failure_count": 1,
+        }
+
+
 class FakeSchedulerService:
     def all(self):
         return [
@@ -232,6 +244,20 @@ class FakeSchedulerService:
         return statuses[task_id]
 
 
+def test_remediation_summary_exposes_audit_summary():
+    dashboard = make_dashboard()
+    dashboard.remediation_audit = FakeRemediationAuditRepository()
+
+    assert dashboard.remediation_summary() == {
+        "total": 12,
+        "allow_count": 7,
+        "deny_count": 2,
+        "confirmation_required_count": 1,
+        "execution_success_count": 6,
+        "execution_failure_count": 1,
+    }
+
+
 def test_automation_summary_exposes_schedule_and_execution_state():
     dashboard = make_dashboard()
     dashboard.scheduler = FakeSchedulerService()
@@ -279,6 +305,17 @@ def test_automation_summary_exposes_schedule_and_execution_state():
             "last_execution_error": None,
         },
     ]
+
+
+def test_summary_exposes_remediation():
+    dashboard = make_dashboard()
+    dashboard.remediation_audit = FakeRemediationAuditRepository()
+
+    result = dashboard.summary()
+
+    assert result["remediation"] == (
+        dashboard.remediation_summary()
+    )
 
 
 def test_summary_exposes_workflows():

@@ -9,6 +9,7 @@
 {% from "components/health_summary_card.html" import health_summary_card %}
 {% from "components/host_health_dashboard.html" import host_health_dashboard %}
 {% from "components/automation_summary.html" import automation_summary %}
+{% from "components/remediation_summary.html" import remediation_summary %}
 
 {% block content %}
 
@@ -299,6 +300,8 @@
 </h2>
 
 {{ automation_summary(dashboard.automations) }}
+
+{{ remediation_summary(dashboard.remediation) }}
 
 
 <hr class="border-secondary">

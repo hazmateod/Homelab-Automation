@@ -4,6 +4,8 @@ Dashboard Service.
 
 import socket
 
+from himp.database.remediation_audit import RemediationAuditRepository
+
 from himp.services.execution import ExecutionService
 from himp.services.health import HealthService
 from himp.services.health_trends import HealthTrendsService
@@ -34,6 +36,7 @@ class DashboardService:
         self.host_health = HostHealthDashboardService()
 
         self.scheduler = SchedulerService()
+        self.remediation_audit = RemediationAuditRepository()
 
         self.workflows = WorkflowService()
         self.workflow_history = WorkflowHistoryService(
@@ -136,6 +139,10 @@ class DashboardService:
             )
 
         return automations
+
+
+    def remediation_summary(self):
+        return self.remediation_audit.summary()
 
 
     def inventory_summary(self):
@@ -289,6 +296,8 @@ class DashboardService:
             "workflows": self.workflow_summary(),
 
             "automations": self.automation_summary(),
+
+            "remediation": self.remediation_summary(),
 
             "inventory": self.inventory_summary(),
 
