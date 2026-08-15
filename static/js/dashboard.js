@@ -2196,6 +2196,58 @@ function initializeRemediationRun() {
 
         panel.appendChild(summary);
 
+        const auditIds = (result.audit_ids || [])
+            .filter(
+                auditId =>
+                    auditId !== null &&
+                    auditId !== undefined
+            );
+
+        if (auditIds.length > 0) {
+
+            const auditHeading =
+                document.createElement("div");
+
+            auditHeading.className =
+                "mt-3 fw-semibold";
+
+            auditHeading.textContent =
+                "Audit Records";
+
+            panel.appendChild(auditHeading);
+
+            const auditList =
+                document.createElement("ul");
+
+            auditList.className =
+                "mb-0 mt-2";
+
+            auditIds.forEach(auditId => {
+
+                const item =
+                    document.createElement("li");
+
+                const link =
+                    document.createElement("a");
+
+                link.href =
+                    `/remediation?audit_id=${encodeURIComponent(
+                        auditId
+                    )}`;
+
+                link.textContent =
+                    `Audit #${auditId}`;
+
+                link.className =
+                    "link-light";
+
+                item.appendChild(link);
+                auditList.appendChild(item);
+            });
+
+            panel.appendChild(auditList);
+        }
+
         if (executions.length > 0) {
 
             const executionHeading =
