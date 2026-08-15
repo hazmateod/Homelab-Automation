@@ -125,10 +125,18 @@ class InventoryRepository:
 
         if existing:
 
-            self.detect_changes(
-                existing,
-                host,
-            )
+            if not existing["active"]:
+
+                self.restore_host(
+                    host["hostname"]
+                )
+
+            else:
+
+                self.detect_changes(
+                    existing,
+                    host,
+                )
 
         else:
 
@@ -297,17 +305,17 @@ class InventoryRepository:
             FROM inventory_changes
             WHERE hostname=?
             AND change_type=?
-            AND field=?
-            AND old_value=?
-            AND new_value=?
+            AND field IS ?
+            AND old_value IS ?
+            AND new_value IS ?
             LIMIT 1
             """,
             (
                 hostname,
                 change_type,
                 field,
-                str(old_value),
-                str(new_value),
+                old_value,
+                new_value,
             ),
         )
 
