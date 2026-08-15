@@ -213,6 +213,68 @@ class RemediationAuditRepository:
             for row in rows
         ]
 
+    def summary(self):
+        rows = self.database.query(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(
+                    CASE
+                        WHEN decision='ALLOW'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS allow_count,
+                SUM(
+                    CASE
+                        WHEN decision='DENY'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS deny_count,
+                SUM(
+                    CASE
+                        WHEN decision='CONFIRM_REQUIRED'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS confirmation_required_count,
+                SUM(
+                    CASE
+                        WHEN execution_success=1
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS execution_success_count,
+                SUM(
+                    CASE
+                        WHEN execution_success=0
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS execution_failure_count
+            FROM remediation_audit
+            """
+        )
+
+        row = rows[0]
+
+        return {
+            "total": row["total"] or 0,
+            "allow_count": row["allow_count"] or 0,
+            "deny_count": row["deny_count"] or 0,
+            "confirmation_required_count": (
+                row["confirmation_required_count"] or 0
+            ),
+            "execution_success_count": (
+                row["execution_success_count"] or 0
+            ),
+            "execution_failure_count": (
+                row["execution_failure_count"] or 0
+            ),
+        }
+
+
     @staticmethod
     def _deserialize(
         row,

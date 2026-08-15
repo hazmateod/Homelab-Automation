@@ -468,4 +468,10 @@ def test_authenticated_remediation_is_allowed(
     assert 'id="remediationRunBaseline"' in response.text
     assert 'id="remediationRunChangeLimit"' in response.text
     assert 'src="/static/js/dashboard.js"' in response.text
+    assert "Total Audits" in response.text
+    assert "Allowed" in response.text
+    assert "Denied" in response.text
+    assert "Confirmation Required" in response.text
+    assert "Executed Successfully" in response.text
+    assert "Execution Failed" in response.text
     assert "No remediation audit records are available." in response.text

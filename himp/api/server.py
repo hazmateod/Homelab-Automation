@@ -621,6 +621,9 @@ def remediation(
         if audit_id is not None
         else None
     )
+    context["remediation_summary"] = (
+        remediation_audit_repository.summary()
+    )
 
     return templates.TemplateResponse(
         request=request,

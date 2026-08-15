@@ -6,6 +6,88 @@
     Remediation
 </h1>
 
+<div class="row g-3 mb-4">
+
+    <div class="col-md-2">
+        <div class="card bg-dark border-secondary shadow h-100">
+            <div class="card-body">
+                <div class="text-muted small">
+                    Total Audits
+                </div>
+                <div class="fs-3 fw-bold">
+                    {{ remediation_summary.total }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-2">
+        <div class="card bg-dark border-secondary shadow h-100">
+            <div class="card-body">
+                <div class="text-muted small">
+                    Allowed
+                </div>
+                <div class="fs-3 fw-bold">
+                    {{ remediation_summary.allow_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-2">
+        <div class="card bg-dark border-secondary shadow h-100">
+            <div class="card-body">
+                <div class="text-muted small">
+                    Denied
+                </div>
+                <div class="fs-3 fw-bold">
+                    {{ remediation_summary.deny_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-2">
+        <div class="card bg-dark border-secondary shadow h-100">
+            <div class="card-body">
+                <div class="text-muted small">
+                    Confirmation Required
+                </div>
+                <div class="fs-3 fw-bold">
+                    {{ remediation_summary.confirmation_required_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-2">
+        <div class="card bg-dark border-secondary shadow h-100">
+            <div class="card-body">
+                <div class="text-muted small">
+                    Executed Successfully
+                </div>
+                <div class="fs-3 fw-bold">
+                    {{ remediation_summary.execution_success_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="col-md-2">
+        <div class="card bg-dark border-secondary shadow h-100">
+            <div class="card-body">
+                <div class="text-muted small">
+                    Execution Failed
+                </div>
+                <div class="fs-3 fw-bold">
+                    {{ remediation_summary.execution_failure_count }}
+                </div>
+            </div>
+        </div>
+    </div>
+
+</div>
+
 <div class="card bg-dark border-secondary shadow mb-4">
     <div class="card-header border-secondary">
         <strong>

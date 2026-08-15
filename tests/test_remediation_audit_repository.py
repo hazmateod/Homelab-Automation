@@ -255,3 +255,90 @@ def test_repository_respects_history_limit():
         "pve03",
         "pve02",
     ]
+
+def test_repository_summary_is_zero_when_empty():
+    repository = make_repository()
+
+    assert repository.summary() == {
+        "total": 0,
+        "allow_count": 0,
+        "deny_count": 0,
+        "confirmation_required_count": 0,
+        "execution_success_count": 0,
+        "execution_failure_count": 0,
+    }
+
+
+def test_repository_summary_counts_decisions():
+    repository = make_repository()
+
+    repository.save(
+        **audit(
+            decision="ALLOW",
+            execution_id=42,
+            execution_success=True,
+        )
+    )
+
+    repository.save(
+        **audit(
+            decision="DENY",
+            execution_id=None,
+            execution_success=None,
+        )
+    )
+
+    repository.save(
+        **audit(
+            decision="CONFIRM_REQUIRED",
+            confirmation_required=True,
+            execution_id=None,
+            execution_success=None,
+        )
+    )
+
+    assert repository.summary() == {
+        "total": 3,
+        "allow_count": 1,
+        "deny_count": 1,
+        "confirmation_required_count": 1,
+        "execution_success_count": 1,
+        "execution_failure_count": 0,
+    }
+
+
+def test_repository_summary_counts_execution_failures():
+    repository = make_repository()
+
+    repository.save(
+        **audit(
+            execution_id=42,
+            execution_success=True,
+        )
+    )
+
+    repository.save(
+        **audit(
+            source_id="pve02",
+            execution_id=43,
+            execution_success=False,
+        )
+    )
+
+    repository.save(
+        **audit(
+            source_id="pve03",
+            decision="DENY",
+            execution_id=None,
+            execution_success=None,
+        )
+    )
+
+    assert repository.summary() == {
+        "total": 3,
+        "allow_count": 2,
+        "deny_count": 1,
+        "confirmation_required_count": 0,
+        "execution_success_count": 1,
+        "execution_failure_count": 1,
+    }
