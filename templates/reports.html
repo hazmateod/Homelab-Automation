@@ -335,6 +335,10 @@ Type
 Path
 </th>
 
+<th>
+Actions
+</th>
+
 </tr>
 
 </thead>
@@ -357,6 +361,41 @@ Path
 
 <td>
 {{ file.path }}
+</td>
+
+<td>
+
+{% if file.type == "md" and "/current/" in file.path %}
+
+{% set host = file.name.rsplit(".", 1)[0] %}
+
+<div class="btn-group btn-group-sm" role="group">
+
+<a
+    href="/api/reports/host/{{ host }}/pdf"
+    class="btn btn-outline-light"
+>
+    PDF
+</a>
+
+<a
+    href="/api/reports/host/{{ host }}/txt"
+    class="btn btn-outline-light"
+>
+    TXT
+</a>
+
+<a
+    href="/api/reports/host/{{ host }}/csv"
+    class="btn btn-outline-light"
+>
+    CSV
+</a>
+
+</div>
+
+{% endif %}
+
 </td>
 
 </tr>

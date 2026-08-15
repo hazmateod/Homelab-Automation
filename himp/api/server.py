@@ -673,6 +673,69 @@ def application_health_api():
     )
 
 
+@app.get("/api/reports/host/{hostname}/pdf", dependencies=[Depends(require_session)])
+def host_report_pdf_api(hostname: str):
+
+    from fastapi.responses import Response
+    from himp.services.host_report_export import (
+        HostReportExportService,
+    )
+
+    pdf = HostReportExportService().pdf(hostname)
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{hostname}-report.pdf"'
+            ),
+        },
+    )
+
+
+@app.get("/api/reports/host/{hostname}/txt", dependencies=[Depends(require_session)])
+def host_report_txt_api(hostname: str):
+
+    from fastapi.responses import Response
+    from himp.services.host_report_export import (
+        HostReportExportService,
+    )
+
+    content = HostReportExportService().txt(hostname)
+
+    return Response(
+        content=content,
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{hostname}-report.txt"'
+            ),
+        },
+    )
+
+
+@app.get("/api/reports/host/{hostname}/csv", dependencies=[Depends(require_session)])
+def host_report_csv_api(hostname: str):
+
+    from fastapi.responses import Response
+    from himp.services.host_report_export import (
+        HostReportExportService,
+    )
+
+    content = HostReportExportService().csv(hostname)
+
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                f'attachment; filename="{hostname}-report.csv"'
+            ),
+        },
+    )
+
+
 @app.get("/api/reports/pdf", dependencies=[Depends(require_session)])
 def reports_pdf_api():
 

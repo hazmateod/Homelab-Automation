@@ -131,6 +131,12 @@ def test_authenticated_reports_page_exposes_pdf_download_link(
     assert response.status_code == 200
     assert 'href="/api/reports/pdf"' in response.text
     assert "Download PDF" in response.text
+    assert "/api/reports/host/pve01/pdf" in response.text
+    assert "/api/reports/host/pve01/txt" in response.text
+    assert "/api/reports/host/pve01/csv" in response.text
+    assert "PDF" in response.text
+    assert "TXT" in response.text
+    assert "CSV" in response.text
 
 
 def test_reports_api_exposes_operational_summary(
@@ -284,3 +290,134 @@ def test_reports_pdf_api_requires_session():
     assert response.json()["detail"] == (
         "Authentication required"
     )
+
+
+def test_host_report_pdf_api_returns_authenticated_pdf(
+    monkeypatch,
+):
+    expected_pdf = b"%PDF-1.4\nHOST TEST PDF"
+
+    class FakeHostReportExportService:
+
+        def pdf(self, hostname):
+            assert hostname == "pve01"
+            return expected_pdf
+
+    monkeypatch.setattr(
+        "himp.services.host_report_export.HostReportExportService",
+        FakeHostReportExportService,
+    )
+
+    server.app.dependency_overrides[
+        server.require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/api/reports/host/pve01/pdf"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.content == expected_pdf
+    assert response.headers["content-type"] == (
+        "application/pdf"
+    )
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="pve01-report.pdf"'
+    )
+
+
+def test_host_report_txt_api_returns_authenticated_text(
+    monkeypatch,
+):
+    expected_text = "Host: pve01\nStatus: healthy\n"
+
+    class FakeHostReportExportService:
+
+        def txt(self, hostname):
+            assert hostname == "pve01"
+            return expected_text
+
+    monkeypatch.setattr(
+        "himp.services.host_report_export.HostReportExportService",
+        FakeHostReportExportService,
+    )
+
+    server.app.dependency_overrides[
+        server.require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/api/reports/host/pve01/txt"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.text == expected_text
+    assert response.headers["content-type"] == (
+        "text/plain; charset=utf-8"
+    )
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="pve01-report.txt"'
+    )
+
+
+def test_host_report_csv_api_returns_authenticated_csv(
+    monkeypatch,
+):
+    expected_csv = "hostname,status\npve01,healthy\n"
+
+    class FakeHostReportExportService:
+
+        def csv(self, hostname):
+            assert hostname == "pve01"
+            return expected_csv
+
+    monkeypatch.setattr(
+        "himp.services.host_report_export.HostReportExportService",
+        FakeHostReportExportService,
+    )
+
+    server.app.dependency_overrides[
+        server.require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/api/reports/host/pve01/csv"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.text == expected_csv
+    assert response.headers["content-type"] == (
+        "text/csv; charset=utf-8"
+    )
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="pve01-report.csv"'
+    )
+
+
+def test_host_report_exports_require_session():
+    with TestClient(server.app) as client:
+        pdf = client.get(
+            "/api/reports/host/pve01/pdf"
+        )
+        txt = client.get(
+            "/api/reports/host/pve01/txt"
+        )
+        csv = client.get(
+            "/api/reports/host/pve01/csv"
+        )
+
+    assert pdf.status_code == 401
+    assert txt.status_code == 401
+    assert csv.status_code == 401
