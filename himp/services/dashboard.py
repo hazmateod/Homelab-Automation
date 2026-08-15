@@ -145,6 +145,81 @@ class DashboardService:
         return self.remediation_audit.summary()
 
 
+    def operational_summary(self):
+        health = self.host_health.summary()
+
+        health_summary = {
+            "score": health.get("score", 0),
+            "passed": health.get("passed", 0),
+            "warnings": health.get("warnings", 0),
+            "failed": health.get("failed", 0),
+            "unknown": health.get("unknown", 0),
+        }
+
+        workflows = self.workflow_summary()
+        automations = self.automation_summary()
+        remediation = self.remediation_summary()
+
+        workflow_summary = {
+            "total": len(workflows),
+            "running": sum(
+                workflow["status"] == "RUNNING"
+                for workflow in workflows
+            ),
+            "failed": sum(
+                workflow["status"] == "FAILED"
+                for workflow in workflows
+            ),
+            "never_run": sum(
+                workflow["status"] == "NEVER_RUN"
+                for workflow in workflows
+            ),
+        }
+
+        automation_summary = {
+            "total": len(automations),
+            "enabled": sum(
+                automation["enabled"]
+                for automation in automations
+            ),
+            "failed": sum(
+                automation["last_execution_success"] is False
+                for automation in automations
+            ),
+        }
+
+        has_failure = any(
+            (
+                health_summary["failed"] > 0,
+                workflow_summary["failed"] > 0,
+                automation_summary["failed"] > 0,
+                remediation["execution_failure_count"] > 0,
+            )
+        )
+
+        has_warning = any(
+            (
+                health_summary["warnings"] > 0,
+                remediation["confirmation_required_count"] > 0,
+            )
+        )
+
+        if has_failure:
+            status = "FAIL"
+        elif has_warning:
+            status = "WARNING"
+        else:
+            status = "PASS"
+
+        return {
+            "status": status,
+            "health": health_summary,
+            "workflows": workflow_summary,
+            "automations": automation_summary,
+            "remediation": remediation,
+        }
+
+
     def inventory_summary(self):
 
         inventory = self.inventory.summary()
