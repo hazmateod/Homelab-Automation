@@ -304,6 +304,7 @@ def test_remediation_workflow_returns_empty_result_when_no_proposals():
         "executed_count": 0,
         "blocked_count": 0,
         "verification_count": 0,
+        "audit_ids": [],
         "results": [],
     }
 

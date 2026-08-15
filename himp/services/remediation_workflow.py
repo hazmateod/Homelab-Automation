@@ -90,6 +90,7 @@ class RemediationWorkflowService:
 
         proposals = result["proposals"]
         results = []
+        audit_ids = []
         verification_count = 0
 
         for proposal in proposals:
@@ -110,13 +111,19 @@ class RemediationWorkflowService:
 
                 verification_count += 1
 
-            self.audit.record(
+            audit_record = self.audit.record(
                 source_type=source_type,
                 source_id=source_id,
                 proposal=proposal,
                 remediation=remediation,
                 confirmed=confirmed,
             )
+
+            if audit_record is not None:
+                audit_id = audit_record.get("id")
+
+                if audit_id is not None:
+                    audit_ids.append(audit_id)
 
             results.append(
                 remediation
@@ -142,5 +149,6 @@ class RemediationWorkflowService:
             "executed_count": executed_count,
             "blocked_count": blocked_count,
             "verification_count": verification_count,
+            "audit_ids": audit_ids,
             "results": results,
         }
