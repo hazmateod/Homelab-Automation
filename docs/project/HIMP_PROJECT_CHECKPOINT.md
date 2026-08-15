@@ -2,12 +2,12 @@
 
 **Checkpoint date:** 2026-08-14
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `93283e6` — `feat: add workflow execution history`
-**Remote:** `origin/feature/plugin-sdk` synchronized to `93283e6`
+**Latest confirmed commit:** `a49a55d` — `feat: add workflow dashboard`
+**Remote:** `origin/feature/plugin-sdk` synchronized to `a49a55d`
 **Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `460 passed`
+**Latest full regression:** `467 passed`
 **Current phase:** Phase 6 — Orchestration
-**Overall Phase 6 status:** IN PROGRESS
+**Overall Phase 6 status:** COMPLETE
 
 ## 1. Purpose
 
@@ -301,8 +301,8 @@ The dashboard must consume workflow execution/history services and must not impl
 | 6.1 Workflow Model | COMPLETE | 4–6h | — |
 | 6.2 Workflow Execution | COMPLETE | 5–8h | — |
 | 6.3 Workflow History | COMPLETE | 3–4h | — |
-| 6.4 Workflow Dashboard | NOT STARTED | 4–6h | 4–6h |
-| **Phase 6** | **IN PROGRESS** | **18–28h** | **4–6h** |
+| 6.4 Workflow Dashboard | COMPLETE | 4–6h | — |
+| **Phase 6** | **COMPLETE** | **18–28h** | **—** |
 
 ## 10. Future Roadmap
 
@@ -344,14 +344,14 @@ Reuse the existing automation policy/execution framework.
 | Work | Remaining |
 |---|---:|
 | Phase 6.3 | — |
-| Phase 6.4 | 4–6h |
-| Phase 6 total | 4–6h |
+| Phase 6.4 | — |
+| Phase 6 total | — |
 | Phase 7 | 18–28h |
 | Phase 8 | 18–28h |
 | Phase 9 | 20–30h |
-| **Overall remaining** | **60–92h** |
+| **Overall remaining** | **56–86h** |
 
-At approximately 8 hours/week: **~7.5–11.5 weeks**. This is a planning estimate, not a commitment.
+At approximately 8 hours/week: **~7–10.75 weeks**. This is a planning estimate, not a commitment.
 
 ## 12. Development Rules
 
@@ -379,10 +379,10 @@ Branch:
 feature/plugin-sdk
 
 Latest confirmed commit:
-93283e6
+a49a55d
 
 Commit:
-feat: add workflow execution history
+feat: add workflow dashboard
 
 Remote:
 origin/feature/plugin-sdk
@@ -394,28 +394,36 @@ Working tree:
 clean
 
 Latest confirmed full regression:
-460 passed
+467 passed
 ```
 
 ## 14. Exact Next-Session Starting Point
 
-Begin Phase 6.4 — Workflow Dashboard.
+Begin Phase 7 — Infrastructure Intelligence.
 
-Phase 6.3 Workflow History is complete, committed, pushed, and synchronized with origin.
+Phase 6 Orchestration is complete. Workflow Model, Workflow Execution, Workflow History, and Workflow Dashboard are implemented, tested, committed, pushed, and synchronized with origin.
+
+Phase 6.4 delivered:
+
+- Persistent current_task_id workflow execution state.
+- Workflow execution updates the current task before each automation task runs.
+- Workflow completion clears the current task.
+- Dashboard workflow summary consumes the existing workflow and workflow history services.
+- Dashboard displays workflow status, current task, execution ID, start time, and completion time.
+- Dashboard tests cover running and never-run workflow states.
+- Full regression: 467 passed.
 
 Immediate target:
 
-> Review the existing dashboard architecture and define the dashboard view that consumes the completed workflow execution/history services.
+> Begin Phase 7 — Infrastructure Intelligence with asset relationships, infrastructure change detection, health correlation, and deterministic drift/baseline support.
 
 Then:
 
-```text
-6.4 Workflow Dashboard
-        ↓
-Phase 6 COMPLETE
-        ↓
 Phase 7 Infrastructure Intelligence
-```
+        ↓
+Phase 8 Automation Intelligence
+        ↓
+Phase 9 Operational Platform
 
 ## 15. Documentation Policy
 
