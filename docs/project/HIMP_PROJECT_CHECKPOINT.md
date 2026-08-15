@@ -2,10 +2,10 @@
 
 **Checkpoint date:** 2026-08-15
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `ece86f3` — `feat: add remediation proposal review gate`
-**Remote:** `origin/feature/plugin-sdk` synchronized at `ece86f3`
+**Latest confirmed commit:** `8f743fc` — `feat: add remediation summary to dashboard`
+**Remote:** `origin/feature/plugin-sdk` synchronized at `8f743fc`
 **Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `590 passed`
+**Latest full regression:** `593 passed`
 **Current phase:** Phase 8 — Automation Intelligence
 **Current subphase:** Phase 8 — COMPLETE
 **Phase 8 status:** COMPLETE
@@ -633,7 +633,7 @@ Compile: PASS
 
 `git diff --check`: PASS
 
-Local branch and `origin/feature/plugin-sdk` are synchronized at `ece86f3`.
+Local branch and `origin/feature/plugin-sdk` are synchronized at `8f743fc`.
 
 Immediate next target:
 
