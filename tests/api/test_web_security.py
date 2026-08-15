@@ -461,4 +461,11 @@ def test_authenticated_remediation_is_allowed(
     assert 'name="decision"' in response.text
     assert 'action="/remediation"' in response.text
     assert "All Decisions" in response.text
+    assert "Run Remediation" in response.text
+    assert 'id="remediationRunForm"' in response.text
+    assert 'id="remediationRunSourceType"' in response.text
+    assert 'id="remediationRunSourceId"' in response.text
+    assert 'id="remediationRunBaseline"' in response.text
+    assert 'id="remediationRunChangeLimit"' in response.text
+    assert 'src="/static/js/dashboard.js"' in response.text
     assert "No remediation audit records are available." in response.text

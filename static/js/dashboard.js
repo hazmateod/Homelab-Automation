@@ -2066,3 +2066,181 @@ document.addEventListener("DOMContentLoaded", () => {
         );
     });
 });
+
+function initializeRemediationRun() {
+
+    const form = document.getElementById(
+        "remediationRunForm"
+    );
+
+    if (!form) {
+        return;
+    }
+
+    const button = document.getElementById(
+        "remediationRunButton"
+    );
+
+    const status = document.getElementById(
+        "remediationRunStatus"
+    );
+
+    const resultPanel = document.getElementById(
+        "remediationRunResult"
+    );
+
+    form.addEventListener("submit", async event => {
+
+        event.preventDefault();
+
+        const sourceType = document.getElementById(
+            "remediationRunSourceType"
+        ).value.trim();
+
+        const sourceId = document.getElementById(
+            "remediationRunSourceId"
+        ).value.trim();
+
+        const baseline = document.getElementById(
+            "remediationRunBaseline"
+        ).value.trim();
+
+        const changeLimit = Number(
+            document.getElementById(
+                "remediationRunChangeLimit"
+            ).value
+        );
+
+        button.disabled = true;
+        button.textContent = "Running...";
+
+        status.textContent = "Running";
+        status.className = "badge bg-warning text-dark";
+
+        resultPanel.classList.add("d-none");
+        resultPanel.textContent = "";
+
+        try {
+
+            const response = await fetch(
+                "/api/remediation/run",
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type": "application/json"
+                    },
+                    body: JSON.stringify({
+                        source_type: sourceType,
+                        source_id: sourceId,
+                        baseline: baseline || null,
+                        change_limit: changeLimit,
+                        confirmed: false
+                    })
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.detail ||
+                    `HTTP ${response.status}`
+                );
+            }
+
+            const decisions = (result.results || [])
+                .map(item => item.decision)
+                .filter(Boolean);
+
+            const requiresConfirmation =
+                decisions.includes("CONFIRM_REQUIRED");
+
+            if (requiresConfirmation) {
+
+                status.textContent =
+                    "Confirmation Required";
+                status.className =
+                    "badge bg-warning text-dark";
+
+                resultPanel.innerHTML = `
+                    <div class="alert alert-warning mb-0">
+                        <strong>Confirmation required.</strong>
+                        The existing remediation policy requires
+                        explicit confirmation before the affected
+                        remediation can proceed.
+                    </div>
+                `;
+
+            } else if (result.blocked_count > 0) {
+
+                status.textContent = "Blocked";
+                status.className =
+                    "badge bg-danger";
+
+                resultPanel.innerHTML = `
+                    <div class="alert alert-danger mb-0">
+                        <strong>Remediation blocked.</strong>
+                        ${result.blocked_count}
+                        remediation action(s) were blocked by policy.
+                    </div>
+                `;
+
+            } else {
+
+                status.textContent = "Completed";
+                status.className =
+                    "badge bg-success";
+
+                resultPanel.innerHTML = `
+                    <div class="alert alert-success mb-0">
+                        <strong>Remediation completed.</strong>
+                        Executed:
+                        ${result.executed_count ?? 0}
+                        action(s).
+                    </div>
+                `;
+
+            }
+
+            resultPanel.classList.remove("d-none");
+
+        } catch (error) {
+
+            console.error(error);
+
+            status.textContent = "Failed";
+            status.className =
+                "badge bg-danger";
+
+            const errorAlert = document.createElement("div");
+            errorAlert.className = "alert alert-danger mb-0";
+
+            const errorTitle = document.createElement("strong");
+            errorTitle.textContent =
+                "Remediation request failed.";
+
+            errorAlert.appendChild(errorTitle);
+            errorAlert.appendChild(
+                document.createTextNode(
+                    ` ${error.message}`
+                )
+            );
+
+            resultPanel.replaceChildren(errorAlert);
+            resultPanel.classList.remove("d-none");
+
+        } finally {
+
+            button.disabled = false;
+            button.textContent = "Run Remediation";
+
+        }
+
+    });
+
+}
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeRemediationRun
+);
