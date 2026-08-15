@@ -97,6 +97,42 @@ def test_authenticated_reports_page_exposes_operational_summary(
     assert "Failed" in response.text
 
 
+def test_authenticated_reports_page_exposes_pdf_download_link(
+    monkeypatch,
+):
+    expected = {
+        "generated": "2026-08-15T18:00:00Z",
+        "dashboard": None,
+        "reports": {},
+        "executions": {
+            "total": 0,
+            "successful": 0,
+            "failed": 0,
+            "recent": [],
+        },
+    }
+
+    monkeypatch.setattr(
+        server.himp.reports,
+        "operational_summary",
+        lambda: expected,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/reports")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert 'href="/api/reports/pdf"' in response.text
+    assert "Download PDF" in response.text
+
+
 def test_reports_api_exposes_operational_summary(
     monkeypatch,
 ):
