@@ -625,7 +625,6 @@ def history(request: Request):
 
 @app.get("/api/logs", dependencies=[Depends(require_session)])
 def logs_api(limit: int = 100):
-
     limit = max(1, min(limit, 500))
 
     return JSONResponse(
@@ -633,6 +632,108 @@ def logs_api(limit: int = 100):
             "logs": log_service.history(limit),
             "limit": limit,
         }
+    )
+
+
+@app.get("/api/logs/export/json", dependencies=[Depends(require_session)])
+def logs_export_json():
+    import json
+    from fastapi.responses import Response
+
+    content = json.dumps(
+        log_service.history(500),
+        indent=2,
+        default=str,
+    )
+
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="himp-operational-logs.json"'
+            ),
+        },
+    )
+
+
+@app.get("/api/logs/export/txt", dependencies=[Depends(require_session)])
+def logs_export_txt():
+    from fastapi.responses import Response
+
+    records = log_service.history(500)
+
+    lines = []
+
+    for record in records:
+        lines.extend(
+            [
+                f"Timestamp: {record['timestamp']}",
+                f"Source: {record['source']}",
+                f"Event: {record['event']}",
+                f"Status: {record['status']}",
+                f"Message: {record['message']}",
+                f"ID: {record['id']}",
+                f"Details: {record['details']}",
+                "",
+            ]
+        )
+
+    content = "\n".join(lines)
+
+    return Response(
+        content=content,
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="himp-operational-logs.txt"'
+            ),
+        },
+    )
+
+
+@app.get("/api/logs/export/csv", dependencies=[Depends(require_session)])
+def logs_export_csv():
+    import csv
+    import io
+    from fastapi.responses import Response
+
+    buffer = io.StringIO(newline="")
+    writer = csv.writer(buffer)
+
+    writer.writerow(
+        [
+            "id",
+            "timestamp",
+            "source",
+            "event",
+            "status",
+            "message",
+            "details",
+        ]
+    )
+
+    for record in log_service.history(500):
+        writer.writerow(
+            [
+                record["id"],
+                record["timestamp"],
+                record["source"],
+                record["event"],
+                record["status"],
+                record["message"],
+                record["details"],
+            ]
+        )
+
+    return Response(
+        content=buffer.getvalue(),
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="himp-operational-logs.csv"'
+            ),
+        },
     )
 
 

@@ -16,11 +16,36 @@
 
     </div>
 
-    <div class="col-auto">
+    <div class="col-auto d-flex align-items-center gap-2">
 
         <span class="badge bg-secondary">
             {{ history|length }} events
         </span>
+
+        <div class="btn-group btn-group-sm" role="group">
+
+            <a
+                href="/api/logs/export/json"
+                class="btn btn-outline-light"
+            >
+                JSON
+            </a>
+
+            <a
+                href="/api/logs/export/txt"
+                class="btn btn-outline-light"
+            >
+                TXT
+            </a>
+
+            <a
+                href="/api/logs/export/csv"
+                class="btn btn-outline-light"
+            >
+                CSV
+            </a>
+
+        </div>
 
     </div>
 

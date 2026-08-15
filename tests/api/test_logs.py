@@ -131,3 +131,131 @@ def test_history_page_requires_session():
 
     assert response.status_code == 303
     assert response.headers["location"] == "/login"
+
+
+def test_logs_json_export_requires_session():
+    with TestClient(server.app) as client:
+        response = client.get("/api/logs/export/json")
+
+    assert response.status_code == 401
+
+
+def test_logs_json_export_returns_json(monkeypatch):
+    expected = [
+        {
+            "id": "automation:1",
+            "timestamp": "2026-08-15 14:00:00",
+            "source": "automation",
+            "event": "automation_execution",
+            "status": "success",
+            "message": "Automation execution: scheduled_updates",
+            "details": {"task_id": "scheduled_updates"},
+        }
+    ]
+
+    monkeypatch.setattr(
+        server.log_service,
+        "history",
+        lambda limit: expected,
+    )
+
+    server.app.dependency_overrides[
+        require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/api/logs/export/json")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(
+        "application/json"
+    )
+    assert "attachment" in response.headers["content-disposition"]
+    assert "himp-operational-logs.json" in (
+        response.headers["content-disposition"]
+    )
+    assert response.json() == expected
+
+
+def test_logs_txt_export_returns_text(monkeypatch):
+    expected = [
+        {
+            "id": "automation:1",
+            "timestamp": "2026-08-15 14:00:00",
+            "source": "automation",
+            "event": "automation_execution",
+            "status": "success",
+            "message": "Automation execution: scheduled_updates",
+            "details": {"task_id": "scheduled_updates"},
+        }
+    ]
+
+    monkeypatch.setattr(
+        server.log_service,
+        "history",
+        lambda limit: expected,
+    )
+
+    server.app.dependency_overrides[
+        require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/api/logs/export/txt")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(
+        "text/plain"
+    )
+    assert "himp-operational-logs.txt" in (
+        response.headers["content-disposition"]
+    )
+    assert "Automation execution: scheduled_updates" in (
+        response.text
+    )
+
+
+def test_logs_csv_export_returns_csv(monkeypatch):
+    expected = [
+        {
+            "id": "automation:1",
+            "timestamp": "2026-08-15 14:00:00",
+            "source": "automation",
+            "event": "automation_execution",
+            "status": "success",
+            "message": "Automation execution: scheduled_updates",
+            "details": {"task_id": "scheduled_updates"},
+        }
+    ]
+
+    monkeypatch.setattr(
+        server.log_service,
+        "history",
+        lambda limit: expected,
+    )
+
+    server.app.dependency_overrides[
+        require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/api/logs/export/csv")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(
+        "text/csv"
+    )
+    assert "himp-operational-logs.csv" in (
+        response.headers["content-disposition"]
+    )
+    assert "automation:1" in response.text
+    assert "scheduled_updates" in response.text
