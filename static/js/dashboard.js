@@ -2147,44 +2147,126 @@ function initializeRemediationRun() {
 
     const renderResult = result => {
 
+        const executions = (result.results || [])
+            .map(item => item.execution)
+            .filter(Boolean);
+
         if (result.blocked_count > 0) {
 
             status.textContent = "Blocked";
             status.className =
                 "badge bg-danger";
 
-            resultPanel.innerHTML = `
-                <div class="alert alert-danger mb-0">
-                    <strong>
-                        Remediation blocked.
-                    </strong>
-                    ${result.blocked_count}
-                    remediation action(s) were
-                    blocked by policy.
-                </div>
-            `;
+        } else {
 
-            resultPanel.classList.remove(
-                "d-none"
-            );
-
-            return;
+            status.textContent = "Completed";
+            status.className =
+                "badge bg-success";
         }
 
-        status.textContent = "Completed";
-        status.className =
-            "badge bg-success";
+        resultPanel.replaceChildren();
 
-        resultPanel.innerHTML = `
-            <div class="alert alert-success mb-0">
-                <strong>
-                    Remediation completed.
-                </strong>
-                Executed:
-                ${result.executed_count ?? 0}
-                action(s).
-            </div>
-        `;
+        const panel =
+            document.createElement("div");
+
+        panel.className =
+            result.blocked_count > 0
+                ? "alert alert-danger mb-0"
+                : "alert alert-success mb-0";
+
+        const title =
+            document.createElement("strong");
+
+        title.textContent =
+            result.blocked_count > 0
+                ? "Remediation blocked."
+                : "Remediation completed.";
+
+        panel.appendChild(title);
+
+        const summary =
+            document.createElement("div");
+
+        summary.className = "mt-2";
+
+        summary.textContent =
+            `Executed: ${result.executed_count ?? 0} ` +
+            `action(s). Blocked: ` +
+            `${result.blocked_count ?? 0} action(s).`;
+
+        panel.appendChild(summary);
+
+        if (executions.length > 0) {
+
+            const executionHeading =
+                document.createElement("div");
+
+            executionHeading.className =
+                "mt-3 fw-semibold";
+
+            executionHeading.textContent =
+                "Execution Results";
+
+            panel.appendChild(
+                executionHeading
+            );
+
+            const executionList =
+                document.createElement("ul");
+
+            executionList.className =
+                "mb-0 mt-2";
+
+            executions.forEach(execution => {
+
+                const item =
+                    document.createElement("li");
+
+                const executionId =
+                    execution.id;
+
+                const success =
+                    execution.success === true;
+
+                item.textContent =
+                    `Execution ${executionId} — ` +
+                    `${success ? "SUCCESS" : "FAILED"}`;
+
+                if (
+                    executionId !== null &&
+                    executionId !== undefined
+                ) {
+
+                    item.appendChild(
+                        document.createTextNode(" — ")
+                    );
+
+                    const link =
+                        document.createElement("a");
+
+                    link.href =
+                        `/automation/executions/${encodeURIComponent(
+                            executionId
+                        )}`;
+
+                    link.textContent =
+                        "View execution";
+
+                    link.className =
+                        "link-light";
+
+                    item.appendChild(link);
+                }
+
+                executionList.appendChild(item);
+            });
+
+            panel.appendChild(
+                executionList
+            );
+        }
+
+        resultPanel.appendChild(panel);
 
         resultPanel.classList.remove(
             "d-none"
