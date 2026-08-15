@@ -455,7 +455,7 @@ Audit History
 API / Operational Visibility
 ```
 
-**Phase 8 status:** IN PROGRESS — remediation verification is complete through subphase 8.7.
+**Phase 8 status:** IN PROGRESS — remediation safety / approval hardening is complete through subphase 8.8.
 
 
 ### Phase 9 — Operational Platform
