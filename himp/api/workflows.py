@@ -12,6 +12,9 @@ from fastapi.responses import JSONResponse
 from himp.services.workflow_execution import (
     WorkflowExecutionService,
 )
+from himp.services.workflow_history import (
+    WorkflowHistoryService,
+)
 from himp.services.workflows import (
     WorkflowDependencyCycleError,
     WorkflowDependencyNotFoundError,
@@ -30,6 +33,10 @@ router = APIRouter(
 workflow_service = WorkflowService()
 
 workflow_execution_service = WorkflowExecutionService(
+    workflow_service=workflow_service,
+)
+
+workflow_history_service = WorkflowHistoryService(
     workflow_service=workflow_service,
 )
 
@@ -300,6 +307,53 @@ def validate_workflow(
 
     except WorkflowNotFoundError as error:
         _not_found(error)
+
+@router.get(
+    "/workflows/{workflow_id}/history"
+)
+def workflow_history(
+    workflow_id: int,
+    limit: int = 50,
+):
+    try:
+        return JSONResponse(
+            workflow_history_service.history(
+                workflow_id,
+                limit=limit,
+            )
+        )
+
+    except WorkflowNotFoundError as error:
+        _not_found(error)
+
+
+@router.get(
+    "/workflows/{workflow_id}/history/"
+    "{workflow_execution_id}"
+)
+def workflow_history_run(
+    workflow_id: int,
+    workflow_execution_id: str,
+):
+    try:
+        history = workflow_history_service.get(
+            workflow_id,
+            workflow_execution_id,
+        )
+
+        if history is None:
+            raise HTTPException(
+                status_code=404,
+                detail="Workflow execution does not exist.",
+            )
+
+        return JSONResponse(
+            history
+        )
+
+    except WorkflowNotFoundError as error:
+        _not_found(error)
+
 
 @router.post(
     "/workflows/{workflow_id}/execute"

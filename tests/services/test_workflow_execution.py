@@ -113,6 +113,54 @@ class FakeWorkflowService:
         return self.dependencies
 
 
+class FakeWorkflowExecutionRepository:
+    def __init__(self):
+        self.created = []
+        self.completed = []
+
+    def create(
+        self,
+        workflow_id,
+        workflow_execution_id,
+        started_at=None,
+    ):
+        execution = {
+            "id": len(self.created) + 1,
+            "workflow_id": workflow_id,
+            "workflow_execution_id": workflow_execution_id,
+            "started_at": started_at,
+            "completed_at": None,
+            "success": None,
+        }
+
+        self.created.append(execution)
+
+        return execution
+
+    def complete(
+        self,
+        workflow_execution_id,
+        success,
+        completed_at=None,
+    ):
+        execution = next(
+            execution
+            for execution in self.created
+            if execution["workflow_execution_id"]
+            == workflow_execution_id
+        )
+
+        execution = {
+            **execution,
+            "completed_at": completed_at,
+            "success": success,
+        }
+
+        self.completed.append(execution)
+
+        return execution
+
+
 class FakeAutomationService:
     def __init__(
         self,
@@ -156,6 +204,7 @@ class FakeAutomationService:
 def make_service(
     workflow_service=None,
     automation_service=None,
+    workflow_execution_repository=None,
 ):
     workflow_service = (
         workflow_service
@@ -167,9 +216,17 @@ def make_service(
         or FakeAutomationService()
     )
 
+    workflow_execution_repository = (
+        workflow_execution_repository
+        or FakeWorkflowExecutionRepository()
+    )
+
     service = WorkflowExecutionService(
         workflow_service=workflow_service,
         automation_service=automation_service,
+        workflow_execution_repository=(
+            workflow_execution_repository
+        ),
     )
 
     return (
@@ -177,6 +234,107 @@ def make_service(
         workflow_service,
         automation_service,
     )
+
+
+def test_execute_creates_workflow_execution_record():
+    repository = FakeWorkflowExecutionRepository()
+
+    service, _, _ = make_service(
+        workflow_execution_repository=repository,
+    )
+
+    result = service.execute(1)
+
+    assert len(repository.created) == 1
+
+    execution = repository.created[0]
+
+    assert execution["workflow_id"] == 1
+    assert execution["workflow_execution_id"] == (
+        result["workflow_execution_id"]
+    )
+
+
+def test_execute_completes_successful_workflow_execution():
+    repository = FakeWorkflowExecutionRepository()
+
+    service, _, _ = make_service(
+        workflow_execution_repository=repository,
+    )
+
+    result = service.execute(1)
+
+    assert result["success"] is True
+    assert len(repository.completed) == 1
+
+    execution = repository.completed[0]
+
+    assert execution["workflow_id"] == 1
+    assert execution["workflow_execution_id"] == (
+        result["workflow_execution_id"]
+    )
+    assert execution["success"] is True
+
+
+def test_execute_completes_failed_workflow_execution():
+    repository = FakeWorkflowExecutionRepository()
+
+    automation = FakeAutomationService(
+        outcomes={
+            "generate_reports": {
+                "task_id": "generate_reports",
+                "success": False,
+            },
+        },
+    )
+
+    service, _, _ = make_service(
+        automation_service=automation,
+        workflow_execution_repository=repository,
+    )
+
+    result = service.execute(1)
+
+    assert result["success"] is False
+    assert len(repository.completed) == 1
+
+    execution = repository.completed[0]
+
+    assert execution["workflow_execution_id"] == (
+        result["workflow_execution_id"]
+    )
+    assert execution["success"] is False
+
+
+def test_execute_uses_one_correlation_id_for_record_and_tasks():
+    repository = FakeWorkflowExecutionRepository()
+    automation = FakeAutomationService()
+
+    service, _, _ = make_service(
+        automation_service=automation,
+        workflow_execution_repository=repository,
+    )
+
+    result = service.execute(1)
+
+    workflow_execution_id = (
+        result["workflow_execution_id"]
+    )
+
+    assert repository.created[0][
+        "workflow_execution_id"
+    ] == workflow_execution_id
+
+    assert repository.completed[0][
+        "workflow_execution_id"
+    ] == workflow_execution_id
+
+    assert {
+        call["workflow_execution_id"]
+        for call in automation.calls
+    } == {
+        workflow_execution_id
+    }
 
 
 def test_execute_runs_tasks_in_dependency_order():
@@ -468,6 +626,65 @@ def test_execution_order_rejects_cycle():
         match="Workflow dependency cycle detected",
     ):
         service._execution_order(1)
+
+
+def test_execute_marks_workflow_failed_when_execution_order_fails():
+    workflow_service = FakeWorkflowService(
+        tasks=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_a",
+                "position": 1,
+            },
+            {
+                "id": 2,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "position": 2,
+            },
+        ],
+        dependencies=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "task_a",
+                "depends_on_task_id": "task_b",
+            },
+            {
+                "id": 2,
+                "workflow_id": 1,
+                "task_id": "task_b",
+                "depends_on_task_id": "task_a",
+            },
+        ],
+    )
+
+    repository = FakeWorkflowExecutionRepository()
+
+    service, _, automation = make_service(
+        workflow_service=workflow_service,
+        workflow_execution_repository=repository,
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Workflow dependency cycle detected",
+    ):
+        service.execute(1)
+
+    assert automation.calls == []
+    assert len(repository.created) == 1
+    assert len(repository.completed) == 1
+
+    created = repository.created[0]
+    completed = repository.completed[0]
+
+    assert completed["workflow_execution_id"] == (
+        created["workflow_execution_id"]
+    )
+    assert completed["success"] is False
+    assert completed["completed_at"] is not None
 
 
 def test_empty_workflow_returns_success_without_execution():

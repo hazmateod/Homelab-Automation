@@ -2,8 +2,12 @@
 Workflow execution orchestration service.
 """
 
+from datetime import datetime, timezone
 from uuid import uuid4
 
+from himp.database.workflow_executions import (
+    WorkflowExecutionRepository,
+)
 from himp.services.automation import AutomationService
 from himp.services.workflows import (
     WorkflowNotFoundError,
@@ -26,6 +30,7 @@ class WorkflowExecutionService:
         self,
         workflow_service=None,
         automation_service=None,
+        workflow_execution_repository=None,
     ):
         self.workflow_service = (
             workflow_service
@@ -35,6 +40,11 @@ class WorkflowExecutionService:
         self.automation_service = (
             automation_service
             or AutomationService()
+        )
+
+        self.workflow_execution_repository = (
+            workflow_execution_repository
+            or WorkflowExecutionRepository()
         )
 
     def execute(
@@ -65,85 +75,127 @@ class WorkflowExecutionService:
             uuid4()
         )
 
-        task_ids = self._execution_order(
-            workflow_id
+        started_at = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+        self.workflow_execution_repository.create(
+            workflow_id=workflow_id,
+            workflow_execution_id=(
+                workflow_execution_id
+            ),
+            started_at=started_at,
         )
 
-        executions = []
-        failed_tasks = []
-        skipped_tasks = []
-
-        dependency_map = self._dependency_map
-
-        task_results = {}
-
-        for task_id in task_ids:
-            prerequisites = dependency_map.get(
-                task_id,
-                [],
+        try:
+            task_ids = self._execution_order(
+                workflow_id
             )
 
-            failed_prerequisites = [
-                prerequisite
-                for prerequisite in prerequisites
-                if prerequisite in failed_tasks
-                or prerequisite in skipped_tasks
-            ]
+            executions = []
+            failed_tasks = []
+            skipped_tasks = []
 
-            if failed_prerequisites:
-                skipped_tasks.append(task_id)
+            dependency_map = self._dependency_map
 
-                task_results[task_id] = {
-                    "task_id": task_id,
-                    "success": False,
-                    "skipped": True,
-                    "reason": (
-                        "Dependency failed or was skipped"
-                    ),
-                    "failed_dependencies": (
-                        failed_prerequisites
-                    ),
-                }
+            task_results = {}
 
-                continue
-
-            try:
-                execution = self.automation_service.run(
+            for task_id in task_ids:
+                prerequisites = dependency_map.get(
                     task_id,
-                    limit=limit,
-                    confirmed=confirmed,
-                    workflow_execution_id=(
-                        workflow_execution_id
-                    ),
+                    [],
                 )
 
-            except Exception as error:
-                execution = {
-                    "task_id": task_id,
-                    "success": False,
-                    "error": str(error),
-                }
+                failed_prerequisites = [
+                    prerequisite
+                    for prerequisite in prerequisites
+                    if prerequisite in failed_tasks
+                    or prerequisite in skipped_tasks
+                ]
 
-            executions.append(execution)
-            task_results[task_id] = execution
+                if failed_prerequisites:
+                    skipped_tasks.append(task_id)
 
-            success = True
+                    task_results[task_id] = {
+                        "task_id": task_id,
+                        "success": False,
+                        "skipped": True,
+                        "reason": (
+                            "Dependency failed or was skipped"
+                        ),
+                        "failed_dependencies": (
+                            failed_prerequisites
+                        ),
+                    }
 
-            if isinstance(execution, dict):
-                if "success" in execution:
-                    success = bool(
-                        execution["success"]
+                    continue
+
+                try:
+                    execution = self.automation_service.run(
+                        task_id,
+                        limit=limit,
+                        confirmed=confirmed,
+                        workflow_execution_id=(
+                            workflow_execution_id
+                        ),
                     )
 
-            if not success:
-                failed_tasks.append(task_id)
+                except Exception as error:
+                    execution = {
+                        "task_id": task_id,
+                        "success": False,
+                        "error": str(error),
+                    }
+
+                executions.append(execution)
+                task_results[task_id] = execution
+
+                success = True
+
+                if isinstance(execution, dict):
+                    if "success" in execution:
+                        success = bool(
+                            execution["success"]
+                        )
+
+                if not success:
+                    failed_tasks.append(task_id)
+
+        except Exception:
+            completed_at = datetime.now(
+                timezone.utc
+            ).isoformat()
+
+            self.workflow_execution_repository.complete(
+                workflow_execution_id=(
+                    workflow_execution_id
+                ),
+                success=False,
+                completed_at=completed_at,
+            )
+
+            raise
+
+        workflow_success = not failed_tasks
+
+        completed_at = datetime.now(
+            timezone.utc
+        ).isoformat()
+
+        self.workflow_execution_repository.complete(
+            workflow_execution_id=(
+                workflow_execution_id
+            ),
+            success=workflow_success,
+            completed_at=completed_at,
+        )
 
         return {
             "workflow": workflow,
             "workflow_execution_id": (
                 workflow_execution_id
             ),
-            "success": not failed_tasks,
+            "success": workflow_success,
             "task_count": len(task_ids),
             "executed_tasks": [
                 task_id
