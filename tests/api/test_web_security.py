@@ -365,4 +365,9 @@ def test_authenticated_remediation_is_allowed(
     assert response.status_code == 200
     assert "Remediation" in response.text
     assert 'href="/remediation"' in response.text
+    assert 'name="source_type"' in response.text
+    assert 'name="source_id"' in response.text
+    assert 'name="decision"' in response.text
+    assert 'action="/remediation"' in response.text
+    assert "All Decisions" in response.text
     assert "No remediation audit records are available." in response.text

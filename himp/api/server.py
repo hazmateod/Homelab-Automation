@@ -611,6 +611,10 @@ def remediation(
         )
     )
 
+    context["source_type"] = source_type
+    context["source_id"] = source_id
+    context["decision"] = decision
+
     return templates.TemplateResponse(
         request=request,
         name="remediation.html",
