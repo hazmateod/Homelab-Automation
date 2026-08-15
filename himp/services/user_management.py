@@ -129,4 +129,7 @@ class UserManagementService:
             "role": user.role,
             "active": user.active,
             "display_name": user.display_name,
+            "password_change_required": (
+                user.password_change_required
+            ),
         }

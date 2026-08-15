@@ -5,7 +5,7 @@ Provides reusable request authentication and authorization
 for protected HIMP API and web endpoints.
 """
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 
 from himp.services.sessions import SessionService
 from himp.lib.security_events import (
@@ -95,3 +95,24 @@ def require_page_session(request: Request):
             )
 
         raise
+
+
+def require_page_admin(
+    session=Depends(require_page_session),
+):
+    """Require an authenticated administrator browser session."""
+    if session.role != "admin":
+        log_security_event(
+            AUTHORIZATION_DENIED,
+            username=session.username,
+            outcome="failure",
+            reason="Administrator access required",
+            role=session.role,
+        )
+
+        raise HTTPException(
+            status_code=403,
+            detail="Administrator access required",
+        )
+
+    return session

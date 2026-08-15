@@ -116,6 +116,20 @@ class UserRepository:
 
         return self.get(username)
 
+    def all(self):
+        rows = self.database.query(
+            """
+            SELECT *
+            FROM users
+            ORDER BY username
+            """
+        )
+
+        return [
+            self._to_user(row)
+            for row in rows
+        ]
+
     def get(self, username):
         username = self.normalize_username(username)
 

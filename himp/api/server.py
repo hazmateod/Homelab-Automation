@@ -19,7 +19,7 @@ configure_logging()
 logger = logging.getLogger("himp")
 
 from himp.api.auth import router as auth_router
-from himp.api.dependencies import require_admin, require_page_session, require_session
+from himp.api.dependencies import require_admin, require_page_admin, require_page_session, require_session
 from himp.api.dashboard import router as dashboard_router
 from himp.api.discovery import router as discovery_router
 from himp.api.execution import router as execution_router
@@ -712,4 +712,28 @@ def api_root():
             "status": "running",
             "version": "1.0.0",
         }
+    )
+
+
+@app.get(
+    "/users",
+    dependencies=[Depends(require_page_admin)],
+)
+def users_page(
+    request: Request,
+    _session=Depends(require_page_admin),
+):
+    from himp.api.users import user_management
+
+    context = dashboard_context()
+    context["users"] = user_management.list_users()
+    context["current_user"] = {
+        "username": _session.username,
+        "role": _session.role,
+    }
+
+    return templates.TemplateResponse(
+        request=request,
+        name="users.html",
+        context=context,
     )

@@ -26,6 +26,18 @@ class CreateUserRequest(BaseModel):
     password_change_required: bool = False
 
 
+class ActiveUserRequest(BaseModel):
+    active: bool
+
+
+class RoleRequest(BaseModel):
+    role: str
+
+
+class DisplayNameRequest(BaseModel):
+    display_name: str
+
+
 @router.get("")
 async def list_users():
     return {
@@ -46,6 +58,57 @@ async def create_user(
             password_change_required=(
                 request.password_change_required
             ),
+        )
+    except (TypeError, ValueError) as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+
+
+@router.post("/{username}/active")
+async def set_active(
+    username: str,
+    request: ActiveUserRequest,
+):
+    try:
+        return user_management.set_active(
+            username,
+            request.active,
+        )
+    except (TypeError, ValueError) as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+
+
+@router.post("/{username}/role")
+async def set_role(
+    username: str,
+    request: RoleRequest,
+):
+    try:
+        return user_management.set_role(
+            username,
+            request.role,
+        )
+    except (TypeError, ValueError) as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+
+
+@router.post("/{username}/display-name")
+async def set_display_name(
+    username: str,
+    request: DisplayNameRequest,
+):
+    try:
+        return user_management.set_display_name(
+            username,
+            request.display_name,
         )
     except (TypeError, ValueError) as error:
         raise HTTPException(
