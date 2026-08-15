@@ -1,13 +1,15 @@
-# HIMP Project Checkpoint — Phase 6 Orchestration
+# HIMP Project Checkpoint — Phase 8.7 Remediation Verification
 
 **Checkpoint date:** 2026-08-14
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `a49a55d` — `feat: add workflow dashboard`
-**Remote:** `origin/feature/plugin-sdk` synchronized to `a49a55d`
+**Latest confirmed commit:** `a25028f` — `feat: add remediation verification`
+**Remote:** `origin/feature/plugin-sdk` synchronized to `a25028f`
 **Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `467 passed`
-**Current phase:** Phase 6 — Orchestration
-**Overall Phase 6 status:** COMPLETE
+**Latest full regression:** `558 passed`
+**Current phase:** Phase 8 — Automation Intelligence
+**Current subphase:** Phase 8.7 — Remediation Verification
+**Phase 8 status:** IN PROGRESS
+**Phase 7 status:** COMPLETE
 
 ## 1. Purpose
 
@@ -281,18 +283,21 @@ The workflow execution lifecycle now persists the workflow run at start, complet
 
 ## 8. Phase 6.4 — Workflow Dashboard
 
-**Status: NOT STARTED**
+**Status: COMPLETE**
 **Original estimate: 4–6 hours**
 
-Expose:
+Completed:
 
-- Workflow
-- Current state
-- Current task
-- Failed task
-- Execution history
+- Persistent `current_task_id` workflow execution state.
+- Workflow execution updates the current task before each automation task runs.
+- Workflow completion clears the current task.
+- Dashboard workflow summary consumes the existing workflow and workflow history services.
+- Dashboard displays workflow status, current task, execution ID, start time, and completion time.
+- Dashboard tests cover running and never-run workflow states.
 
-The dashboard must consume workflow execution/history services and must not implement its own execution or history logic.
+Architectural rule preserved:
+
+> The dashboard consumes the existing workflow execution/history services and does not implement duplicate execution or history logic.
 
 ## 9. Phase 6 Summary
 
@@ -304,9 +309,9 @@ The dashboard must consume workflow execution/history services and must not impl
 | 6.4 Workflow Dashboard | COMPLETE | 4–6h | — |
 | **Phase 6** | **COMPLETE** | **18–28h** | **—** |
 
-## 10. Future Roadmap
+## 10. Completed Phases and Future Roadmap
 
-### Phase 7 — Infrastructure Intelligence
+### Phase 7 — Infrastructure Intelligence — COMPLETE
 
 **18–28 hours**
 
@@ -317,17 +322,115 @@ The dashboard must consume workflow execution/history services and must not impl
 
 Keep the first version deterministic and explainable.
 
-### Phase 8 — Automation Intelligence
+### Phase 8 — Automation Intelligence — IN PROGRESS
 
-**18–28 hours**
+**Original planning estimate: 18–28 hours**
 
-1. Remediation policies
-2. Low-risk remediation
-3. Approval controls
-4. Verification
-5. Remediation history
+Phase 8 builds a controlled remediation lifecycle on top of the existing automation execution framework. The work is intentionally subphased so proposal, policy, execution, audit, API, and verification remain separate responsibilities.
 
-Reuse the existing automation policy/execution framework.
+#### 8.1 — Remediation Policy Evaluation — COMPLETE
+
+Commit: `354ce74` — `feat: add remediation policy evaluation`
+
+Implemented deterministic remediation policy evaluation, including decision handling for allowed, denied, and confirmation-required remediation.
+
+The policy layer reuses the existing automation framework rather than creating a second execution or approval system.
+
+#### 8.2 — Remediation Execution — COMPLETE
+
+Commit: `d60fc89` — `feat: add remediation execution orchestration`
+
+Implemented remediation execution orchestration over the existing automation execution service.
+
+The execution layer preserves the existing execution behavior and policy decisions while providing a dedicated remediation result contract.
+
+#### 8.3 — Remediation Proposal Generation — COMPLETE
+
+Commit: `ad71ea1` — `feat: add remediation proposal generation`
+
+Implemented deterministic remediation proposal generation from infrastructure evidence.
+
+Proposals identify the remediation task, reason, and supporting evidence before execution is attempted.
+
+#### 8.4 — Remediation Workflow Orchestration — COMPLETE
+
+Commit: `ef88386` — `feat: add remediation workflow orchestration`
+
+Implemented the remediation workflow that coordinates proposal generation and remediation execution.
+
+The workflow reports proposal, execution, and blocked counts while preserving the existing execution framework.
+
+#### 8.5 — Remediation Audit History — COMPLETE
+
+Commit: `19818e2` — `feat: add remediation audit history`
+
+Implemented persistent remediation audit history through:
+
+- Remediation audit repository
+- Remediation audit service
+- Workflow audit recording
+- Audit repository tests
+- Audit service tests
+- Workflow audit integration tests
+
+Every remediation attempt is recorded with its proposal, execution result, source information, and confirmation state.
+
+#### 8.6 — Remediation API — COMPLETE
+
+Commit: `b7c5b38` — `feat: add remediation API`
+
+Implemented authenticated API access for the remediation lifecycle:
+
+```text
+POST /api/remediation/proposals
+POST /api/remediation/run
+GET  /api/remediation/audit
+```
+
+The API is registered through the existing authenticated HIMP API server and does not create a separate authentication mechanism.
+
+#### 8.7 — Remediation Verification — COMPLETE
+
+Commit: `a25028f` — `feat: add remediation verification`
+
+Implemented post-remediation verification and integrated it into the remediation workflow.
+
+Verification is performed only for allowed remediation executions. Denied remediation is not verified. Verification results are returned with the remediation result and are counted separately by the workflow.
+
+Validation completed for Phase 8.7:
+
+- Remediation verification service tests: 3 passed
+- Remediation workflow tests: 17 passed
+- Full regression: 558 passed
+- Compile: PASS
+- `git diff --check`: PASS
+
+### Phase 8 Architectural Rule
+
+> Do not create a second execution framework. Remediation must reuse the existing automation policy and execution infrastructure.
+
+The Phase 8 lifecycle is therefore:
+
+```text
+Infrastructure Evidence
+        ↓
+Remediation Proposal
+        ↓
+Policy Evaluation
+        ↓
+Approval / Confirmation
+        ↓
+Remediation Execution
+        ↓
+Verification
+        ↓
+Audit History
+        ↓
+API / Operational Visibility
+```
+
+**Phase 8 status:** IN PROGRESS — remediation verification is complete through subphase 8.7.
+
 
 ### Phase 9 — Operational Platform
 
@@ -346,10 +449,10 @@ Reuse the existing automation policy/execution framework.
 | Phase 6.3 | — |
 | Phase 6.4 | — |
 | Phase 6 total | — |
-| Phase 7 | 18–28h |
-| Phase 8 | 18–28h |
+| Phase 7 | — |
+| Phase 8 | TBD |
 | Phase 9 | 20–30h |
-| **Overall remaining** | **56–86h** |
+| **Overall remaining** | TBD + 20–30h |
 
 At approximately 8 hours/week: **~7–10.75 weeks**. This is a planning estimate, not a commitment.
 
@@ -399,46 +502,60 @@ Latest confirmed full regression:
 
 ## 14. Exact Next-Session Starting Point
 
-Begin Phase 7 — Infrastructure Intelligence.
+Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.7 — Remediation Verification.
 
-Phase 6 Orchestration is complete. Workflow Model, Workflow Execution, Workflow History, and Workflow Dashboard are implemented, tested, committed, pushed, and synchronized with origin.
+Completed Phase 8 slices:
 
-Phase 6.4 delivered:
+- 8.1 Remediation Policy Evaluation
+- 8.2 Remediation Execution
+- 8.3 Remediation Proposal Generation
+- 8.4 Remediation Workflow Orchestration
+- 8.5 Remediation Audit History
+- 8.6 Remediation API
+- 8.7 Remediation Verification
 
-- Persistent current_task_id workflow execution state.
-- Workflow execution updates the current task before each automation task runs.
-- Workflow completion clears the current task.
-- Dashboard workflow summary consumes the existing workflow and workflow history services.
-- Dashboard displays workflow status, current task, execution ID, start time, and completion time.
-- Dashboard tests cover running and never-run workflow states.
-- Full regression: 467 passed.
+Latest confirmed implementation commit:
 
-Immediate target:
+```text
+a25028f — feat: add remediation verification
+```
 
-> Begin Phase 7 — Infrastructure Intelligence with asset relationships, infrastructure change detection, health correlation, and deterministic drift/baseline support.
+Latest confirmed full regression:
 
-Then:
+```text
+558 passed
+```
 
-Phase 7 Infrastructure Intelligence
+Compile: PASS
+
+`git diff --check`: PASS
+
+Local and remote are synchronized at `a25028f`.
+
+Immediate next target:
+
+> Continue Phase 8 Automation Intelligence with the next unimplemented remediation capability. Before implementation, define the next subphase contract and complete that slice end-to-end.
+
+Development should continue one subphase at a time:
+
+```text
+Phase 8.7 — Remediation Verification — COMPLETE
         ↓
-Phase 8 Automation Intelligence
+Next Phase 8 subphase — define contract
         ↓
-Phase 9 Operational Platform
+Implement service
+        ↓
+Integrate with existing lifecycle
+        ↓
+Focused tests
+        ↓
+Full regression
+        ↓
+Compile / diff check
+        ↓
+Commit / push / remote verification
+```
+
+Do not begin Phase 9 until the remaining Phase 8 scope has been explicitly defined and completed.
 
 ## 15. Documentation Policy
-
-This document should be maintained in the HIMP repository as the authoritative current checkpoint.
-
-Do not create competing checkpoint documents for the same project state.
-
-When a major phase or working slice closes:
-
-1. Update this document.
-2. Record the actual commit.
-3. Record the actual regression count.
-4. Record remaining work.
-5. Record the next-session starting point.
-6. Commit the documentation separately when appropriate.
-7. Push it to the project remote.
-
-The purpose is continuity: a future session should be able to resume HIMP from this document without reconstructing the project state from conversation history.
