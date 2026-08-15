@@ -134,6 +134,7 @@ class SchedulerService:
                     "last_execution_at": None,
                     "last_execution_elapsed": None,
                     "last_execution_error": None,
+                    "last_execution_return_code": None,
                 }
             )
 
@@ -145,6 +146,7 @@ class SchedulerService:
         )
 
         error = None
+        return_code = None
 
         if isinstance(result, dict):
             nested_result = result.get(
@@ -156,6 +158,17 @@ class SchedulerService:
                 error = nested_result.get(
                     "error"
                 )
+                return_code = nested_result.get(
+                    "return_code"
+                )
+
+                if (
+                    error is None
+                    and not execution["success"]
+                ):
+                    error = nested_result.get(
+                        "stderr"
+                    )
 
         status.update(
             {
@@ -169,6 +182,7 @@ class SchedulerService:
                     "elapsed"
                 ],
                 "last_execution_error": error,
+                "last_execution_return_code": return_code,
             }
         )
 
