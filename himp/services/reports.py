@@ -7,6 +7,7 @@ Provides report inventory and dashboard report information.
 from pathlib import Path
 
 from himp.config import config
+from himp.database.automation_executions import AutomationExecutionRepository
 from himp.lib.ansible import run_playbook
 from himp.models.dashboard import Dashboard
 
@@ -16,6 +17,9 @@ class ReportService:
     def __init__(self):
 
         self.root = Path("reports")
+        self.automation_executions = (
+            AutomationExecutionRepository()
+        )
 
 
     def generate(
@@ -105,6 +109,35 @@ class ReportService:
 
     def operational_summary(self):
         dashboard = self.dashboard()
+        execution_history = (
+            self.automation_executions.history(
+                limit=50
+            )
+        )
+
+        executions = {
+            "total": len(execution_history),
+            "successful": sum(
+                1
+                for execution in execution_history
+                if execution["success"]
+            ),
+            "failed": sum(
+                1
+                for execution in execution_history
+                if not execution["success"]
+            ),
+            "recent": [
+                {
+                    "id": execution["id"],
+                    "task_id": execution["task_id"],
+                    "success": execution["success"],
+                    "elapsed": execution["elapsed"],
+                    "executed_at": execution["executed_at"],
+                }
+                for execution in execution_history
+            ],
+        }
 
         return {
             "generated": (
@@ -144,6 +177,7 @@ class ReportService:
                     self.root / "json"
                 ),
             },
+            "executions": executions,
         }
 
 

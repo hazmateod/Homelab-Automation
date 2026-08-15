@@ -46,6 +46,27 @@ def test_authenticated_reports_page_exposes_operational_summary(
             "discovery": 1,
             "json": 1,
         },
+        "executions": {
+            "total": 2,
+            "successful": 1,
+            "failed": 1,
+            "recent": [
+                {
+                    "id": 3,
+                    "task_id": "scheduled_updates",
+                    "success": True,
+                    "elapsed": 12.5,
+                    "executed_at": "2026-08-15 14:00:00",
+                },
+                {
+                    "id": 2,
+                    "task_id": "generate_reports",
+                    "success": False,
+                    "elapsed": 4.25,
+                    "executed_at": "2026-08-15 13:00:00",
+                },
+            ],
+        },
     }
 
     monkeypatch.setattr(
@@ -69,6 +90,11 @@ def test_authenticated_reports_page_exposes_operational_summary(
     assert "Dashboard Report" in response.text
     assert "43" in response.text
     assert "25.0" in response.text
+    assert "Execution History" in response.text
+    assert "scheduled_updates" in response.text
+    assert "generate_reports" in response.text
+    assert "Successful" in response.text
+    assert "Failed" in response.text
 
 
 def test_reports_api_exposes_operational_summary(
@@ -91,6 +117,27 @@ def test_reports_api_exposes_operational_summary(
             "discovery": 1,
             "json": 1,
         },
+        "executions": {
+            "total": 2,
+            "successful": 1,
+            "failed": 1,
+            "recent": [
+                {
+                    "id": 3,
+                    "task_id": "scheduled_updates",
+                    "success": True,
+                    "elapsed": 12.5,
+                    "executed_at": "2026-08-15 14:00:00",
+                },
+                {
+                    "id": 2,
+                    "task_id": "generate_reports",
+                    "success": False,
+                    "elapsed": 4.25,
+                    "executed_at": "2026-08-15 13:00:00",
+                },
+            ],
+        },
     }
 
     monkeypatch.setattr(
@@ -111,4 +158,25 @@ def test_reports_api_exposes_operational_summary(
 
     assert response.status_code == 200
     assert response.json()["operational_summary"] == expected
+    assert response.json()["operational_summary"]["executions"] == {
+        "total": 2,
+        "successful": 1,
+        "failed": 1,
+        "recent": [
+            {
+                "id": 3,
+                "task_id": "scheduled_updates",
+                "success": True,
+                "elapsed": 12.5,
+                "executed_at": "2026-08-15 14:00:00",
+            },
+            {
+                "id": 2,
+                "task_id": "generate_reports",
+                "success": False,
+                "elapsed": 4.25,
+                "executed_at": "2026-08-15 13:00:00",
+            },
+        ],
+    }
     assert "files" in response.json()
