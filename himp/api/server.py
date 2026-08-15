@@ -432,6 +432,10 @@ def reports(request: Request):
         himp.reports.summary()
     )
 
+    context["operational_summary"] = (
+        himp.reports.operational_summary()
+    )
+
     context["report_files"] = (
         himp.reports.files()
     )
@@ -638,6 +642,9 @@ def reports_api():
     return JSONResponse(
         {
             "summary": himp.reports.summary(),
+            "operational_summary": (
+                himp.reports.operational_summary()
+            ),
             "files": himp.reports.files(),
         }
     )

@@ -103,6 +103,50 @@ class ReportService:
         }
 
 
+    def operational_summary(self):
+        dashboard = self.dashboard()
+
+        return {
+            "generated": (
+                dashboard["generated"]
+                if dashboard
+                else None
+            ),
+            "dashboard": (
+                {
+                    key: dashboard[key]
+                    for key in (
+                        "hosts",
+                        "healthy",
+                        "warnings",
+                        "critical",
+                        "unknown",
+                        "average_score",
+                    )
+                }
+                if dashboard
+                else None
+            ),
+            "reports": {
+                "current": self.count_files(
+                    self.root / "current"
+                ),
+                "history": self.count_files(
+                    self.root / "history"
+                ),
+                "health": self.count_files(
+                    self.root / "health"
+                ),
+                "discovery": self.count_files(
+                    self.root / "discovery"
+                ),
+                "json": self.count_files(
+                    self.root / "json"
+                ),
+            },
+        }
+
+
     def files(self):
 
         reports = []

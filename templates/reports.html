@@ -19,6 +19,104 @@
 </div>
 
 
+<div class="card bg-dark text-light border-secondary mb-4">
+    <div class="card-header border-secondary">
+        <h2 class="mb-0">
+            Operational Report Summary
+        </h2>
+    </div>
+
+    <div class="card-body">
+
+        {% if operational_summary.dashboard %}
+
+        <div class="row g-3">
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Hosts
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational_summary.dashboard.hosts }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Healthy
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational_summary.dashboard.healthy }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Warnings
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational_summary.dashboard.warnings }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Critical
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational_summary.dashboard.critical }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Unknown
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational_summary.dashboard.unknown }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Average Score
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational_summary.dashboard.average_score }}
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <div class="mt-3 small text-secondary">
+            Generated:
+            {{ operational_summary.generated }}
+        </div>
+
+        {% else %}
+
+        <div class="text-secondary">
+            No dashboard report is currently available.
+        </div>
+
+        {% endif %}
+
+    </div>
+</div>
+
+
 <div class="row mb-4">
 
 {% for name, count in reports.items() if name != "dashboard" %}
