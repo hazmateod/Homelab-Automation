@@ -1,13 +1,13 @@
-# HIMP Project Checkpoint — Phase 8.9 Operationalization
+# HIMP Project Checkpoint — Phase 8.10 Remediation UI / Dashboard Integration
 
 **Checkpoint date:** 2026-08-15
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `7b07e73` — `feat: operationalize scheduled remediation`
-**Remote:** `origin/feature/plugin-sdk` pending push of `7b07e73`
+**Latest confirmed commit:** `1f6a3b8` — `feat: add remediation navigation`
+**Remote:** `origin/feature/plugin-sdk` synchronized at `1f6a3b8`
 **Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `581 passed`
+**Latest full regression:** `583 passed`
 **Current phase:** Phase 8 — Automation Intelligence
-**Current subphase:** Phase 8.9 — Operationalization
+**Current subphase:** Phase 8.10 — Remediation UI / Dashboard Integration
 **Phase 8 status:** IN PROGRESS
 **Phase 7 status:** COMPLETE
 
@@ -460,6 +460,30 @@ Validation completed for Phase 8.9:
 - Compile: PASS
 - `git diff --check`: PASS
 
+#### 8.10 — Remediation UI / Dashboard Integration — IN PROGRESS
+
+Implemented and validated:
+
+- Authenticated `/remediation` page using the existing remediation audit repository
+- Remediation audit history table using existing audit records
+- Safe empty-state rendering when no audit records exist
+- Remediation navigation entry in the existing sidebar
+- Existing page-session authentication reused
+- No new remediation execution, policy, audit, or scheduling infrastructure introduced
+
+Completed 8.10 slices:
+
+- `7b11e60` — `feat: add remediation audit page`
+- `1f6a3b8` — `feat: add remediation navigation`
+
+Validation completed after the current 8.10 slices:
+
+- Focused web-security tests: 10 passed
+- Full regression: 583 passed
+- Compile: PASS
+- `git diff --check`: PASS
+- Local branch == `origin/feature/plugin-sdk`
+
 ### Phase 8 Architectural Rule
 
 > Do not create a second execution framework. Remediation must reuse the existing automation policy and execution infrastructure.
@@ -484,7 +508,7 @@ Audit History
 API / Operational Visibility
 ```
 
-**Phase 8 status:** IN PROGRESS — remediation operationalization is complete through subphase 8.9.
+**Phase 8 status:** IN PROGRESS — remediation UI / dashboard integration is complete through the audit page and navigation slices.
 
 
 ### Phase 9 — Operational Platform
@@ -557,7 +581,7 @@ Latest confirmed full regression:
 
 ## 14. Exact Next-Session Starting Point
 
-Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.9 — Operationalization.
+Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.9 and is currently in subphase 8.10 — Remediation UI / Dashboard Integration.
 
 Completed Phase 8 slices:
 
@@ -570,35 +594,38 @@ Completed Phase 8 slices:
 - 8.7 Remediation Verification
 - 8.8 Safety / Approval Hardening
 - 8.9 Operationalization
+- 8.10 Remediation UI / Dashboard Integration — IN PROGRESS
 
 Latest confirmed implementation commit:
 
 ```text
-7b07e73 — feat: operationalize scheduled remediation
+1f6a3b8 — feat: add remediation navigation
 ```
 
 Latest confirmed full regression:
 
 ```text
-581 passed
+583 passed
 ```
 
 Compile: PASS
 
 `git diff --check`: PASS
 
-Local branch is ahead of remote by commits `7b07e73` and `ce0fe2c`; push is the next repository synchronization step.
+Local branch and `origin/feature/plugin-sdk` are synchronized at `1f6a3b8`.
 
 Immediate next target:
 
-> Continue Phase 8 Automation Intelligence with the next unimplemented remediation capability. Before implementation, inspect the existing remediation lifecycle and define the next subphase contract without creating duplicate execution, retry, timeout, policy, audit, verification, scheduling, or operational-dispatch frameworks.
+> Continue Phase 8.10 Remediation UI / Dashboard Integration. Before implementation, inspect the existing UI/backend contract and define the next UI slice without creating duplicate execution, policy, audit, verification, scheduling, or operational-dispatch frameworks.
 
 Development should continue one subphase at a time:
 
 ```text
 Phase 8.9 — Operationalization — COMPLETE
         ↓
-Phase 8.10 — Next remediation capability — define contract
+Phase 8.10 — Remediation UI / Dashboard Integration — IN PROGRESS
+        ↓
+Next UI slice — define contract
         ↓
 Implement service
         ↓
