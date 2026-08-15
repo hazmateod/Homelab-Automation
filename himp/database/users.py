@@ -313,6 +313,61 @@ class UserRepository:
             ),
         )
 
+    def set_role(self, username, role):
+        username = self.normalize_username(username)
+
+        self._validate_role(role)
+
+        now = datetime.now(timezone.utc).replace(
+            tzinfo=None
+        )
+
+        self.database.execute(
+            """
+            UPDATE users
+            SET
+                role=?,
+                updated_at=?
+            WHERE username=?
+            """,
+            (
+                role,
+                now,
+                username,
+            ),
+        )
+
+    def set_display_name(
+        self,
+        username,
+        display_name,
+    ):
+        username = self.normalize_username(username)
+
+        if not isinstance(display_name, str):
+            raise TypeError(
+                "Display name must be a string"
+            )
+
+        now = datetime.now(timezone.utc).replace(
+            tzinfo=None
+        )
+
+        self.database.execute(
+            """
+            UPDATE users
+            SET
+                display_name=?,
+                updated_at=?
+            WHERE username=?
+            """,
+            (
+                display_name,
+                now,
+                username,
+            ),
+        )
+
     def set_password_change_required(
         self,
         username,

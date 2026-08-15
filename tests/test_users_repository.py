@@ -372,3 +372,40 @@ def test_set_password_rejects_non_boolean_password_change_state():
             "new-hash",
             password_change_required="yes",
         )
+
+
+def test_set_role_is_persisted():
+    repository = make_repository()
+
+    repository.create(
+        username="admin",
+        password_hash="$argon2id$test",
+        role="admin",
+        display_name="Administrator",
+    )
+
+    repository.set_role("admin", "operator")
+
+    user = repository.get("admin")
+
+    assert user.role == "operator"
+
+
+def test_set_display_name_is_persisted():
+    repository = make_repository()
+
+    repository.create(
+        username="admin",
+        password_hash="$argon2id$test",
+        role="admin",
+        display_name="Administrator",
+    )
+
+    repository.set_display_name(
+        "admin",
+        "Updated Administrator",
+    )
+
+    user = repository.get("admin")
+
+    assert user.display_name == "Updated Administrator"

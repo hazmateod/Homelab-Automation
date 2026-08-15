@@ -17,6 +17,7 @@ from himp.services.reports import ReportService
 from himp.services.settings import SettingsService
 from himp.services.validation import ValidationService
 from himp.services.update import UpdateService
+from himp.services.user_management import UserManagementService
 
 
 logger = logging.getLogger("himp")
@@ -49,6 +50,7 @@ class HIMP:
         self.settings = SettingsService()
 
         self.updates = UpdateService()
+        self.user_management = UserManagementService()
 
         self.automation = AutomationService()
 

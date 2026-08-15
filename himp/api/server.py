@@ -25,6 +25,7 @@ from himp.api.discovery import router as discovery_router
 from himp.api.execution import router as execution_router
 from himp.api.inventory import router as inventory_router
 from himp.api.update import router as update_router
+from himp.api.users import router as users_router
 from himp.api.health import router as health_router
 from himp.api.host_health import router as host_health_router
 from himp.api.health_history import router as health_history_router
@@ -106,6 +107,12 @@ app.include_router(
     update_router,
     prefix="/api",
     dependencies=[Depends(require_session)],
+)
+
+app.include_router(
+    users_router,
+    prefix="/api",
+    dependencies=[Depends(require_admin)],
 )
 
 app.include_router(
