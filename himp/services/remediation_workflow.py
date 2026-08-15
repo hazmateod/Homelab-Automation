@@ -21,6 +21,9 @@ from himp.services.remediation_policy import (
 from himp.services.remediation_proposals import (
     RemediationProposalService,
 )
+from himp.services.remediation_verification import (
+    RemediationVerificationService,
+)
 
 
 class RemediationWorkflowService:
@@ -36,6 +39,7 @@ class RemediationWorkflowService:
         proposals=None,
         execution=None,
         audit=None,
+        verification=None,
     ):
         self.proposals = (
             proposals
@@ -63,6 +67,12 @@ class RemediationWorkflowService:
             )
         )
 
+        self.verification = (
+            verification
+            if verification is not None
+            else RemediationVerificationService()
+        )
+
     def run(
         self,
         source_type,
@@ -80,12 +90,25 @@ class RemediationWorkflowService:
 
         proposals = result["proposals"]
         results = []
+        verification_count = 0
 
         for proposal in proposals:
             remediation = self.execution.execute(
                 proposal,
                 confirmed=confirmed,
             )
+
+            if remediation["decision"] == "ALLOW":
+                verification_result = self.verification.verify(
+                    proposal=proposal,
+                    remediation=remediation,
+                )
+
+                remediation["verification"] = (
+                    verification_result
+                )
+
+                verification_count += 1
 
             self.audit.record(
                 source_type=source_type,
@@ -118,5 +141,6 @@ class RemediationWorkflowService:
             "proposal_count": len(proposals),
             "executed_count": executed_count,
             "blocked_count": blocked_count,
+            "verification_count": verification_count,
             "results": results,
         }

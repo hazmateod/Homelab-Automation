@@ -303,6 +303,7 @@ def test_remediation_workflow_returns_empty_result_when_no_proposals():
         "proposal_count": 0,
         "executed_count": 0,
         "blocked_count": 0,
+        "verification_count": 0,
         "results": [],
     }
 
@@ -646,3 +647,176 @@ def test_audit_failure_propagates():
             source_type="host",
             source_id="pve01",
         )
+
+
+class FakeVerificationService:
+    def __init__(
+        self,
+        result=None,
+    ):
+        self.result = result or {
+            "status": "VERIFIED",
+            "success": True,
+            "hostname": "pve02",
+        }
+        self.calls = []
+
+    def verify(
+        self,
+        proposal,
+        remediation,
+    ):
+        self.calls.append(
+            {
+                "proposal": proposal,
+                "remediation": remediation,
+            }
+        )
+
+        return self.result
+
+
+def make_verified_workflow(
+    proposals=None,
+    execution=None,
+    audit=None,
+    verification=None,
+):
+    proposal_service = (
+        FakeProposalService(
+            proposals=proposals or [
+                {
+                    "task_id": "scheduled_updates",
+                    "reason": "Maintenance required.",
+                    "evidence": {
+                        "target_type": "host",
+                        "target_id": "pve02",
+                    },
+                }
+            ]
+        )
+    )
+
+    execution_service = (
+        execution
+        or FakeExecutionService()
+    )
+
+    audit_service = (
+        audit
+        or FakeAudit()
+    )
+
+    verification_service = (
+        verification
+        or FakeVerificationService()
+    )
+
+    workflow = RemediationWorkflowService(
+        proposals=proposal_service,
+        execution=execution_service,
+        audit=audit_service,
+        verification=verification_service,
+    )
+
+    return (
+        workflow,
+        proposal_service,
+        execution_service,
+        verification_service,
+        audit_service,
+    )
+
+
+def test_allowed_remediation_is_verified():
+    (
+        workflow,
+        _,
+        execution,
+        verification,
+        audit,
+    ) = make_verified_workflow()
+
+    result = workflow.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["verification_count"] == 1
+    assert result["results"][0]["verification"] == {
+        "status": "VERIFIED",
+        "success": True,
+        "hostname": "pve02",
+    }
+
+    assert len(execution.calls) == 1
+    assert len(verification.calls) == 1
+    assert len(audit.calls) == 1
+
+
+def test_denied_remediation_is_not_verified():
+    proposal = {
+        "task_id": "scheduled_updates",
+        "reason": "Maintenance required.",
+        "evidence": {
+            "target_type": "host",
+            "target_id": "pve02",
+        },
+    }
+
+    execution = FakeExecutionService(
+        decisions=["DENY"]
+    )
+
+    (
+        workflow,
+        _,
+        _,
+        verification,
+        audit,
+    ) = make_verified_workflow(
+        proposals=[proposal],
+        execution=execution,
+    )
+
+    result = workflow.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["blocked_count"] == 1
+    assert result["verification_count"] == 0
+    assert verification.calls == []
+    assert len(audit.calls) == 1
+
+
+def test_failed_verification_is_returned():
+    verification = FakeVerificationService(
+        result={
+            "status": "FAILED",
+            "success": False,
+            "hostname": "pve02",
+        }
+    )
+
+    (
+        workflow,
+        _,
+        _,
+        _,
+        _,
+    ) = make_verified_workflow(
+        verification=verification,
+    )
+
+    result = workflow.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["verification_count"] == 1
+    assert result["results"][0]["verification"] == {
+        "status": "FAILED",
+        "success": False,
+        "hostname": "pve02",
+    }
