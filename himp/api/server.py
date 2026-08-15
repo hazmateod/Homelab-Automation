@@ -38,6 +38,9 @@ from himp.api.workflows import (
 from himp.api.remediation import (
     router as remediation_router,
 )
+from himp.database.remediation_audit import (
+    RemediationAuditRepository,
+)
 from himp.services.scheduler import SchedulerService
 from himp.app import HIMP
 
@@ -164,6 +167,10 @@ templates = Jinja2Templates(
 )
 
 himp = HIMP()
+
+remediation_audit_repository = (
+    RemediationAuditRepository()
+)
 
 workflow_execution_service.automation_service = (
     himp.automation
@@ -581,6 +588,24 @@ def history(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="history.html",
+        context=context,
+    )
+
+
+@app.get("/remediation", dependencies=[Depends(require_page_session)])
+def remediation(request: Request):
+
+    context = dashboard_context()
+
+    context["remediation"] = (
+        remediation_audit_repository.history(
+            limit=50,
+        )
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="remediation.html",
         context=context,
     )
 

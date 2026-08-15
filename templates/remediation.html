@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<h1 class="mb-4">
+    Remediation
+</h1>
+
+<div class="card bg-secondary border-secondary shadow">
+
+    <div class="card-header">
+        <strong>
+            Remediation Audit History
+        </strong>
+    </div>
+
+    <div class="card-body p-0">
+
+        {% if remediation %}
+
+        <div class="table-responsive">
+
+            <table class="table table-dark table-hover table-striped mb-0 align-middle">
+
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Host</th>
+                        <th>Task</th>
+                        <th>Policy</th>
+                        <th>Risk</th>
+                        <th>Execution</th>
+                        <th>Confirmation</th>
+                        <th>Audit</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                {% for item in remediation %}
+
+                    <tr>
+
+                        <td>
+                            {{ item.id }}
+                        </td>
+
+                        <td>
+                            <strong>{{ item.source_id }}</strong>
+                            <div class="text-secondary small">
+                                {{ item.source_type }}
+                            </div>
+                        </td>
+
+                        <td>
+                            {{ item.task_id }}
+                        </td>
+
+                        <td>
+                            {% if item.decision == "ALLOW" %}
+                                <span class="badge bg-success">
+                                    ALLOW
+                                </span>
+                            {% elif item.decision == "DENY" %}
+                                <span class="badge bg-danger">
+                                    DENY
+                                </span>
+                            {% else %}
+                                <span class="badge bg-warning text-dark">
+                                    {{ item.decision }}
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {{ item.risk_level or "—" }}
+                        </td>
+
+                        <td>
+                            {% if item.execution_success is true %}
+                                <span class="badge bg-success">
+                                    SUCCESS
+                                </span>
+                            {% elif item.execution_success is false %}
+                                <span class="badge bg-danger">
+                                    FAILED
+                                </span>
+                            {% else %}
+                                <span class="text-secondary">
+                                    —
+                                </span>
+                            {% endif %}
+
+                            {% if item.execution_id is not none %}
+                                <div class="text-secondary small">
+                                    ID {{ item.execution_id }}
+                                </div>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.confirmed %}
+                                <span class="badge bg-success">
+                                    Confirmed
+                                </span>
+                            {% elif item.confirmation_required %}
+                                <span class="badge bg-warning text-dark">
+                                    Required
+                                </span>
+                            {% else %}
+                                <span class="text-secondary">
+                                    No
+                                </span>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            <div class="small">
+                                {{ item.created_at }}
+                            </div>
+                            <div class="text-secondary small">
+                                {{ item.reason }}
+                            </div>
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+        <div class="p-4 text-secondary">
+            No remediation audit records are available.
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endblock %}
