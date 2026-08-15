@@ -2138,7 +2138,23 @@ function initializeRemediationRun() {
         return result;
     };
 
-    const renderProposalPreview = result => {
+    const resetRunState = () => {
+
+        button.disabled = false;
+        button.textContent =
+            "Run Remediation";
+
+        status.textContent =
+            "Ready";
+
+        status.className =
+            "badge bg-secondary";
+    };
+
+    const renderProposalPreview = (
+        result,
+        onProceed
+    ) => {
 
         previewPanel.replaceChildren();
 
@@ -2228,6 +2244,95 @@ function initializeRemediationRun() {
             });
 
             panel.appendChild(list);
+
+            const actions =
+                document.createElement("div");
+
+            actions.className =
+                "mt-3 d-flex gap-2";
+
+            const proceedButton =
+                document.createElement("button");
+
+            proceedButton.type = "button";
+            proceedButton.className =
+                "btn btn-primary btn-sm";
+            proceedButton.textContent =
+                "Proceed with Remediation";
+
+            const cancelButton =
+                document.createElement("button");
+
+            cancelButton.type = "button";
+            cancelButton.className =
+                "btn btn-secondary btn-sm";
+            cancelButton.textContent =
+                "Cancel";
+
+            proceedButton.addEventListener(
+                "click",
+                async () => {
+
+                    proceedButton.disabled = true;
+                    cancelButton.disabled = true;
+
+                    proceedButton.textContent =
+                        "Executing...";
+
+                    status.textContent =
+                        "Running";
+
+                    status.className =
+                        "badge bg-warning text-dark";
+
+                    try {
+
+                        await onProceed();
+
+                    } catch (error) {
+
+                        renderError(error);
+
+                    } finally {
+
+                        proceedButton.disabled = false;
+                        cancelButton.disabled = false;
+
+                        proceedButton.textContent =
+                            "Proceed with Remediation";
+                    }
+                }
+            );
+
+            cancelButton.addEventListener(
+                "click",
+                () => {
+
+                    previewPanel.classList.add(
+                        "d-none"
+                    );
+
+                    previewPanel.replaceChildren();
+
+                    resultPanel.classList.add(
+                        "d-none"
+                    );
+
+                    resultPanel.replaceChildren();
+
+                    resetRunState();
+                }
+            );
+
+            actions.appendChild(
+                proceedButton
+            );
+
+            actions.appendChild(
+                cancelButton
+            );
+
+            panel.appendChild(actions);
         }
 
         previewPanel.appendChild(panel);
@@ -2631,21 +2736,33 @@ function initializeRemediationRun() {
                     );
 
                 renderProposalPreview(
-                    proposalResult
+                    proposalResult,
+                    async () => {
+
+                        button.disabled = true;
+                        button.textContent =
+                            "Running...";
+
+                        status.textContent =
+                            "Running";
+
+                        status.className =
+                            "badge bg-warning text-dark";
+
+                        await submitRun(
+                            false
+                        );
+                    }
                 );
 
                 button.textContent =
-                    "Running...";
+                    "Proposal Ready";
 
                 status.textContent =
-                    "Running";
+                    "Review Required";
 
                 status.className =
-                    "badge bg-warning text-dark";
-
-                await submitRun(
-                    false
-                );
+                    "badge bg-info text-dark";
 
             } catch (error) {
 
