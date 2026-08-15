@@ -1,13 +1,15 @@
-# HIMP Project Checkpoint — Phase 8.10 Remediation UI / Dashboard Integration
+# HIMP Project Checkpoint — Phase 9.1 Unified Operations Dashboard
 
 **Checkpoint date:** 2026-08-15
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `8f743fc` — `feat: add remediation summary to dashboard`
-**Remote:** `origin/feature/plugin-sdk` synchronized at `8f743fc`
-**Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `593 passed`
-**Current phase:** Phase 8 — Automation Intelligence
-**Current subphase:** Phase 8 — COMPLETE
+**Latest local commit:** `fb69e92` — `feat: add operational dashboard summary`
+**Remote:** `origin/feature/plugin-sdk` is behind local by 2 commits
+**Working tree:** clean
+**Latest focused Phase 9.1 validation:** `43 passed`
+**Latest previously confirmed full regression:** `593 passed`
+**Current phase:** Phase 9 — Operational Platform
+**Current subphase:** Phase 9.1 — Unified Operations Dashboard — COMPLETE
+**Phase 9 status:** IN PROGRESS
 **Phase 8 status:** COMPLETE
 **Phase 7 status:** COMPLETE
 
@@ -534,13 +536,62 @@ API / Operational Visibility
 
 ### Phase 9 — Operational Platform
 
-**20–30 hours**
+**20–30 hours original estimate**
 
-1. Unified dashboard
-2. Operational reports
-3. HIMP self-health
-4. Disaster recovery documentation
-5. Release/upgrade process
+#### Phase 9.1 — Unified Operations Dashboard — COMPLETE
+
+Implemented the first operational dashboard slice using existing HIMP services and execution infrastructure.
+
+The dashboard now exposes:
+
+- unified operational status
+- infrastructure health summary
+- workflow summary
+- automation summary
+- remediation summary
+- attention-required items
+- recent plugin execution activity
+
+Phase 9.1 validation:
+
+```text
+43 passed
+git diff --check: PASS
+HIMP service: active
+deployed operational templates: verified
+authenticated dashboard redirect: verified
+```
+
+Known live operational conditions surfaced by the dashboard:
+
+- `pbs01` currently fails its SSH health check because the connection to `10.10.37.52:22` timed out.
+- `Scheduled Updates` has a failed last execution.
+- 43 remediation proposals currently require confirmation.
+
+These are live operational conditions, not Phase 9.1 test failures.
+
+#### Remaining Phase 9 Work
+
+##### Phase 9.2 — Operational Reporting
+
+Reports for infrastructure health, inventory changes, remediation, automation execution, and workflow history.
+
+##### Phase 9.3 — HIMP Self-Health
+
+Monitor the API, database, scheduler, automation engine, dependencies, storage, and service state.
+
+##### Phase 9.4 — Disaster Recovery Documentation
+
+Document what HIMP is, where it lives, what data matters, how to restore it, how to rebuild it, and how to validate the restored system.
+
+##### Phase 9.5 — Release / Upgrade Process
+
+Formalize Git → tests → deployment → health validation → rollback decision → checkpoint.
+
+##### Phase 9.6 — Phase 9 Production Gate
+
+Final focused tests, full regression, compile validation, diff check, deployment validation, documentation review, and clean Git checkpoint.
+
 
 ## 11. Current Remaining Effort
 
@@ -550,11 +601,17 @@ API / Operational Visibility
 | Phase 6.4 | — |
 | Phase 6 total | — |
 | Phase 7 | — |
-| Phase 8 | TBD |
-| Phase 9 | 20–30h |
-| **Overall remaining** | TBD + 20–30h |
+| Phase 8 | — |
+| Phase 9.1 | — |
+| Phase 9.2 | 3–5h |
+| Phase 9.3 | 3–5h |
+| Phase 9.4 | 3–5h |
+| Phase 9.5 | 3–5h |
+| Phase 9.6 | 2–3h |
+| **Phase 9 remaining** | **14–21h** |
+| **Overall remaining** | **14–21h** |
 
-At approximately 8 hours/week: **~7–10.75 weeks**. This is a planning estimate, not a commitment.
+At approximately 8 hours/week: **~2–3 weeks**. This is a planning estimate, not a commitment.
 
 ## 12. Development Rules
 
@@ -581,88 +638,104 @@ At approximately 8 hours/week: **~7–10.75 weeks**. This is a planning estimate
 Branch:
 feature/plugin-sdk
 
-Latest confirmed commit:
-ece86f3
+Latest local commit:
+fb69e92
 
 Commit:
-feat: add remediation proposal review gate
+feat: add operational dashboard summary
 
 Remote:
 origin/feature/plugin-sdk
 
-Last confirmed:
-LOCAL == REMOTE
+Current state:
+LOCAL AHEAD OF REMOTE BY 2 COMMITS
 
 Working tree:
 clean
 
-Latest confirmed full regression:
-590 passed
+Latest focused Phase 9.1 validation:
+43 passed
+
+Latest previously confirmed full regression:
+593 passed
 ```
+
+The current Phase 9.1 implementation commits have not yet been pushed. The next checkpoint action is to push the pending commits and verify local and remote commit hashes match.
 
 ## 14. Exact Next-Session Starting Point
 
-Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.10 — Remediation UI / Dashboard Integration.
+Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.10. Phase 9.1 — Unified Operations Dashboard is complete.
 
-Completed Phase 8 slices:
+Completed Phase 9.1 work:
 
-- 8.1 Remediation Policy Evaluation
-- 8.2 Remediation Execution
-- 8.3 Remediation Proposal Generation
-- 8.4 Remediation Workflow Orchestration
-- 8.5 Remediation Audit History
-- 8.6 Remediation API
-- 8.7 Remediation Verification
-- 8.8 Safety / Approval Hardening
-- 8.9 Operationalization
-- 8.10 Remediation UI / Dashboard Integration — COMPLETE
+- Unified operational dashboard summary
+- Infrastructure health summary
+- Workflow summary
+- Automation summary
+- Remediation summary
+- Attention-required operational items
+- Recent plugin execution activity
+- Dashboard operational components
+- Dashboard service tests
+- Dashboard/API integration validation
 
-Latest confirmed implementation commit:
-
-```text
-ece86f3 — feat: add remediation proposal review gate
-```
-
-Latest confirmed full regression:
+Latest local implementation commit:
 
 ```text
-590 passed
+fb69e92 — feat: add operational dashboard summary
 ```
 
-Compile: PASS
+Phase 9.1 focused validation:
 
-`git diff --check`: PASS
+```text
+43 passed
+git diff --check: PASS
+```
 
-Local branch and `origin/feature/plugin-sdk` are synchronized at `8f743fc`.
+Deployment validation:
+
+```text
+HIMP service: active
+Operational templates: deployed
+Dashboard route: responding
+Unauthenticated dashboard request: redirects to /login
+```
 
 Immediate next target:
 
-> Begin Phase 9 — Operational Platform. Before implementation, inspect the existing Phase 9 plan and current repository architecture, then define the first implementation slice without creating duplicate execution, policy, audit, verification, scheduling, or operational-dispatch frameworks.
+> Begin Phase 9.2 — Operational Reporting. Before implementation, inspect the existing reporting, inventory, remediation, execution, and workflow-history services and reuse them rather than creating duplicate reporting or data-access frameworks.
 
 Development should continue one subphase at a time:
 
 ```text
-Phase 8.10 — Remediation UI / Dashboard Integration — COMPLETE
+Phase 9.1 — Unified Operations Dashboard — COMPLETE
         ↓
-Phase 9 — Operational Platform
+Phase 9.2 — Operational Reporting
         ↓
-Inspect Phase 9 plan and existing architecture
+Inspect existing reporting/data services
         ↓
-Define first implementation slice
+Define reporting contract
         ↓
-Implement service
-        ↓
-Integrate with existing lifecycle
+Implement one complete reporting slice
         ↓
 Focused tests
         ↓
 Full regression
         ↓
-Compile / diff check
+Compile
         ↓
-Commit / push / remote verification
+git diff --check
+        ↓
+Review
+        ↓
+Commit
+        ↓
+Push
+        ↓
+Verify local == remote
+        ↓
+Checkpoint
+        ↓
+Phase 9.3 — HIMP Self-Health
 ```
-
-Do not begin Phase 9 until the remaining Phase 8 scope has been explicitly defined and completed.
-
 ## 15. Documentation Policy
