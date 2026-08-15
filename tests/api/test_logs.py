@@ -1,0 +1,133 @@
+from fastapi.testclient import TestClient
+
+from himp.api import server
+from himp.api.dependencies import require_page_session, require_session
+
+
+def authenticated_session():
+    return {"username": "test-admin"}
+
+
+def test_logs_api_requires_session():
+    with TestClient(server.app) as client:
+        response = client.get("/api/logs")
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == (
+        "Authentication required"
+    )
+
+
+def test_logs_api_returns_normalized_records(monkeypatch):
+    expected = [
+        {
+            "id": "automation:1",
+            "timestamp": "2026-08-15 14:00:00",
+            "source": "automation",
+            "event": "automation_execution",
+            "status": "success",
+            "message": "Automation execution: scheduled_updates",
+            "details": {
+                "task_id": "scheduled_updates",
+            },
+        }
+    ]
+
+    monkeypatch.setattr(
+        server.log_service,
+        "history",
+        lambda limit: expected,
+    )
+
+    server.app.dependency_overrides[
+        require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/api/logs?limit=25")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "logs": expected,
+        "limit": 25,
+    }
+
+
+def test_logs_api_clamps_limit(monkeypatch):
+    captured = {}
+
+    def fake_history(limit):
+        captured["limit"] = limit
+        return []
+
+    monkeypatch.setattr(
+        server.log_service,
+        "history",
+        fake_history,
+    )
+
+    server.app.dependency_overrides[
+        require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/api/logs?limit=9999")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert captured["limit"] == 500
+    assert response.json()["limit"] == 500
+
+
+def test_authenticated_history_page_uses_log_service(monkeypatch):
+    expected = [
+        {
+            "id": "automation:1",
+            "timestamp": "2026-08-15 14:00:00",
+            "source": "automation",
+            "event": "automation_execution",
+            "status": "success",
+            "message": "Automation execution: scheduled_updates",
+            "details": {
+                "task_id": "scheduled_updates",
+            },
+        }
+    ]
+
+    monkeypatch.setattr(
+        server.log_service,
+        "history",
+        lambda limit: expected,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/history")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "Operational Logs" in response.text
+    assert "automation_execution" in response.text
+    assert "scheduled_updates" in response.text
+    assert "View Details" in response.text
+
+
+def test_history_page_requires_session():
+    with TestClient(server.app) as client:
+        response = client.get(
+            "/history",
+            follow_redirects=False,
+        )
+
+    assert response.status_code == 303
+    assert response.headers["location"] == "/login"

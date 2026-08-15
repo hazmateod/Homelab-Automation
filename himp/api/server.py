@@ -43,6 +43,7 @@ from himp.database.remediation_audit import (
     RemediationAuditRepository,
 )
 from himp.services.scheduler import SchedulerService
+from himp.services.logs import LogService
 from himp.app import HIMP
 
 
@@ -178,6 +179,8 @@ himp = HIMP()
 remediation_audit_repository = (
     RemediationAuditRepository()
 )
+
+log_service = LogService()
 
 workflow_execution_service.automation_service = (
     himp.automation
@@ -611,14 +614,25 @@ def history(request: Request):
 
     context = dashboard_context()
 
-    context["history"] = (
-        himp.execution.history(50)
-    )
+    context["history"] = log_service.history(100)
 
     return templates.TemplateResponse(
         request=request,
         name="history.html",
         context=context,
+    )
+
+
+@app.get("/api/logs", dependencies=[Depends(require_session)])
+def logs_api(limit: int = 100):
+
+    limit = max(1, min(limit, 500))
+
+    return JSONResponse(
+        {
+            "logs": log_service.history(limit),
+            "limit": limit,
+        }
     )
 
 

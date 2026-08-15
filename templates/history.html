@@ -2,154 +2,172 @@
 
 {% block content %}
 
-<h1 class="mb-4">
+<div class="row mb-4 align-items-center">
 
-    Execution History
+    <div class="col">
 
-</h1>
+        <h1 class="mb-1">
+            Operational Logs
+        </h1>
 
-<div class="card bg-secondary border-secondary shadow">
-
-    <div class="card-header">
-
-        <strong>
-
-            Recent Plugin Executions
-
-        </strong>
+        <p class="text-secondary mb-0">
+            Unified execution, workflow, plugin, and remediation history.
+        </p>
 
     </div>
 
-    <div class="card-body p-0">
+    <div class="col-auto">
 
-        <table class="table table-dark table-hover table-striped mb-0 align-middle">
-
-            <thead>
-
-                <tr>
-
-                    <th>ID</th>
-
-                    <th>Plugin</th>
-
-                    <th>Status</th>
-
-                    <th>Runtime</th>
-
-                    <th>Return Code</th>
-
-                    <th>Executed</th>
-
-                <th>Actions</th>
-
-                </tr>
-
-            </thead>
-
-            <tbody>
-
-            {% for execution in history %}
-
-                <tr>
-
-                    <td>
-
-                        {{ execution.id }}
-
-                    </td>
-
-                    <td>
-
-                        {{ execution.plugin_name }}
-
-                    </td>
-
-                    <td>
-
-                        {% if execution.success %}
-
-                            <span class="badge bg-success">
-
-                                Success
-
-                            </span>
-
-                        {% else %}
-
-                            <span class="badge bg-danger">
-
-                                Failed
-
-                            </span>
-
-                        {% endif %}
-
-                    </td>
-
-                    <td>
-
-                        {{ "%.3f"|format(execution.elapsed) }} sec
-
-                    </td>
-
-                    <td>
-
-                        {{ execution.return_code }}
-
-                    </td>
-
-                    <td>
-
-                        {{ execution.executed_at }}
-
-                    </td>
-
-                    <td>
-
-                        <button
-                            type="button"
-                            class="btn btn-sm btn-outline-info execution-details-button"
-                            data-bs-toggle="modal"
-                            data-bs-target="#executionDetailsModal"
-                            data-execution-id="{{ execution.id }}"
-                        >
-                            View Details
-                        </button>
-
-                    </td>
-
-                </tr>
-
-            {% endfor %}
-
-            </tbody>
-
-        </table>
+        <span class="badge bg-secondary">
+            {{ history|length }} events
+        </span>
 
     </div>
 
 </div>
 
 
-<!-- Execution Details Modal -->
+<div class="card bg-secondary border-secondary shadow">
+
+    <div class="card-header d-flex justify-content-between align-items-center">
+
+        <strong>
+            Recent Operational Events
+        </strong>
+
+        <span class="text-secondary small">
+            Latest 100
+        </span>
+
+    </div>
+
+    <div class="card-body p-0">
+
+        <div class="table-responsive">
+
+            <table class="table table-dark table-hover table-striped mb-0 align-middle">
+
+                <thead>
+
+                    <tr>
+
+                        <th>Time</th>
+                        <th>Source</th>
+                        <th>Event</th>
+                        <th>Status</th>
+                        <th>Message</th>
+                        <th>Actions</th>
+
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                {% for record in history %}
+
+                    <tr>
+
+                        <td class="text-nowrap">
+                            {{ record.timestamp }}
+                        </td>
+
+                        <td>
+                            <span class="badge bg-info text-dark">
+                                {{ record.source }}
+                            </span>
+                        </td>
+
+                        <td>
+                            {{ record.event }}
+                        </td>
+
+                        <td>
+
+                            {% if record.status in ["success", "ok"] %}
+
+                                <span class="badge bg-success">
+                                    {{ record.status }}
+                                </span>
+
+                            {% elif record.status in ["running"] %}
+
+                                <span class="badge bg-warning text-dark">
+                                    {{ record.status }}
+                                </span>
+
+                            {% else %}
+
+                                <span class="badge bg-danger">
+                                    {{ record.status }}
+                                </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            {{ record.message }}
+                        </td>
+
+                        <td>
+
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-info log-details-button"
+                                data-bs-toggle="modal"
+                                data-bs-target="#logDetailsModal"
+                                data-log-id="{{ record.id }}"
+                            >
+                                View Details
+                            </button>
+
+                        </td>
+
+                    </tr>
+
+                {% else %}
+
+                    <tr>
+
+                        <td colspan="6" class="text-center text-secondary py-4">
+                            No operational log events found.
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+    </div>
+
+</div>
+
 
 <div
     class="modal fade"
-    id="executionDetailsModal"
+    id="logDetailsModal"
     tabindex="-1"
-    aria-labelledby="executionDetailsModalLabel"
+    aria-labelledby="logDetailsModalLabel"
     aria-hidden="true"
 >
+
     <div class="modal-dialog modal-xl">
+
         <div class="modal-content bg-dark text-light border-secondary">
 
             <div class="modal-header border-secondary">
 
                 <h5
                     class="modal-title"
-                    id="executionDetailsModalLabel"
+                    id="logDetailsModalLabel"
                 >
-                    Execution Details
+                    Operational Log Details
                 </h5>
 
                 <button
@@ -163,124 +181,124 @@
 
             <div class="modal-body">
 
-                <div
-                    id="executionDetailsError"
-                    class="alert alert-danger d-none"
-                    role="alert"
-                ></div>
+                <div class="row g-3 mb-4">
 
-                <div
-                    id="executionDetailsLoading"
-                    class="text-center py-4"
-                >
-                    Loading execution details...
+                    <div class="col-md-3">
+                        <div class="text-secondary small">
+                            Event ID
+                        </div>
+                        <div id="logDetailsId"></div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="text-secondary small">
+                            Source
+                        </div>
+                        <div id="logDetailsSource"></div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="text-secondary small">
+                            Event
+                        </div>
+                        <div id="logDetailsEvent"></div>
+                    </div>
+
+                    <div class="col-md-3">
+                        <div class="text-secondary small">
+                            Status
+                        </div>
+                        <div id="logDetailsStatus"></div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="text-secondary small">
+                            Timestamp
+                        </div>
+                        <div id="logDetailsTimestamp"></div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="text-secondary small">
+                            Message
+                        </div>
+                        <div id="logDetailsMessage"></div>
+                    </div>
+
                 </div>
 
-                <div
-                    id="executionDetailsContent"
-                    class="d-none"
-                >
+                <div>
 
-                    <div class="row g-2 mb-3">
+                    <h6>
+                        Details
+                    </h6>
 
-                        <div class="col-md-3">
-                            <div class="text-secondary small">
-                                Execution ID
-                            </div>
-                            <div id="executionDetailsId"></div>
-                        </div>
-
-                        <div class="col-md-3">
-                            <div class="text-secondary small">
-                                Plugin
-                            </div>
-                            <div id="executionDetailsPlugin"></div>
-                        </div>
-
-                        <div class="col-md-3">
-                            <div class="text-secondary small">
-                                Status
-                            </div>
-                            <div id="executionDetailsStatus"></div>
-                        </div>
-
-                        <div class="col-md-3">
-                            <div class="text-secondary small">
-                                Return Code
-                            </div>
-                            <div id="executionDetailsReturnCode"></div>
-                        </div>
-
-                        <div class="col-md-3">
-                            <div class="text-secondary small">
-                                Runtime
-                            </div>
-                            <div id="executionDetailsElapsed"></div>
-                        </div>
-
-                        <div class="col-md-9">
-                            <div class="text-secondary small">
-                                Executed
-                            </div>
-                            <div id="executionDetailsExecutedAt"></div>
-                        </div>
-
-                    </div>
-
-                    <div class="mb-3">
-
-                        <h6>Standard Output</h6>
-
-                        <pre
-                            id="executionDetailsStdout"
-                            class="bg-black border border-secondary rounded p-2 text-light"
-                            style="max-height: 300px; overflow: auto;"
-                        ></pre>
-
-                    </div>
-
-                    <div class="mb-3">
-
-                        <h6>Standard Error</h6>
-
-                        <pre
-                            id="executionDetailsStderr"
-                            class="bg-black border border-secondary rounded p-2 text-light"
-                            style="max-height: 300px; overflow: auto;"
-                        ></pre>
-
-                    </div>
-
-                    <div class="mb-3">
-
-                        <h6>Warnings</h6>
-
-                        <pre
-                            id="executionDetailsWarnings"
-                            class="bg-black border border-secondary rounded p-2 text-light"
-                            style="max-height: 200px; overflow: auto;"
-                        ></pre>
-
-                    </div>
-
-                    <div>
-
-                        <h6>Artifacts</h6>
-
-                        <pre
-                            id="executionDetailsArtifacts"
-                            class="bg-black border border-secondary rounded p-2 text-light"
-                            style="max-height: 200px; overflow: auto;"
-                        ></pre>
-
-                    </div>
+                    <pre
+                        id="logDetailsPayload"
+                        class="bg-black border border-secondary rounded p-3 text-light"
+                        style="max-height: 500px; overflow: auto;"
+                    ></pre>
 
                 </div>
 
             </div>
 
         </div>
+
     </div>
+
 </div>
+
+
+<script>
+
+document.addEventListener("DOMContentLoaded", function () {
+
+    const records = {{ history|tojson }};
+
+    document.querySelectorAll(".log-details-button").forEach(function (button) {
+
+        button.addEventListener("click", function () {
+
+            const recordId = this.dataset.logId;
+
+            const record = records.find(
+                function (item) {
+                    return item.id === recordId;
+                }
+            );
+
+            if (!record) {
+                return;
+            }
+
+            document.getElementById("logDetailsId").textContent =
+                record.id;
+
+            document.getElementById("logDetailsSource").textContent =
+                record.source;
+
+            document.getElementById("logDetailsEvent").textContent =
+                record.event;
+
+            document.getElementById("logDetailsStatus").textContent =
+                record.status;
+
+            document.getElementById("logDetailsTimestamp").textContent =
+                record.timestamp || "";
+
+            document.getElementById("logDetailsMessage").textContent =
+                record.message;
+
+            document.getElementById("logDetailsPayload").textContent =
+                JSON.stringify(record.details, null, 2);
+
+        });
+
+    });
+
+});
+
+</script>
 
 {% endblock %}
