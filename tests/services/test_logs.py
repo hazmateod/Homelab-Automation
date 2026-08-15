@@ -193,3 +193,115 @@ def test_log_service_preserves_execution_details():
     assert plugin["details"]["artifacts"] == {
         "report": "health.json"
     }
+
+
+def test_log_service_sorts_mixed_naive_and_aware_datetimes():
+    from datetime import datetime, timezone
+
+    class MixedAutomationExecutions:
+        def history(self, limit=100):
+            return [
+                {
+                    "id": 1,
+                    "task_id": "naive",
+                    "workflow_execution_id": None,
+                    "success": True,
+                    "elapsed": 1.0,
+                    "result": {},
+                    "executed_at": datetime(
+                        2026,
+                        8,
+                        15,
+                        14,
+                        0,
+                    ),
+                },
+                {
+                    "id": 2,
+                    "task_id": "aware",
+                    "workflow_execution_id": None,
+                    "success": True,
+                    "elapsed": 1.0,
+                    "result": {},
+                    "executed_at": datetime(
+                        2026,
+                        8,
+                        15,
+                        14,
+                        1,
+                        tzinfo=timezone.utc,
+                    ),
+                },
+            ]
+
+    class EmptyHistory:
+        def history(self, limit=100):
+            return []
+
+    service = LogService(
+        automation_executions=MixedAutomationExecutions(),
+        workflow_executions=EmptyHistory(),
+        executions=EmptyHistory(),
+        remediation_audit=EmptyHistory(),
+    )
+
+    records = service.history(500)
+
+    assert len(records) == 2
+    assert records[0]["id"] == "automation:2"
+    assert records[1]["id"] == "automation:1"
+
+
+def test_log_service_handles_large_history_limit_with_mixed_timestamps():
+    from datetime import datetime, timezone
+
+    class MixedHistory:
+        def history(self, limit=100):
+            return [
+                {
+                    "id": 1,
+                    "task_id": "naive",
+                    "workflow_execution_id": None,
+                    "success": True,
+                    "elapsed": 1.0,
+                    "result": {},
+                    "executed_at": datetime(
+                        2026,
+                        8,
+                        15,
+                        14,
+                        0,
+                    ),
+                },
+                {
+                    "id": 2,
+                    "task_id": "aware",
+                    "workflow_execution_id": None,
+                    "success": True,
+                    "elapsed": 1.0,
+                    "result": {},
+                    "executed_at": datetime(
+                        2026,
+                        8,
+                        15,
+                        14,
+                        1,
+                        tzinfo=timezone.utc,
+                    ),
+                },
+            ]
+
+    class EmptyHistory:
+        def history(self, limit=100):
+            return []
+
+    service = LogService(
+        automation_executions=MixedHistory(),
+        workflow_executions=EmptyHistory(),
+        executions=EmptyHistory(),
+        remediation_audit=EmptyHistory(),
+    )
+
+    for limit in (100, 500, 1000, 5000):
+        records = service.history(limit)
+        assert len(records) == 2

@@ -5,6 +5,8 @@ Provides a normalized read-only view across existing operational
 execution and audit repositories.
 """
 
+from datetime import datetime, timezone
+
 from himp.database.automation_executions import (
     AutomationExecutionRepository,
 )
@@ -83,14 +85,74 @@ class LogService:
 
         records.sort(
             key=lambda record: (
-                record["timestamp"] is not None,
-                record["timestamp"] or "",
+                self._timestamp_sort_key(
+                    record["timestamp"]
+                ),
                 record["id"],
             ),
             reverse=True,
         )
 
         return records[:limit]
+
+    @staticmethod
+    def _timestamp_sort_key(timestamp):
+        if timestamp is None:
+            return (
+                0,
+                datetime.min.replace(
+                    tzinfo=timezone.utc
+                ),
+            )
+
+        if isinstance(timestamp, datetime):
+            value = timestamp
+
+        elif isinstance(timestamp, str):
+            value = timestamp.strip()
+
+            if not value:
+                return (
+                    0,
+                    datetime.min.replace(
+                        tzinfo=timezone.utc
+                    ),
+                )
+
+            try:
+                value = datetime.fromisoformat(
+                    value.replace(
+                        "Z",
+                        "+00:00",
+                    )
+                )
+            except ValueError:
+                return (
+                    1,
+                    datetime.min.replace(
+                        tzinfo=timezone.utc
+                    ),
+                )
+
+        else:
+            return (
+                1,
+                datetime.min.replace(
+                    tzinfo=timezone.utc
+                ),
+            )
+
+        if value.tzinfo is None:
+            value = value.replace(
+                tzinfo=timezone.utc
+            )
+
+        else:
+            value = value.astimezone(
+                timezone.utc
+            )
+
+        return (1, value)
 
     def _automation_records(self, executions):
         records = []
