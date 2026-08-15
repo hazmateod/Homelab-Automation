@@ -7,6 +7,7 @@ existing generated host report data.
 
 import csv
 import io
+from html import escape
 from pathlib import Path
 
 from reportlab.lib import colors
@@ -114,57 +115,69 @@ class HostReportExportService:
 
         styles = getSampleStyleSheet()
 
+        title_style = styles["Title"]
+
+        body_style = styles["BodyText"]
+        body_style.fontSize = 8
+        body_style.leading = 10
+        body_style.spaceAfter = 0
+
+        header_style = styles["Heading4"]
+        header_style.fontSize = 8
+        header_style.leading = 10
+        header_style.textColor = colors.white
+
         story = [
             Paragraph(
-                f"HIMP Host Report - {hostname}",
-                styles["Title"],
+                f"HIMP Host Report - {escape(hostname)}",
+                title_style,
             ),
             Spacer(1, 12),
         ]
 
+        def cell(value):
+            return Paragraph(
+                escape(str(value)).replace("\n", "<br/>"),
+                body_style,
+            )
+
         rows = [
             [
-                Paragraph(
-                    "Section",
-                    styles["Heading4"],
-                ),
-                Paragraph(
-                    "Metric",
-                    styles["Heading4"],
-                ),
-                Paragraph(
-                    "Value",
-                    styles["Heading4"],
-                ),
+                Paragraph("Section", header_style),
+                Paragraph("Metric", header_style),
+                Paragraph("Value", header_style),
             ]
         ]
 
         for row in report["rows"]:
             rows.append(
                 [
-                    row["section"],
-                    row["metric"],
-                    row["value"],
+                    cell(row["section"]),
+                    cell(row["metric"]),
+                    cell(row["value"]),
                 ]
             )
 
         if len(rows) == 1:
             rows.append(
                 [
-                    "Report",
-                    "Content",
-                    "No structured report data available.",
+                    cell("Report"),
+                    cell("Content"),
+                    cell(
+                        "No structured report data available."
+                    ),
                 ]
             )
 
         table = Table(
             rows,
             colWidths=[
-                1.4 * 72,
-                1.7 * 72,
-                4.0 * 72,
+                1.35 * 72,
+                1.65 * 72,
+                4.25 * 72,
             ],
             repeatRows=1,
+            hAlign="LEFT",
         )
 
         table.setStyle(
@@ -174,9 +187,7 @@ class HostReportExportService:
                         "BACKGROUND",
                         (0, 0),
                         (-1, 0),
-                        colors.HexColor(
-                            "#343a40"
-                        ),
+                        colors.HexColor("#343a40"),
                     ),
                     (
                         "TEXTCOLOR",
@@ -204,10 +215,28 @@ class HostReportExportService:
                         "TOP",
                     ),
                     (
-                        "PADDING",
+                        "LEFTPADDING",
                         (0, 0),
                         (-1, -1),
                         5,
+                    ),
+                    (
+                        "RIGHTPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        5,
+                    ),
+                    (
+                        "TOPPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        4,
+                    ),
+                    (
+                        "BOTTOMPADDING",
+                        (0, 0),
+                        (-1, -1),
+                        4,
                     ),
                 ]
             )
