@@ -248,6 +248,52 @@ def test_anonymous_remediation_redirects_to_login():
     assert response.headers["location"] == "/login"
 
 
+def test_authenticated_remediation_renders_audit_record(
+    monkeypatch,
+):
+    monkeypatch.setattr(
+        server.remediation_audit_repository,
+        "history",
+        lambda limit=50: [
+            {
+                "id": 42,
+                "source_type": "host",
+                "source_id": "pve02",
+                "task_id": "scheduled_updates",
+                "decision": "ALLOW",
+                "reason": "Package drift detected",
+                "evidence": {},
+                "risk_level": "LOW",
+                "confirmation_required": False,
+                "confirmed": False,
+                "execution_id": 123,
+                "execution_success": True,
+                "created_at": "2026-08-15 08:00:00",
+            }
+        ],
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/remediation")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "pve02" in response.text
+    assert "scheduled_updates" in response.text
+    assert "ALLOW" in response.text
+    assert "LOW" in response.text
+    assert "SUCCESS" in response.text
+    assert "ID 123" in response.text
+    assert "No remediation audit records are available." not in response.text
+    assert "Package drift detected" in response.text
+
+
 def test_authenticated_remediation_is_allowed(
     monkeypatch,
 ):
