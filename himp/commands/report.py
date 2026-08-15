@@ -26,9 +26,9 @@ def run(args):
 
     print()
 
-    if ok:
+    if result.success:
         success("Report generation completed successfully.")
     else:
         error("Report generation failed.")
 
-    info(f"Execution time: {elapsed:.2f} seconds")
+    info(f"Execution time: {result.elapsed:.2f} seconds")
