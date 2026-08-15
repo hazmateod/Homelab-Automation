@@ -505,3 +505,324 @@ def test_scheduler_run_reports_failure_when_record_run_fails(
     assert himp.automation.calls == [
         "health_check",
     ]
+
+
+def test_scheduler_run_dispatches_remediation_operation(
+    monkeypatch,
+):
+    class FakeAutomation:
+        def __init__(self):
+            self.calls = []
+
+        def run(self, task_id):
+            self.calls.append(task_id)
+
+            return {
+                "task": task_id,
+                "executed_at": "2026-08-11T03:00:00",
+                "result": {
+                    "success": True,
+                },
+            }
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    class FakeScheduler:
+        def __init__(self):
+            self.recorded = []
+
+        def due_tasks(self, now):
+            return [
+                {
+                    "task_id": "remediation_operations",
+                },
+            ]
+
+        def record_run(self, task_id):
+            self.recorded.append(task_id)
+
+    class FakeDispatcher:
+        def __init__(self, automation):
+            self.automation = automation
+            self.calls = []
+
+        def dispatch(self, task_id):
+            self.calls.append(task_id)
+
+            return {
+                "task": task_id,
+                "executed_at": "2026-08-11T03:00:00",
+                "success": True,
+                "result": {
+                    "success": True,
+                    "source_type": "host",
+                    "source_id": "pve01",
+                    "confirmed": False,
+                },
+            }
+
+    class Args:
+        at = None
+
+    himp = FakeHIMP()
+    scheduler = FakeScheduler()
+
+    dispatcher_holder = {}
+
+    def make_dispatcher(automation):
+        dispatcher = FakeDispatcher(
+            automation
+        )
+        dispatcher_holder["dispatcher"] = dispatcher
+        return dispatcher
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "HIMP",
+        lambda: himp,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "SchedulerService",
+        lambda: scheduler,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "OperationalDispatcher",
+        make_dispatcher,
+    )
+
+    result = scheduler_run.run(
+        Args()
+    )
+
+    assert result == 0
+    assert dispatcher_holder["dispatcher"].calls == [
+        "remediation_operations",
+    ]
+    assert himp.automation.calls == []
+    assert scheduler.recorded == [
+        "remediation_operations",
+    ]
+
+
+def test_scheduler_run_does_not_auto_confirm_remediation(
+    monkeypatch,
+):
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = object()
+
+    class FakeScheduler:
+        def due_tasks(self, now):
+            return [
+                {
+                    "task_id": "remediation_operations",
+                },
+            ]
+
+        def record_run(self, task_id):
+            pass
+
+    class FakeDispatcher:
+        def __init__(self, automation):
+            self.calls = []
+
+        def dispatch(self, task_id):
+            self.calls.append(task_id)
+
+            return {
+                "task": task_id,
+                "executed_at": "2026-08-11T03:00:00",
+                "success": True,
+                "result": {
+                    "success": True,
+                    "confirmation_required": True,
+                    "decision": "CONFIRM_REQUIRED",
+                    "confirmed": False,
+                },
+            }
+
+    class Args:
+        at = None
+
+    dispatcher_holder = {}
+
+    def make_dispatcher(automation):
+        dispatcher = FakeDispatcher(
+            automation
+        )
+        dispatcher_holder["dispatcher"] = dispatcher
+        return dispatcher
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "HIMP",
+        FakeHIMP,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "SchedulerService",
+        FakeScheduler,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "OperationalDispatcher",
+        make_dispatcher,
+    )
+
+    result = scheduler_run.run(
+        Args()
+    )
+
+    assert result == 0
+    assert dispatcher_holder["dispatcher"].calls == [
+        "remediation_operations",
+    ]
+
+
+def test_scheduler_run_records_disabled_remediation(
+    monkeypatch,
+):
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = object()
+
+    class FakeScheduler:
+        def __init__(self):
+            self.recorded = []
+
+        def due_tasks(self, now):
+            return [
+                {
+                    "task_id": "remediation_operations",
+                },
+            ]
+
+        def record_run(self, task_id):
+            self.recorded.append(task_id)
+
+    class FakeDispatcher:
+        def __init__(self, automation):
+            pass
+
+        def dispatch(self, task_id):
+            return {
+                "task": task_id,
+                "executed_at": "2026-08-11T03:00:00",
+                "success": True,
+                "skipped": True,
+                "result": {
+                    "success": True,
+                    "skipped": True,
+                },
+            }
+
+    class Args:
+        at = None
+
+    scheduler = FakeScheduler()
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "HIMP",
+        FakeHIMP,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "SchedulerService",
+        lambda: scheduler,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "OperationalDispatcher",
+        FakeDispatcher,
+    )
+
+    result = scheduler_run.run(
+        Args()
+    )
+
+    assert result == 0
+    assert scheduler.recorded == [
+        "remediation_operations",
+    ]
+
+
+def test_scheduler_run_fails_closed_for_missing_remediation_configuration(
+    monkeypatch,
+):
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = object()
+
+    class FakeScheduler:
+        def __init__(self):
+            self.recorded = []
+
+        def due_tasks(self, now):
+            return [
+                {
+                    "task_id": "remediation_operations",
+                },
+            ]
+
+        def record_run(self, task_id):
+            self.recorded.append(task_id)
+
+    class FakeDispatcher:
+        def __init__(self, automation):
+            pass
+
+        def dispatch(self, task_id):
+            return {
+                "task": task_id,
+                "executed_at": "2026-08-11T03:00:00",
+                "success": False,
+                "error_category": "configuration",
+                "result": {
+                    "success": False,
+                    "error": (
+                        "Remediation operational "
+                        "configuration is not configured."
+                    ),
+                },
+            }
+
+    class Args:
+        at = None
+
+    scheduler = FakeScheduler()
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "HIMP",
+        FakeHIMP,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "SchedulerService",
+        lambda: scheduler,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "OperationalDispatcher",
+        FakeDispatcher,
+    )
+
+    result = scheduler_run.run(
+        Args()
+    )
+
+    assert result == 1
+    assert scheduler.recorded == []

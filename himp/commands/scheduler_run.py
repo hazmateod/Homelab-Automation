@@ -6,12 +6,18 @@ import sys
 from datetime import datetime
 
 from himp.app import HIMP
+from himp.services.operational_dispatcher import (
+    OperationalDispatcher,
+)
 from himp.services.scheduler import SchedulerService
 
 
 def run(args):
     himp = HIMP()
     scheduler = SchedulerService()
+    dispatcher = OperationalDispatcher(
+        automation=himp.automation,
+    )
 
     if args.at:
         try:
@@ -54,7 +60,7 @@ def run(args):
         )
 
         try:
-            result = himp.automation.run(
+            result = dispatcher.dispatch(
                 task_id
             )
 
