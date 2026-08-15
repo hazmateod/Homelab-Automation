@@ -117,6 +117,7 @@ class FakeWorkflowExecutionRepository:
     def __init__(self):
         self.created = []
         self.completed = []
+        self.current_tasks = []
 
     def create(
         self,
@@ -157,6 +158,29 @@ class FakeWorkflowExecutionRepository:
         }
 
         self.completed.append(execution)
+
+        return execution
+
+    def set_current_task(
+        self,
+        workflow_execution_id,
+        current_task_id,
+    ):
+        execution = next(
+            execution
+            for execution in self.created
+            if execution["workflow_execution_id"]
+            == workflow_execution_id
+        )
+
+        execution["current_task_id"] = current_task_id
+
+        self.current_tasks.append(
+            {
+                "workflow_execution_id": workflow_execution_id,
+                "current_task_id": current_task_id,
+            }
+        )
 
         return execution
 
@@ -338,8 +362,10 @@ def test_execute_uses_one_correlation_id_for_record_and_tasks():
 
 
 def test_execute_runs_tasks_in_dependency_order():
-    service, workflow_service, automation = (
-        make_service()
+    repository = FakeWorkflowExecutionRepository()
+
+    service, workflow_service, automation = make_service(
+        workflow_execution_repository=repository,
     )
 
     result = service.execute(1)
@@ -356,6 +382,15 @@ def test_execute_runs_tasks_in_dependency_order():
     assert [
         call["task_id"]
         for call in automation.calls
+    ] == [
+        "inventory_refresh",
+        "generate_reports",
+        "health_check",
+    ]
+
+    assert [
+        call["current_task_id"]
+        for call in repository.current_tasks
     ] == [
         "inventory_refresh",
         "generate_reports",

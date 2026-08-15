@@ -29,10 +29,29 @@ class WorkflowExecutionRepository:
 
                 completed_at TIMESTAMP,
 
-                success INTEGER
+                success INTEGER,
+
+                current_task_id TEXT
             )
             """
         )
+
+        columns = self.database.query(
+            "PRAGMA table_info(workflow_executions)"
+        )
+
+        column_names = {
+            column["name"]
+            for column in columns
+        }
+
+        if "current_task_id" not in column_names:
+            self.database.execute(
+                """
+                ALTER TABLE workflow_executions
+                ADD COLUMN current_task_id TEXT
+                """
+            )
 
     def create(
         self,
@@ -133,6 +152,34 @@ class WorkflowExecutionRepository:
             workflow_id=workflow_id,
         )
 
+    def set_current_task(
+        self,
+        workflow_execution_id,
+        current_task_id,
+    ):
+        existing = self.find(
+            workflow_execution_id
+        )
+
+        if existing is None:
+            return None
+
+        self.database.execute(
+            """
+            UPDATE workflow_executions
+            SET current_task_id=?
+            WHERE workflow_execution_id=?
+            """,
+            (
+                current_task_id,
+                workflow_execution_id,
+            ),
+        )
+
+        return self.find(
+            workflow_execution_id
+        )
+
     def complete(
         self,
         workflow_execution_id,
@@ -154,7 +201,8 @@ class WorkflowExecutionRepository:
                     ?,
                     CURRENT_TIMESTAMP
                 ),
-                success=?
+                success=?,
+                current_task_id=NULL
             WHERE workflow_execution_id=?
             """,
             (

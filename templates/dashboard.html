@@ -207,6 +207,93 @@
 
 
 <h2 class="mb-4">
+    Workflow Orchestration
+</h2>
+
+
+<div class="row g-3 mb-4">
+
+{% for workflow in dashboard.workflows %}
+
+    <div class="col-md-6 col-xl-4">
+
+        <div class="card bg-dark text-light h-100">
+
+            <div class="card-body">
+
+                <div class="d-flex justify-content-between align-items-start">
+
+                    <h5 class="card-title mb-0">
+                        {{ workflow.name }}
+                    </h5>
+
+                    {% if workflow.status == "SUCCESS" %}
+                        <span class="badge bg-success">SUCCESS</span>
+                    {% elif workflow.status == "RUNNING" %}
+                        <span class="badge bg-primary">RUNNING</span>
+                    {% elif workflow.status == "FAILED" %}
+                        <span class="badge bg-danger">FAILED</span>
+                    {% else %}
+                        <span class="badge bg-secondary">NEVER RUN</span>
+                    {% endif %}
+
+                </div>
+
+                {% if workflow.description %}
+                    <p class="text-secondary mt-2 mb-3">
+                        {{ workflow.description }}
+                    </p>
+                {% endif %}
+
+                <dl class="row mb-0">
+
+                    <dt class="col-sm-5">Current Task</dt>
+                    <dd class="col-sm-7">
+                        {{ workflow.current_task_id or "—" }}
+                    </dd>
+
+                    <dt class="col-sm-5">Execution</dt>
+                    <dd class="col-sm-7">
+                        {{ workflow.workflow_execution_id or "—" }}
+                    </dd>
+
+                    <dt class="col-sm-5">Started</dt>
+                    <dd class="col-sm-7">
+                        {{ workflow.started_at or "—" }}
+                    </dd>
+
+                    <dt class="col-sm-5">Completed</dt>
+                    <dd class="col-sm-7">
+                        {{ workflow.completed_at or "—" }}
+                    </dd>
+
+                </dl>
+
+            </div>
+
+        </div>
+
+    </div>
+
+{% else %}
+
+    <div class="col">
+
+        <div class="alert alert-secondary">
+            No workflows are configured.
+        </div>
+
+    </div>
+
+{% endfor %}
+
+</div>
+
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
     Inventory
 </h2>
 

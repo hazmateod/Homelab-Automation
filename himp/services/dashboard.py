@@ -11,6 +11,8 @@ from himp.services.health_cards import HealthCardsService
 from himp.services.host_health_dashboard import HostHealthDashboardService
 from himp.services.inventory import InventoryService
 from himp.services.plugins import PluginService
+from himp.services.workflow_history import WorkflowHistoryService
+from himp.services.workflows import WorkflowService
 
 
 class DashboardService:
@@ -29,6 +31,69 @@ class DashboardService:
 
         self.health_cards = HealthCardsService()
         self.host_health = HostHealthDashboardService()
+
+        self.workflows = WorkflowService()
+        self.workflow_history = WorkflowHistoryService(
+            workflow_service=self.workflows,
+        )
+
+
+    def workflow_summary(self):
+        workflows = []
+
+        for workflow in self.workflows.list_workflows():
+            history = self.workflow_history.history(
+                workflow["id"],
+                limit=1,
+            )
+
+            latest = history[0] if history else None
+
+            if latest is None:
+                status = "NEVER_RUN"
+            elif latest["success"] is None:
+                status = "RUNNING"
+            elif latest["success"]:
+                status = "SUCCESS"
+            else:
+                status = "FAILED"
+
+            workflows.append(
+                {
+                    "id": workflow["id"],
+                    "name": workflow["name"],
+                    "description": workflow["description"],
+                    "enabled": workflow["enabled"],
+                    "status": status,
+                    "current_task_id": (
+                        latest.get("current_task_id")
+                        if latest
+                        else None
+                    ),
+                    "workflow_execution_id": (
+                        latest.get("workflow_execution_id")
+                        if latest
+                        else None
+                    ),
+                    "started_at": (
+                        latest.get("started_at")
+                        if latest
+                        else None
+                    ),
+                    "completed_at": (
+                        latest.get("completed_at")
+                        if latest
+                        else None
+                    ),
+                    "success": (
+                        latest.get("success")
+                        if latest
+                        else None
+                    ),
+                }
+            )
+
+        return workflows
 
 
     def inventory_summary(self):
@@ -178,6 +243,8 @@ class DashboardService:
 
             "health_cards": self.health_cards.summary(),
             "host_health": self.host_health.summary(),
+
+            "workflows": self.workflow_summary(),
 
             "inventory": self.inventory_summary(),
 

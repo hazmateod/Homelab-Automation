@@ -130,6 +130,11 @@ class WorkflowExecutionService:
 
                     continue
 
+                self.workflow_execution_repository.set_current_task(
+                    workflow_execution_id,
+                    task_id,
+                )
+
                 try:
                     execution = self.automation_service.run(
                         task_id,

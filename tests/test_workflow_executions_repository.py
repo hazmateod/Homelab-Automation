@@ -280,3 +280,92 @@ def test_existing_workflow_execution_table_is_usable():
     assert execution["workflow_execution_id"] == (
         "workflow-run-existing"
     )
+
+
+def test_set_current_task_updates_active_workflow_execution():
+    repository = make_repository()
+
+    execution_id = "dashboard-current-task-test"
+
+    repository.create(
+        workflow_id=1,
+        workflow_execution_id=execution_id,
+        started_at="2026-08-15T01:00:00+00:00",
+    )
+
+    updated = repository.set_current_task(
+        execution_id,
+        "inventory_refresh",
+    )
+
+    assert updated["workflow_execution_id"] == execution_id
+    assert updated["current_task_id"] == "inventory_refresh"
+    assert updated["success"] is None
+    assert updated["completed_at"] is None
+
+
+def test_set_current_task_returns_none_for_missing_execution():
+    repository = make_repository()
+
+    result = repository.set_current_task(
+        "missing-workflow-execution",
+        "inventory_refresh",
+    )
+
+    assert result is None
+
+
+def test_complete_clears_current_task():
+    repository = make_repository()
+
+    execution_id = "dashboard-complete-test"
+
+    repository.create(
+        workflow_id=1,
+        workflow_execution_id=execution_id,
+        started_at="2026-08-15T01:00:00+00:00",
+    )
+
+    repository.set_current_task(
+        execution_id,
+        "inventory_refresh",
+    )
+
+    completed = repository.complete(
+        workflow_execution_id=execution_id,
+        success=True,
+        completed_at="2026-08-15T01:05:00+00:00",
+    )
+
+    assert completed["workflow_execution_id"] == execution_id
+    assert completed["success"] is True
+    assert completed["completed_at"] == (
+        "2026-08-15T01:05:00+00:00"
+    )
+    assert completed["current_task_id"] is None
+
+
+def test_complete_clears_current_task_on_failure():
+    repository = make_repository()
+
+    execution_id = "dashboard-failure-test"
+
+    repository.create(
+        workflow_id=1,
+        workflow_execution_id=execution_id,
+        started_at="2026-08-15T01:00:00+00:00",
+    )
+
+    repository.set_current_task(
+        execution_id,
+        "health_check",
+    )
+
+    completed = repository.complete(
+        workflow_execution_id=execution_id,
+        success=False,
+        completed_at="2026-08-15T01:06:00+00:00",
+    )
+
+    assert completed["success"] is False
+    assert completed["current_task_id"] is None
