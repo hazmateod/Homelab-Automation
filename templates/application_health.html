@@ -1,0 +1,129 @@
+{% extends "base.html" %}
+
+{% block content %}
+
+<div class="row mb-4">
+    <div class="col">
+        <h1 class="display-5">
+            Application Health
+        </h1>
+
+        <p class="text-secondary">
+            Operational health of the HIMP application and its dependencies.
+        </p>
+    </div>
+</div>
+
+
+<div class="card bg-dark text-light border-secondary mb-4">
+    <div class="card-body">
+
+        <div class="small text-secondary text-uppercase">
+            Overall Status
+        </div>
+
+        <div class="fs-2 fw-bold">
+            {{ application_health.status }}
+        </div>
+
+    </div>
+</div>
+
+
+<div class="row g-3">
+
+{% for name, component in application_health.components.items() %}
+
+<div class="col-md-6">
+
+    <div class="card bg-dark text-light border-secondary h-100">
+
+        <div class="card-header border-secondary">
+            <h2 class="h5 mb-0">
+                {{ name|replace("_", " ")|title }}
+            </h2>
+        </div>
+
+        <div class="card-body">
+
+            <div class="mb-3">
+                <span class="small text-secondary">
+                    Status
+                </span>
+
+                <div class="fs-4 fw-bold">
+                    {{ component.status }}
+                </div>
+            </div>
+
+            {% if component.message %}
+            <div class="mb-3">
+                <span class="small text-secondary">
+                    Message
+                </span>
+
+                <div>
+                    {{ component.message }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if component.schedules is defined %}
+            <div>
+                <span class="small text-secondary">
+                    Schedules
+                </span>
+
+                <div>
+                    {{ component.schedules }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if component.tasks is defined %}
+            <div>
+                <span class="small text-secondary">
+                    Tasks
+                </span>
+
+                <div>
+                    {{ component.tasks }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if component.enabled is defined %}
+            <div>
+                <span class="small text-secondary">
+                    Enabled
+                </span>
+
+                <div>
+                    {{ component.enabled }}
+                </div>
+            </div>
+            {% endif %}
+
+            {% if component.disabled is defined %}
+            <div>
+                <span class="small text-secondary">
+                    Disabled
+                </span>
+
+                <div>
+                    {{ component.disabled }}
+                </div>
+            </div>
+            {% endif %}
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endfor %}
+
+</div>
+
+{% endblock %}

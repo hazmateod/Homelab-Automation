@@ -3,6 +3,7 @@ HIMP Application.
 """
 import logging
 
+from himp.services.application_health import ApplicationHealthService
 from himp.services.automation import AutomationService
 from himp.services.dashboard import DashboardService
 from himp.services.discovery import DiscoveryService
@@ -50,6 +51,11 @@ class HIMP:
         self.updates = UpdateService()
 
         self.automation = AutomationService()
+
+        self.application_health = ApplicationHealthService(
+            automation=self.automation,
+            settings=self.settings,
+        )
 
         self.automation.configure(
             self.health,

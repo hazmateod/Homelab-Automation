@@ -447,6 +447,25 @@ def reports(request: Request):
     )
 
 
+@app.get(
+    "/application-health",
+    dependencies=[Depends(require_page_session)],
+)
+def application_health(request: Request):
+
+    context = dashboard_context()
+
+    context["application_health"] = (
+        himp.application_health.summary()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="application_health.html",
+        context=context,
+    )
+
+
 @app.get("/settings", dependencies=[Depends(require_page_session)])
 def settings(request: Request):
 
@@ -633,6 +652,17 @@ def remediation(
         request=request,
         name="remediation.html",
         context=context,
+    )
+
+
+@app.get(
+    "/api/application-health",
+    dependencies=[Depends(require_session)],
+)
+def application_health_api():
+
+    return JSONResponse(
+        himp.application_health.summary()
     )
 
 
