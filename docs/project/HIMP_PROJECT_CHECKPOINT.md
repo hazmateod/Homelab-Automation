@@ -1,13 +1,13 @@
-# HIMP Project Checkpoint — Phase 8.7 Remediation Verification
+# HIMP Project Checkpoint — Phase 8.8 Safety / Approval Hardening
 
-**Checkpoint date:** 2026-08-14
+**Checkpoint date:** 2026-08-15
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `a25028f` — `feat: add remediation verification`
-**Remote:** `origin/feature/plugin-sdk` synchronized to `a25028f`
+**Latest confirmed commit:** `d70e14a` — `feat: harden remediation safety policy`
+**Remote:** `origin/feature/plugin-sdk` pending push of `d70e14a`
 **Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `558 passed`
+**Latest full regression:** `562 passed`
 **Current phase:** Phase 8 — Automation Intelligence
-**Current subphase:** Phase 8.7 — Remediation Verification
+**Current subphase:** Phase 8.8 — Safety / Approval Hardening
 **Phase 8 status:** IN PROGRESS
 **Phase 7 status:** COMPLETE
 
@@ -405,6 +405,32 @@ Validation completed for Phase 8.7:
 - Compile: PASS
 - `git diff --check`: PASS
 
+#### 8.8 — Safety / Approval Hardening — COMPLETE
+
+Commit: `d70e14a` — `feat: harden remediation safety policy`
+
+Hardened the remediation safety boundary by using the dedicated automation policy exceptions instead of matching generic error-message strings.
+
+Implemented and validated:
+
+- Disabled automation maps to `DENY`
+- Destructive remediation without confirmation maps to `CONFIRM_REQUIRED`
+- Confirmation cannot override a disabled automation
+- Unexpected policy errors propagate
+- Dependency policy failures propagate
+- Only an explicit `ALLOW` decision authorizes automation execution
+- Unknown policy decisions fail closed
+- Existing audit and verification boundaries remain intact
+- No second execution framework was introduced
+
+Validation completed for Phase 8.8:
+
+- Remediation policy safety tests: 9 passed
+- Remediation execution authorization tests: 7 passed
+- Full regression: 562 passed
+- Compile: PASS
+- `git diff --check`: PASS
+
 ### Phase 8 Architectural Rule
 
 > Do not create a second execution framework. Remediation must reuse the existing automation policy and execution infrastructure.
@@ -502,7 +528,7 @@ Latest confirmed full regression:
 
 ## 14. Exact Next-Session Starting Point
 
-Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.7 — Remediation Verification.
+Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.8 — Safety / Approval Hardening.
 
 Completed Phase 8 slices:
 
@@ -513,35 +539,36 @@ Completed Phase 8 slices:
 - 8.5 Remediation Audit History
 - 8.6 Remediation API
 - 8.7 Remediation Verification
+- 8.8 Safety / Approval Hardening
 
 Latest confirmed implementation commit:
 
 ```text
-a25028f — feat: add remediation verification
+d70e14a — feat: harden remediation safety policy
 ```
 
 Latest confirmed full regression:
 
 ```text
-558 passed
+562 passed
 ```
 
 Compile: PASS
 
 `git diff --check`: PASS
 
-Local and remote are synchronized at `a25028f`.
+Local branch is ahead of remote by commit `d70e14a`; push is the next repository synchronization step.
 
 Immediate next target:
 
-> Continue Phase 8 Automation Intelligence with the next unimplemented remediation capability. Before implementation, define the next subphase contract and complete that slice end-to-end.
+> Continue Phase 8 Automation Intelligence with Phase 8.9 — Operationalization. Before implementation, inspect the existing remediation lifecycle and define the operationalization contract without creating duplicate execution, retry, timeout, policy, audit, or verification frameworks.
 
 Development should continue one subphase at a time:
 
 ```text
-Phase 8.7 — Remediation Verification — COMPLETE
+Phase 8.8 — Safety / Approval Hardening — COMPLETE
         ↓
-Next Phase 8 subphase — define contract
+Phase 8.9 — Operationalization — define contract
         ↓
 Implement service
         ↓
