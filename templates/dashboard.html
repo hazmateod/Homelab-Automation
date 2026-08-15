@@ -8,6 +8,7 @@
 {% from "components/inventory_table.html" import inventory_table %}
 {% from "components/health_summary_card.html" import health_summary_card %}
 {% from "components/host_health_dashboard.html" import host_health_dashboard %}
+{% from "components/automation_summary.html" import automation_summary %}
 
 {% block content %}
 
@@ -288,6 +289,16 @@
 {% endfor %}
 
 </div>
+
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
+    Automation
+</h2>
+
+{{ automation_summary(dashboard.automations) }}
 
 
 <hr class="border-secondary">

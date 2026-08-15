@@ -11,6 +11,7 @@ from himp.services.health_cards import HealthCardsService
 from himp.services.host_health_dashboard import HostHealthDashboardService
 from himp.services.inventory import InventoryService
 from himp.services.plugins import PluginService
+from himp.services.scheduler import SchedulerService
 from himp.services.workflow_history import WorkflowHistoryService
 from himp.services.workflows import WorkflowService
 
@@ -31,6 +32,8 @@ class DashboardService:
 
         self.health_cards = HealthCardsService()
         self.host_health = HostHealthDashboardService()
+
+        self.scheduler = SchedulerService()
 
         self.workflows = WorkflowService()
         self.workflow_history = WorkflowHistoryService(
@@ -94,6 +97,45 @@ class DashboardService:
             )
 
         return workflows
+
+
+    def automation_summary(self):
+        automations = []
+
+        for schedule in self.scheduler.all():
+            status = self.scheduler.execution_status(
+                schedule["task_id"]
+            )
+
+            automations.append(
+                {
+                    "task_id": schedule["task_id"],
+                    "name": schedule["name"],
+                    "description": schedule["description"],
+                    "enabled": bool(schedule["enabled"]),
+                    "frequency": schedule["frequency"],
+                    "schedule_time": schedule["schedule_time"],
+                    "day_of_week": schedule["day_of_week"],
+                    "day_of_month": schedule["day_of_month"],
+                    "last_run": schedule["last_run"],
+                    "next_run": status["next_run"],
+                    "last_execution": status["last_execution"],
+                    "last_execution_success": (
+                        status["last_execution_success"]
+                    ),
+                    "last_execution_at": (
+                        status["last_execution_at"]
+                    ),
+                    "last_execution_elapsed": (
+                        status["last_execution_elapsed"]
+                    ),
+                    "last_execution_error": (
+                        status["last_execution_error"]
+                    ),
+                }
+            )
+
+        return automations
 
 
     def inventory_summary(self):
@@ -245,6 +287,8 @@ class DashboardService:
             "host_health": self.host_health.summary(),
 
             "workflows": self.workflow_summary(),
+
+            "automations": self.automation_summary(),
 
             "inventory": self.inventory_summary(),
 

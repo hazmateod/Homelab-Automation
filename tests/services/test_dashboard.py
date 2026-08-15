@@ -177,6 +177,110 @@ def test_workflow_summary_requests_only_latest_history():
     ]
 
 
+class FakeSchedulerService:
+    def all(self):
+        return [
+            {
+                "task_id": "inventory_refresh",
+                "name": "Inventory Refresh",
+                "description": "Refresh inventory data.",
+                "enabled": 1,
+                "frequency": "daily",
+                "schedule_time": "03:00",
+                "day_of_week": None,
+                "day_of_month": None,
+                "last_run": "2026-08-14 03:00:00",
+            },
+            {
+                "task_id": "health_check",
+                "name": "Health Check",
+                "description": "Run health validation across plugins.",
+                "enabled": 0,
+                "frequency": "manual",
+                "schedule_time": None,
+                "day_of_week": None,
+                "day_of_month": None,
+                "last_run": None,
+            },
+        ]
+
+    def execution_status(self, task_id):
+        statuses = {
+            "inventory_refresh": {
+                "next_run": "2026-08-16T03:00:00",
+                "last_execution": {
+                    "id": 10,
+                    "task_id": "inventory_refresh",
+                    "success": True,
+                    "elapsed": 12.5,
+                },
+                "last_execution_success": True,
+                "last_execution_at": "2026-08-15 03:00:12",
+                "last_execution_elapsed": 12.5,
+                "last_execution_error": None,
+            },
+            "health_check": {
+                "next_run": None,
+                "last_execution": None,
+                "last_execution_success": None,
+                "last_execution_at": None,
+                "last_execution_elapsed": None,
+                "last_execution_error": None,
+            },
+        }
+
+        return statuses[task_id]
+
+
+def test_automation_summary_exposes_schedule_and_execution_state():
+    dashboard = make_dashboard()
+    dashboard.scheduler = FakeSchedulerService()
+
+    result = dashboard.automation_summary()
+
+    assert result == [
+        {
+            "task_id": "inventory_refresh",
+            "name": "Inventory Refresh",
+            "description": "Refresh inventory data.",
+            "enabled": True,
+            "frequency": "daily",
+            "schedule_time": "03:00",
+            "day_of_week": None,
+            "day_of_month": None,
+            "last_run": "2026-08-14 03:00:00",
+            "next_run": "2026-08-16T03:00:00",
+            "last_execution": {
+                "id": 10,
+                "task_id": "inventory_refresh",
+                "success": True,
+                "elapsed": 12.5,
+            },
+            "last_execution_success": True,
+            "last_execution_at": "2026-08-15 03:00:12",
+            "last_execution_elapsed": 12.5,
+            "last_execution_error": None,
+        },
+        {
+            "task_id": "health_check",
+            "name": "Health Check",
+            "description": "Run health validation across plugins.",
+            "enabled": False,
+            "frequency": "manual",
+            "schedule_time": None,
+            "day_of_week": None,
+            "day_of_month": None,
+            "last_run": None,
+            "next_run": None,
+            "last_execution": None,
+            "last_execution_success": None,
+            "last_execution_at": None,
+            "last_execution_elapsed": None,
+            "last_execution_error": None,
+        },
+    ]
+
+
 def test_summary_exposes_workflows():
     dashboard = make_dashboard()
 
@@ -184,4 +288,8 @@ def test_summary_exposes_workflows():
 
     assert result["workflows"] == (
         dashboard.workflow_summary()
+    )
+
+    assert result["automations"] == (
+        dashboard.automation_summary()
     )
