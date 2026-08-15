@@ -14,6 +14,7 @@ class FakeWorkflowService:
             "proposal_count": 1,
             "executed_count": 1,
             "blocked_count": 0,
+            "audit_ids": [42],
             "results": [
                 {
                     "decision": "ALLOW",
