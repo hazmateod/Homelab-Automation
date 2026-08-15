@@ -133,6 +133,28 @@ class SchedulerRepository:
         )
 
         if existing:
+            self.database.execute(
+                """
+                UPDATE automation_schedules
+                SET
+                    name=?,
+                    description=?,
+                    frequency=?,
+                    schedule_time=?,
+                    day_of_week=?,
+                    day_of_month=?
+                WHERE id=?
+                """,
+                (
+                    name,
+                    description,
+                    frequency,
+                    schedule_time,
+                    day_of_week,
+                    day_of_month,
+                    existing[0]["id"],
+                ),
+            )
             return
 
         self.database.execute(
