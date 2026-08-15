@@ -1,13 +1,13 @@
-# HIMP Project Checkpoint — Phase 8.8 Safety / Approval Hardening
+# HIMP Project Checkpoint — Phase 8.9 Operationalization
 
 **Checkpoint date:** 2026-08-15
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `d70e14a` — `feat: harden remediation safety policy`
-**Remote:** `origin/feature/plugin-sdk` pending push of `d70e14a`
+**Latest confirmed commit:** `7b07e73` — `feat: operationalize scheduled remediation`
+**Remote:** `origin/feature/plugin-sdk` pending push of `7b07e73`
 **Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `562 passed`
+**Latest full regression:** `581 passed`
 **Current phase:** Phase 8 — Automation Intelligence
-**Current subphase:** Phase 8.8 — Safety / Approval Hardening
+**Current subphase:** Phase 8.9 — Operationalization
 **Phase 8 status:** IN PROGRESS
 **Phase 7 status:** COMPLETE
 
@@ -427,7 +427,36 @@ Validation completed for Phase 8.8:
 
 - Remediation policy safety tests: 9 passed
 - Remediation execution authorization tests: 7 passed
-- Full regression: 562 passed
+- Full regression: 581 passed
+- Compile: PASS
+- `git diff --check`: PASS
+
+#### 8.9 — Operationalization — COMPLETE
+
+Commit: `7b07e73` — `feat: operationalize scheduled remediation`
+
+Operationalized scheduled remediation through the existing scheduler and remediation lifecycle without creating a second execution framework.
+
+Implemented and validated:
+
+- Persistent remediation operational configuration
+- Remediation operations repository and service
+- Operational dispatcher for scheduled task routing
+- Scheduler integration through the operational dispatcher
+- Enabled remediation dispatches to the existing remediation workflow
+- Disabled remediation is skipped safely
+- Missing remediation configuration fails closed
+- Scheduled remediation does not implicitly confirm destructive actions
+- Normal automation tasks continue using the existing automation service
+- Scheduler-compatible execution results
+- Existing scheduling and remediation boundaries remain intact
+
+Validation completed for Phase 8.9:
+
+- Remediation operations repository/service tests: 8 passed
+- Operational dispatcher tests: 7 passed
+- Scheduler + remediation integration tests: 12 passed
+- Full regression: 581 passed
 - Compile: PASS
 - `git diff --check`: PASS
 
@@ -455,7 +484,7 @@ Audit History
 API / Operational Visibility
 ```
 
-**Phase 8 status:** IN PROGRESS — remediation safety / approval hardening is complete through subphase 8.8.
+**Phase 8 status:** IN PROGRESS — remediation operationalization is complete through subphase 8.9.
 
 
 ### Phase 9 — Operational Platform
@@ -508,10 +537,10 @@ Branch:
 feature/plugin-sdk
 
 Latest confirmed commit:
-a49a55d
+7b07e73
 
 Commit:
-feat: add workflow dashboard
+feat: operationalize scheduled remediation
 
 Remote:
 origin/feature/plugin-sdk
@@ -523,12 +552,12 @@ Working tree:
 clean
 
 Latest confirmed full regression:
-467 passed
+581 passed
 ```
 
 ## 14. Exact Next-Session Starting Point
 
-Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.8 — Safety / Approval Hardening.
+Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.9 — Operationalization.
 
 Completed Phase 8 slices:
 
@@ -540,35 +569,36 @@ Completed Phase 8 slices:
 - 8.6 Remediation API
 - 8.7 Remediation Verification
 - 8.8 Safety / Approval Hardening
+- 8.9 Operationalization
 
 Latest confirmed implementation commit:
 
 ```text
-d70e14a — feat: harden remediation safety policy
+7b07e73 — feat: operationalize scheduled remediation
 ```
 
 Latest confirmed full regression:
 
 ```text
-562 passed
+581 passed
 ```
 
 Compile: PASS
 
 `git diff --check`: PASS
 
-Local branch is ahead of remote by commit `d70e14a`; push is the next repository synchronization step.
+Local branch is ahead of remote by commits `7b07e73` and `ce0fe2c`; push is the next repository synchronization step.
 
 Immediate next target:
 
-> Continue Phase 8 Automation Intelligence with Phase 8.9 — Operationalization. Before implementation, inspect the existing remediation lifecycle and define the operationalization contract without creating duplicate execution, retry, timeout, policy, audit, or verification frameworks.
+> Continue Phase 8 Automation Intelligence with the next unimplemented remediation capability. Before implementation, inspect the existing remediation lifecycle and define the next subphase contract without creating duplicate execution, retry, timeout, policy, audit, verification, scheduling, or operational-dispatch frameworks.
 
 Development should continue one subphase at a time:
 
 ```text
-Phase 8.8 — Safety / Approval Hardening — COMPLETE
+Phase 8.9 — Operationalization — COMPLETE
         ↓
-Phase 8.9 — Operationalization — define contract
+Phase 8.10 — Next remediation capability — define contract
         ↓
 Implement service
         ↓
