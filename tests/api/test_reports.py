@@ -180,3 +180,71 @@ def test_reports_api_exposes_operational_summary(
         ],
     }
     assert "files" in response.json()
+
+
+def test_reports_pdf_api_returns_authenticated_pdf(
+    monkeypatch,
+):
+    expected_summary = {
+        "generated": "2026-08-15T18:00:00",
+        "dashboard": None,
+        "reports": {},
+        "executions": {
+            "total": 0,
+            "successful": 0,
+            "failed": 0,
+            "recent": [],
+        },
+    }
+
+    expected_pdf = b"%PDF-1.4\nHIMP TEST PDF"
+
+    monkeypatch.setattr(
+        server.himp.reports,
+        "operational_summary",
+        lambda: expected_summary,
+    )
+
+    class FakeReportPDFService:
+
+        def generate(self, summary):
+            assert summary == expected_summary
+            return expected_pdf
+
+    monkeypatch.setattr(
+        "himp.services.report_pdf.ReportPDFService",
+        FakeReportPDFService,
+    )
+
+    server.app.dependency_overrides[
+        server.require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/api/reports/pdf"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.content == expected_pdf
+    assert response.headers["content-type"] == (
+        "application/pdf"
+    )
+    assert response.headers["content-disposition"] == (
+        'attachment; filename="himp-operational-report.pdf"'
+    )
+
+
+def test_reports_pdf_api_requires_session():
+    with TestClient(server.app) as client:
+        response = client.get(
+            "/api/reports/pdf"
+        )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == (
+        "Authentication required"
+    )

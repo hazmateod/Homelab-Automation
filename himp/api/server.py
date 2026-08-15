@@ -8,7 +8,7 @@ import time
 
 from fastapi import Depends, FastAPI
 from fastapi.requests import Request
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -670,6 +670,26 @@ def application_health_api():
 
     return JSONResponse(
         himp.application_health.summary()
+    )
+
+
+@app.get("/api/reports/pdf", dependencies=[Depends(require_session)])
+def reports_pdf_api():
+
+    from himp.services.report_pdf import ReportPDFService
+
+    pdf = ReportPDFService().generate(
+        himp.reports.operational_summary()
+    )
+
+    return Response(
+        content=pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                'attachment; filename="himp-operational-report.pdf"'
+            ),
+        },
     )
 
 
