@@ -1,0 +1,92 @@
+{% macro operational_activity(activity) %}
+
+<div class="card bg-dark text-light border-secondary mb-4">
+
+    <div class="card-header border-secondary">
+        <h4 class="mb-0">
+            Recent Activity
+        </h4>
+    </div>
+
+    <div class="card-body p-0">
+
+        {% if activity %}
+
+        <div class="table-responsive">
+
+            <table class="table table-dark table-striped table-hover mb-0">
+
+                <thead>
+                    <tr>
+                        <th>Category</th>
+                        <th>Activity</th>
+                        <th>Status</th>
+                        <th>Runtime</th>
+                        <th>Time</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+
+                {% for item in activity %}
+
+                    <tr>
+
+                        <td>
+                            {{ item.category }}
+                        </td>
+
+                        <td>
+                            <a
+                                href="{{ item.href }}"
+                                class="link-light text-decoration-none"
+                            >
+                                {{ item.name }}
+                            </a>
+                        </td>
+
+                        <td>
+
+                            {% if item.status == "SUCCESS" %}
+                                <span class="badge bg-success">
+                                    SUCCESS
+                                </span>
+                            {% else %}
+                                <span class="badge bg-danger">
+                                    FAIL
+                                </span>
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+                            {{ item.elapsed }} sec
+                        </td>
+
+                        <td>
+                            {{ item.timestamp }}
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+            <div class="p-4 text-secondary">
+                No recent activity.
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endmacro %}

@@ -1,0 +1,68 @@
+{% macro operational_attention(attention) %}
+
+<div class="card bg-dark text-light border-secondary mb-4">
+
+    <div class="card-header border-secondary">
+        <h4 class="mb-0">
+            Attention Required
+        </h4>
+    </div>
+
+    <div class="card-body">
+
+        {% if attention %}
+
+            <div class="list-group list-group-flush">
+
+            {% for item in attention %}
+
+                <a
+                    href="{{ item.href }}"
+                    class="list-group-item list-group-item-action bg-dark text-light border-secondary"
+                >
+
+                    <div class="d-flex align-items-start">
+
+                        {% if item.severity == "FAIL" %}
+                            <span class="badge bg-danger me-3">
+                                FAIL
+                            </span>
+                        {% else %}
+                            <span class="badge bg-warning text-dark me-3">
+                                WARNING
+                            </span>
+                        {% endif %}
+
+                        <div>
+
+                            <strong>
+                                {{ item.category }}
+                            </strong>
+
+                            <div class="small text-secondary">
+                                {{ item.message }}
+                            </div>
+
+                        </div>
+
+                    </div>
+
+                </a>
+
+            {% endfor %}
+
+            </div>
+
+        {% else %}
+
+            <div class="text-success">
+                No operational issues require attention.
+            </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+{% endmacro %}

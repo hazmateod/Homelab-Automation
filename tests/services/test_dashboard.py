@@ -549,3 +549,126 @@ def test_operational_summary_reports_warning_for_confirmation_required():
 
     assert result["status"] == "WARNING"
     assert result["remediation"]["confirmation_required_count"] == 1
+
+
+def test_recent_activity_exposes_plugin_execution_history():
+    dashboard = make_dashboard()
+
+    class ActivityExecutionService:
+        def history(self, limit):
+            assert limit == 10
+
+            return [
+                {
+                    "id": 20,
+                    "plugin": "detail",
+                    "plugin_name": "Detail",
+                    "success": 0,
+                    "return_code": 1,
+                    "elapsed": 0.0,
+                    "executed_at": "2026-08-09T23:36:03",
+                },
+                {
+                    "id": 19,
+                    "plugin": "media",
+                    "plugin_name": "Media Services",
+                    "success": 1,
+                    "return_code": 0,
+                    "elapsed": 13.369,
+                    "executed_at": "2026-08-08T17:31:23",
+                },
+            ]
+
+    dashboard.execution = ActivityExecutionService()
+
+    assert dashboard.recent_activity() == [
+        {
+            "category": "Plugin",
+            "name": "Detail",
+            "status": "FAIL",
+            "timestamp": "2026-08-09T23:36:03",
+            "elapsed": 0.0,
+            "href": "/plugins/detail",
+        },
+        {
+            "category": "Plugin",
+            "name": "Media Services",
+            "status": "SUCCESS",
+            "timestamp": "2026-08-08T17:31:23",
+            "elapsed": 13.369,
+            "href": "/plugins/media",
+        },
+    ]
+
+
+def test_operational_summary_exposes_attention_items():
+    dashboard = make_dashboard()
+
+    dashboard.scheduler = FakeSchedulerService()
+
+    dashboard.host_health = FakeOperationalHostHealthService(
+        score=75,
+        passed=2,
+        warnings=1,
+        failed=1,
+    )
+
+    dashboard.remediation_audit = (
+        FakeOperationalRemediationAuditRepository(
+            confirmation_required_count=1,
+            execution_failure_count=1,
+        )
+    )
+
+    dashboard.workflows.list_workflows = lambda: [
+        {
+            "id": 1,
+            "name": "Failed Workflow",
+            "description": "Failed workflow",
+            "enabled": 1,
+        },
+    ]
+
+    dashboard.workflow_history.history = lambda workflow_id, limit=1: [
+        {
+            "workflow_execution_id": "workflow-run-failed",
+            "workflow": {
+                "id": 1,
+                "name": "Failed Workflow",
+            },
+            "started_at": "2026-08-15T01:00:00+00:00",
+            "completed_at": "2026-08-15T01:01:00+00:00",
+            "success": False,
+            "current_task_id": None,
+            "executions": [],
+        },
+    ]
+
+    result = dashboard.operational_summary()
+
+    assert result["status"] == "FAIL"
+
+    assert [
+        item["category"]
+        for item in result["attention"]
+    ] == [
+        "Infrastructure",
+        "Infrastructure",
+        "Workflow",
+        "Remediation",
+        "Remediation",
+    ]
+
+
+def test_summary_exposes_operational_dashboard_data():
+    dashboard = make_dashboard()
+
+    dashboard.scheduler = FakeSchedulerService()
+    dashboard.remediation_audit = FakeOperationalRemediationAuditRepository()
+
+    result = dashboard.summary()
+
+    assert "operational" in result
+    assert result["operational"]["status"] == "PASS"
+    assert "attention" in result["operational"]
+    assert "recent_activity" in result

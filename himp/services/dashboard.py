@@ -188,6 +188,94 @@ class DashboardService:
             ),
         }
 
+        attention = []
+
+        if health_summary["failed"] > 0:
+            attention.append(
+                {
+                    "severity": "FAIL",
+                    "category": "Infrastructure",
+                    "message": (
+                        f'{health_summary["failed"]} host(s) '
+                        "failed health checks."
+                    ),
+                    "href": "/health",
+                }
+            )
+
+        if health_summary["warnings"] > 0:
+            attention.append(
+                {
+                    "severity": "WARNING",
+                    "category": "Infrastructure",
+                    "message": (
+                        f'{health_summary["warnings"]} host(s) '
+                        "have health warnings."
+                    ),
+                    "href": "/health",
+                }
+            )
+
+        for workflow in workflows:
+            if workflow["status"] == "FAILED":
+                attention.append(
+                    {
+                        "severity": "FAIL",
+                        "category": "Workflow",
+                        "message": (
+                            f'Workflow "{workflow["name"]}" failed.'
+                        ),
+                        "href": "/",
+                    }
+                )
+
+        for automation in automations:
+            if automation["last_execution_success"] is False:
+                message = (
+                    f'Automation "{automation["name"]}" '
+                    "failed on its last execution."
+                )
+
+                if automation["last_execution_error"]:
+                    message += (
+                        f' {automation["last_execution_error"]}'
+                    )
+
+                attention.append(
+                    {
+                        "severity": "FAIL",
+                        "category": "Automation",
+                        "message": message,
+                        "href": "/automation",
+                    }
+                )
+
+        if remediation["execution_failure_count"] > 0:
+            attention.append(
+                {
+                    "severity": "FAIL",
+                    "category": "Remediation",
+                    "message": (
+                        f'{remediation["execution_failure_count"]} '
+                        "remediation execution(s) failed."
+                    ),
+                    "href": "/remediation",
+                }
+            )
+
+        if remediation["confirmation_required_count"] > 0:
+            attention.append(
+                {
+                    "severity": "WARNING",
+                    "category": "Remediation",
+                    "message": (
+                        f'{remediation["confirmation_required_count"]} '
+                        "remediation proposal(s) require confirmation."
+                    ),
+                    "href": "/remediation",
+                }
+            )
+
         has_failure = any(
             (
                 health_summary["failed"] > 0,
@@ -217,7 +305,31 @@ class DashboardService:
             "workflows": workflow_summary,
             "automations": automation_summary,
             "remediation": remediation,
+            "attention": attention,
         }
+
+
+
+    def recent_activity(self, limit=10):
+        activity = []
+
+        for execution in self.execution.history(limit):
+            activity.append(
+                {
+                    "category": "Plugin",
+                    "name": execution["plugin_name"],
+                    "status": (
+                        "SUCCESS"
+                        if execution["success"]
+                        else "FAIL"
+                    ),
+                    "timestamp": execution["executed_at"],
+                    "elapsed": execution["elapsed"],
+                    "href": f'/plugins/{execution["plugin"]}',
+                }
+            )
+
+        return activity
 
 
     def inventory_summary(self):
@@ -368,7 +480,11 @@ class DashboardService:
             "health_cards": self.health_cards.summary(),
             "host_health": self.host_health.summary(),
 
+            "operational": self.operational_summary(),
+
             "workflows": self.workflow_summary(),
+
+            "recent_activity": self.recent_activity(10),
 
             "automations": self.automation_summary(),
 

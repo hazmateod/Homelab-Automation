@@ -1,0 +1,107 @@
+{% macro operational_summary(operational) %}
+
+<div class="card bg-dark text-light border-secondary mb-4">
+
+    <div class="card-header border-secondary">
+        <div class="d-flex justify-content-between align-items-center">
+
+            <h3 class="mb-0">
+                Operational Status
+            </h3>
+
+            {% if operational.status == "PASS" %}
+                <span class="badge bg-success fs-6">
+                    PASS
+                </span>
+            {% elif operational.status == "WARNING" %}
+                <span class="badge bg-warning text-dark fs-6">
+                    WARNING
+                </span>
+            {% else %}
+                <span class="badge bg-danger fs-6">
+                    FAIL
+                </span>
+            {% endif %}
+
+        </div>
+    </div>
+
+    <div class="card-body">
+
+        <div class="row g-3">
+
+            <div class="col-md-3">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Infrastructure
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational.health.score }}%
+                    </div>
+                    <div class="small">
+                        {{ operational.health.passed }} passed
+                        ·
+                        {{ operational.health.warnings }} warnings
+                        ·
+                        {{ operational.health.failed }} failed
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Workflows
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational.workflows.total }}
+                    </div>
+                    <div class="small">
+                        {{ operational.workflows.running }} running
+                        ·
+                        {{ operational.workflows.failed }} failed
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Automations
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational.automations.enabled }}
+                    </div>
+                    <div class="small">
+                        of {{ operational.automations.total }} enabled
+                        ·
+                        {{ operational.automations.failed }} failed
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-3">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Remediation
+                    </div>
+                    <div class="fs-3 fw-bold">
+                        {{ operational.remediation.total }}
+                    </div>
+                    <div class="small">
+                        {{ operational.remediation.confirmation_required_count }}
+                        confirmation required
+                        ·
+                        {{ operational.remediation.execution_failure_count }}
+                        failed
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div>
+
+{% endmacro %}
