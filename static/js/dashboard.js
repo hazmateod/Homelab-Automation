@@ -2089,6 +2089,10 @@ function initializeRemediationRun() {
         "remediationRunResult"
     );
 
+    const previewPanel = document.getElementById(
+        "remediationRunPreview"
+    );
+
     const getRequest = () => ({
         source_type: document.getElementById(
             "remediationRunSourceType"
@@ -2108,6 +2112,127 @@ function initializeRemediationRun() {
             ).value
         )
     });
+
+    const generateProposals = async request => {
+
+        const response = await fetch(
+            "/api/remediation/proposals",
+            {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json"
+                },
+                body: JSON.stringify(request)
+            }
+        );
+
+        const result = await response.json();
+
+        if (!response.ok) {
+            throw new Error(
+                result.detail ||
+                `HTTP ${response.status}`
+            );
+        }
+
+        return result;
+    };
+
+    const renderProposalPreview = result => {
+
+        previewPanel.replaceChildren();
+
+        const panel =
+            document.createElement("div");
+
+        panel.className =
+            "alert alert-info mb-0";
+
+        const title =
+            document.createElement("strong");
+
+        title.textContent =
+            "Remediation Proposal";
+
+        panel.appendChild(title);
+
+        const proposals =
+            result.proposals || [];
+
+        if (proposals.length === 0) {
+
+            panel.appendChild(
+                document.createTextNode(
+                    " No remediation actions were proposed."
+                )
+            );
+
+        } else {
+
+            const summary =
+                document.createElement("div");
+
+            summary.className = "mt-2";
+
+            summary.textContent =
+                `${proposals.length} remediation action(s) proposed.`;
+
+            panel.appendChild(summary);
+
+            const list =
+                document.createElement("ul");
+
+            list.className =
+                "mb-0 mt-2";
+
+            proposals.forEach(proposal => {
+
+                const item =
+                    document.createElement("li");
+
+                const task =
+                    document.createElement("strong");
+
+                task.textContent =
+                    proposal.task_id || "Unknown task";
+
+                item.appendChild(task);
+
+                if (proposal.reason) {
+                    item.appendChild(
+                        document.createTextNode(
+                            ` — ${proposal.reason}`
+                        )
+                    );
+                }
+
+                if (proposal.evidence) {
+
+                    const evidence =
+                        document.createElement("div");
+
+                    evidence.className =
+                        "small text-muted mt-1";
+
+                    evidence.textContent =
+                        `Evidence: ${
+                            JSON.stringify(
+                                proposal.evidence
+                            )
+                        }`;
+
+                    item.appendChild(evidence);
+                }
+
+                list.appendChild(item);
+            });
+
+            panel.appendChild(list);
+        }
+
+        previewPanel.appendChild(panel);
+        previewPanel.classList.remove("d-none");
+    };
 
     const renderError = error => {
 
@@ -2475,21 +2600,48 @@ function initializeRemediationRun() {
 
             button.disabled = true;
             button.textContent =
-                "Running...";
+                "Preparing...";
 
             status.textContent =
-                "Running";
+                "Preparing";
 
             status.className =
-                "badge bg-warning text-dark";
+                "badge bg-info text-dark";
+
+            previewPanel.classList.add(
+                "d-none"
+            );
+
+            previewPanel.replaceChildren();
 
             resultPanel.classList.add(
                 "d-none"
             );
 
-            resultPanel.textContent = "";
+            resultPanel.replaceChildren();
 
             try {
+
+                const request =
+                    getRequest();
+
+                const proposalResult =
+                    await generateProposals(
+                        request
+                    );
+
+                renderProposalPreview(
+                    proposalResult
+                );
+
+                button.textContent =
+                    "Running...";
+
+                status.textContent =
+                    "Running";
+
+                status.className =
+                    "badge bg-warning text-dark";
 
                 await submitRun(
                     false

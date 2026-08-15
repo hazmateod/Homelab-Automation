@@ -193,6 +193,11 @@
         </form>
 
         <div
+            id="remediationRunPreview"
+            class="mt-3 d-none"
+        ></div>
+
+        <div
             id="remediationRunResult"
             class="mt-3 d-none"
         ></div>
@@ -296,6 +301,15 @@
                         {% endif %}
                     >
                         DENY
+                    </option>
+
+                    <option
+                        value="CONFIRM_REQUIRED"
+                        {% if decision == "CONFIRM_REQUIRED" %}
+                            selected
+                        {% endif %}
+                    >
+                        CONFIRM_REQUIRED
                     </option>
 
                 </select>
