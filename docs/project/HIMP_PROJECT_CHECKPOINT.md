@@ -2,13 +2,13 @@
 
 **Checkpoint date:** 2026-08-15
 **Branch:** `feature/plugin-sdk`
-**Latest confirmed commit:** `1f6a3b8` — `feat: add remediation navigation`
-**Remote:** `origin/feature/plugin-sdk` synchronized at `1f6a3b8`
+**Latest confirmed commit:** `ece86f3` — `feat: add remediation proposal review gate`
+**Remote:** `origin/feature/plugin-sdk` synchronized at `ece86f3`
 **Working tree:** clean at last confirmed checkpoint
-**Latest full regression:** `583 passed`
+**Latest full regression:** `590 passed`
 **Current phase:** Phase 8 — Automation Intelligence
-**Current subphase:** Phase 8.10 — Remediation UI / Dashboard Integration
-**Phase 8 status:** IN PROGRESS
+**Current subphase:** Phase 8 — COMPLETE
+**Phase 8 status:** COMPLETE
 **Phase 7 status:** COMPLETE
 
 ## 1. Purpose
@@ -322,7 +322,7 @@ Architectural rule preserved:
 
 Keep the first version deterministic and explainable.
 
-### Phase 8 — Automation Intelligence — IN PROGRESS
+### Phase 8 — Automation Intelligence — COMPLETE
 
 **Original planning estimate: 18–28 hours**
 
@@ -460,7 +460,7 @@ Validation completed for Phase 8.9:
 - Compile: PASS
 - `git diff --check`: PASS
 
-#### 8.10 — Remediation UI / Dashboard Integration — IN PROGRESS
+#### 8.10 — Remediation UI / Dashboard Integration — COMPLETE
 
 Implemented and validated:
 
@@ -469,17 +469,38 @@ Implemented and validated:
 - Safe empty-state rendering when no audit records exist
 - Remediation navigation entry in the existing sidebar
 - Existing page-session authentication reused
-- No new remediation execution, policy, audit, or scheduling infrastructure introduced
+- Remediation audit filtering and detail navigation
+- Remediation run UI using the existing remediation API
+- Remediation execution result visibility
+- Audit record links from remediation execution results
+- Remediation audit summary metrics
+- Remediation proposal preview
+- Explicit proposal review gate with Proceed / Cancel controls
+- Existing confirmation flow preserved for confirmation-required remediation
+- No new remediation execution, policy, audit, verification, scheduling, or operational-dispatch framework introduced
 
 Completed 8.10 slices:
 
 - `7b11e60` — `feat: add remediation audit page`
 - `1f6a3b8` — `feat: add remediation navigation`
+- `67f13af` — `feat: add remediation audit filtering`
+- `1de5667` — `feat: add remediation audit filters`
+- `068b648` — `feat: add remediation audit detail view`
+- `9b20ea4` — `test: cover remediation audit rendering`
+- `9cb8d0d` — `feat: add remediation run UI`
+- `dcd9790` — `feat: consolidate remediation confirmation flow`
+- `a1cf7f9` — `feat: show remediation execution results`
+- `fbed111` — `feat: return remediation audit ids`
+- `3db0981` — `feat: link remediation results to audit records`
+- `3c091af` — `test: cover remediation audit ids`
+- `8cf068f` — `feat: add remediation audit summary`
+- `f916929` — `feat: add remediation proposal preview`
+- `ece86f3` — `feat: add remediation proposal review gate`
 
-Validation completed after the current 8.10 slices:
+Validation completed for Phase 8.10:
 
-- Focused web-security tests: 10 passed
-- Full regression: 583 passed
+- Focused remediation/UI tests: PASS
+- Full regression: 590 passed
 - Compile: PASS
 - `git diff --check`: PASS
 - Local branch == `origin/feature/plugin-sdk`
@@ -508,7 +529,7 @@ Audit History
 API / Operational Visibility
 ```
 
-**Phase 8 status:** IN PROGRESS — remediation UI / dashboard integration is complete through the audit page and navigation slices.
+**Phase 8 status:** COMPLETE — remediation UI / dashboard integration is complete through the proposal review gate.
 
 
 ### Phase 9 — Operational Platform
@@ -561,10 +582,10 @@ Branch:
 feature/plugin-sdk
 
 Latest confirmed commit:
-7b07e73
+ece86f3
 
 Commit:
-feat: operationalize scheduled remediation
+feat: add remediation proposal review gate
 
 Remote:
 origin/feature/plugin-sdk
@@ -576,12 +597,12 @@ Working tree:
 clean
 
 Latest confirmed full regression:
-581 passed
+590 passed
 ```
 
 ## 14. Exact Next-Session Starting Point
 
-Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.9 and is currently in subphase 8.10 — Remediation UI / Dashboard Integration.
+Phase 6 Orchestration is complete. Phase 7 Infrastructure Intelligence is complete. Phase 8 Automation Intelligence is complete through subphase 8.10 — Remediation UI / Dashboard Integration.
 
 Completed Phase 8 slices:
 
@@ -594,38 +615,40 @@ Completed Phase 8 slices:
 - 8.7 Remediation Verification
 - 8.8 Safety / Approval Hardening
 - 8.9 Operationalization
-- 8.10 Remediation UI / Dashboard Integration — IN PROGRESS
+- 8.10 Remediation UI / Dashboard Integration — COMPLETE
 
 Latest confirmed implementation commit:
 
 ```text
-1f6a3b8 — feat: add remediation navigation
+ece86f3 — feat: add remediation proposal review gate
 ```
 
 Latest confirmed full regression:
 
 ```text
-583 passed
+590 passed
 ```
 
 Compile: PASS
 
 `git diff --check`: PASS
 
-Local branch and `origin/feature/plugin-sdk` are synchronized at `1f6a3b8`.
+Local branch and `origin/feature/plugin-sdk` are synchronized at `ece86f3`.
 
 Immediate next target:
 
-> Continue Phase 8.10 Remediation UI / Dashboard Integration. Before implementation, inspect the existing UI/backend contract and define the next UI slice without creating duplicate execution, policy, audit, verification, scheduling, or operational-dispatch frameworks.
+> Begin Phase 9 — Operational Platform. Before implementation, inspect the existing Phase 9 plan and current repository architecture, then define the first implementation slice without creating duplicate execution, policy, audit, verification, scheduling, or operational-dispatch frameworks.
 
 Development should continue one subphase at a time:
 
 ```text
-Phase 8.9 — Operationalization — COMPLETE
+Phase 8.10 — Remediation UI / Dashboard Integration — COMPLETE
         ↓
-Phase 8.10 — Remediation UI / Dashboard Integration — IN PROGRESS
+Phase 9 — Operational Platform
         ↓
-Next UI slice — define contract
+Inspect Phase 9 plan and existing architecture
+        ↓
+Define first implementation slice
         ↓
 Implement service
         ↓
