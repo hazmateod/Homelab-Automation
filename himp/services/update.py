@@ -19,7 +19,7 @@ class UpdateService:
         limit=None,
         timeout=None,
     ):
-        success, elapsed = run_playbook(
+        result = run_playbook(
             config.maintenance_playbook,
             limit or target,
             timeout=timeout,
@@ -27,6 +27,9 @@ class UpdateService:
 
         return {
             "target": target,
-            "success": success,
-            "elapsed": round(elapsed, 3),
+            "success": result.success,
+            "return_code": result.return_code,
+            "elapsed": round(result.elapsed, 3),
+            "stdout": result.stdout,
+            "stderr": result.stderr,
         }

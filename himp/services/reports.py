@@ -28,15 +28,15 @@ class ReportService:
         timeout=None,
     ):
 
-        success, elapsed = run_playbook(
+        result = run_playbook(
             config.report_playbook,
             limit,
             timeout=timeout,
         )
 
         return {
-            "success": success,
-            "elapsed": elapsed,
+            "success": result.success,
+            "elapsed": result.elapsed,
         }
 
 

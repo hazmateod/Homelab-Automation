@@ -13,15 +13,15 @@ def run(args):
     info("Generating reports...")
     print()
 
-    ok, elapsed = run_playbook(
+    result = run_playbook(
         config.report_playbook,
         args.limit,
     )
 
     log(
         "report",
-        ok,
-        elapsed,
+        result.success,
+        result.elapsed,
     )
 
     print()

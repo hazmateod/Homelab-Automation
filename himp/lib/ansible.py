@@ -4,8 +4,20 @@ Shared Ansible helper functions.
 
 import subprocess
 import time
+from dataclasses import dataclass
 
 from himp.config import config
+
+
+@dataclass(frozen=True)
+class AnsiblePlaybookResult:
+    """Result returned by an Ansible playbook execution."""
+
+    success: bool
+    return_code: int
+    elapsed: float
+    stdout: str
+    stderr: str
 
 
 class AnsiblePlaybookTimeoutError(TimeoutError):
@@ -37,9 +49,9 @@ def run_playbook(
             cmd,
             check=False,
             timeout=timeout,
+            capture_output=True,
+            text=True,
         )
-
-        success = result.returncode == 0
 
     except subprocess.TimeoutExpired as error:
         raise AnsiblePlaybookTimeoutError(
@@ -48,7 +60,10 @@ def run_playbook(
 
     elapsed = time.perf_counter() - start
 
-    return (
-        success,
-        elapsed,
+    return AnsiblePlaybookResult(
+        success=result.returncode == 0,
+        return_code=result.returncode,
+        elapsed=elapsed,
+        stdout=result.stdout.strip(),
+        stderr=result.stderr.strip(),
     )
