@@ -7,6 +7,7 @@ import subprocess
 import time
 
 from fastapi import Depends, FastAPI
+from fastapi.encoders import jsonable_encoder
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
@@ -614,7 +615,9 @@ def history(request: Request):
 
     context = dashboard_context()
 
-    context["history"] = log_service.history(100)
+    context["history"] = jsonable_encoder(
+        log_service.history(100)
+    )
 
     return templates.TemplateResponse(
         request=request,
@@ -629,7 +632,9 @@ def logs_api(limit: int = 100):
 
     return JSONResponse(
         {
-            "logs": log_service.history(limit),
+            "logs": jsonable_encoder(
+                log_service.history(limit)
+            ),
             "limit": limit,
         }
     )
