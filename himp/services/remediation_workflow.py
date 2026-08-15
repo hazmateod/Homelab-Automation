@@ -5,7 +5,13 @@ Coordinates remediation proposal generation with the existing
 remediation policy and execution services.
 """
 
+from himp.database.remediation_audit import (
+    RemediationAuditRepository,
+)
 from himp.services.automation import AutomationService
+from himp.services.remediation_audit import (
+    RemediationAuditService,
+)
 from himp.services.remediation_execution import (
     RemediationExecutionService,
 )
@@ -29,6 +35,7 @@ class RemediationWorkflowService:
         self,
         proposals=None,
         execution=None,
+        audit=None,
     ):
         self.proposals = (
             proposals
@@ -47,6 +54,14 @@ class RemediationWorkflowService:
                 policy=policy,
                 automation=automation,
             )
+
+        self.audit = (
+            audit
+            if audit is not None
+            else RemediationAuditService(
+                repository=RemediationAuditRepository()
+            )
+        )
 
     def run(
         self,
@@ -67,11 +82,21 @@ class RemediationWorkflowService:
         results = []
 
         for proposal in proposals:
+            remediation = self.execution.execute(
+                proposal,
+                confirmed=confirmed,
+            )
+
+            self.audit.record(
+                source_type=source_type,
+                source_id=source_id,
+                proposal=proposal,
+                remediation=remediation,
+                confirmed=confirmed,
+            )
+
             results.append(
-                self.execution.execute(
-                    proposal,
-                    confirmed=confirmed,
-                )
+                remediation
             )
 
         executed_count = sum(

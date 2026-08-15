@@ -365,3 +365,284 @@ def test_remediation_workflow_execution_errors_propagate():
             source_type="host",
             source_id="pve01",
         )
+
+
+class FakeAudit:
+    def __init__(self):
+        self.calls = []
+
+    def record(
+        self,
+        source_type,
+        source_id,
+        proposal,
+        remediation,
+        confirmed=False,
+    ):
+        self.calls.append(
+            {
+                "source_type": source_type,
+                "source_id": source_id,
+                "proposal": proposal,
+                "remediation": remediation,
+                "confirmed": confirmed,
+            }
+        )
+
+        return {
+            "id": len(self.calls),
+        }
+
+
+def make_audited_workflow(
+    proposals=None,
+    execution=None,
+):
+    proposal_service = FakeProposalService(
+        proposals=proposals
+        or []
+    )
+
+    execution_service = (
+        execution
+        or FakeExecutionService()
+    )
+
+    audit_service = FakeAudit()
+
+    workflow = RemediationWorkflowService(
+        proposals=proposal_service,
+        execution=execution_service,
+        audit=audit_service,
+    )
+
+    return (
+        workflow,
+        proposal_service,
+        execution_service,
+        audit_service,
+    )
+
+
+def test_allowed_remediation_is_audited():
+    proposal = {
+        "task_id": "scheduled_updates",
+        "reason": "Maintenance required.",
+        "evidence": {
+            "hostname": "pve01",
+        },
+    }
+
+    (
+        workflow,
+        _,
+        _,
+        audit,
+    ) = make_audited_workflow(
+        proposals=[proposal]
+    )
+
+    result = workflow.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["executed_count"] == 1
+    assert len(audit.calls) == 1
+    assert audit.calls[0]["source_type"] == "host"
+    assert audit.calls[0]["source_id"] == "pve01"
+    assert audit.calls[0]["proposal"] == proposal
+    assert audit.calls[0]["remediation"]["decision"] == "ALLOW"
+    assert audit.calls[0]["confirmed"] is False
+
+
+def test_blocked_remediation_is_audited():
+    proposal = {
+        "task_id": "scheduled_updates",
+        "reason": "Maintenance required.",
+        "evidence": {
+            "hostname": "pve01",
+        },
+    }
+
+    (
+        workflow,
+        _,
+        execution,
+        audit,
+    ) = make_audited_workflow(
+        proposals=[proposal],
+        execution=FakeExecutionService(
+            decisions=["DENY"]
+        ),
+    )
+
+    result = workflow.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["blocked_count"] == 1
+    assert execution.calls == [
+        (
+            proposal,
+            False,
+        )
+    ]
+    assert len(audit.calls) == 1
+    assert audit.calls[0]["remediation"]["decision"] == "DENY"
+
+
+def test_confirmation_required_remediation_is_audited():
+    proposal = {
+        "task_id": "scheduled_updates",
+        "reason": "Maintenance required.",
+        "evidence": {
+            "hostname": "pve01",
+        },
+    }
+
+    (
+        workflow,
+        _,
+        _,
+        audit,
+    ) = make_audited_workflow(
+        proposals=[proposal],
+        execution=FakeExecutionService(
+            decisions=["CONFIRM_REQUIRED"]
+        ),
+    )
+
+    result = workflow.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["blocked_count"] == 1
+    assert len(audit.calls) == 1
+    assert (
+        audit.calls[0]["remediation"]["decision"]
+        == "CONFIRM_REQUIRED"
+    )
+
+
+def test_confirmation_state_is_passed_to_audit():
+    proposal = {
+        "task_id": "scheduled_updates",
+        "reason": "Maintenance required.",
+        "evidence": {
+            "hostname": "pve01",
+        },
+    }
+
+    (
+        workflow,
+        _,
+        execution,
+        audit,
+    ) = make_audited_workflow(
+        proposals=[proposal]
+    )
+
+    workflow.run(
+        source_type="host",
+        source_id="pve01",
+        confirmed=True,
+    )
+
+    assert execution.calls == [
+        (
+            proposal,
+            True,
+        )
+    ]
+
+    assert audit.calls[0]["confirmed"] is True
+
+
+def test_multiple_remediations_create_multiple_audit_records():
+    proposals = [
+        {
+            "task_id": "scheduled_updates",
+            "reason": "First remediation.",
+            "evidence": {
+                "hostname": "pve01",
+            },
+        },
+        {
+            "task_id": "scheduled_updates",
+            "reason": "Second remediation.",
+            "evidence": {
+                "hostname": "pve02",
+            },
+        },
+    ]
+
+    (
+        workflow,
+        _,
+        _,
+        audit,
+    ) = make_audited_workflow(
+        proposals=proposals
+    )
+
+    result = workflow.run(
+        source_type="host",
+        source_id="cluster",
+    )
+
+    assert result["proposal_count"] == 2
+    assert result["executed_count"] == 2
+    assert len(audit.calls) == 2
+
+    assert [
+        call["proposal"]["evidence"]["hostname"]
+        for call in audit.calls
+    ] == [
+        "pve01",
+        "pve02",
+    ]
+
+
+def test_audit_failure_propagates():
+    class FailingAudit(FakeAudit):
+        def record(
+            self,
+            source_type,
+            source_id,
+            proposal,
+            remediation,
+            confirmed=False,
+        ):
+            raise RuntimeError(
+                "audit persistence failed"
+            )
+
+    proposal = {
+        "task_id": "scheduled_updates",
+        "reason": "Maintenance required.",
+        "evidence": {
+            "hostname": "pve01",
+        },
+    }
+
+    proposal_service = FakeProposalService(
+        proposals=[proposal]
+    )
+
+    workflow = RemediationWorkflowService(
+        proposals=proposal_service,
+        execution=FakeExecutionService(),
+        audit=FailingAudit(),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="audit persistence failed",
+    ):
+        workflow.run(
+            source_type="host",
+            source_id="pve01",
+        )
