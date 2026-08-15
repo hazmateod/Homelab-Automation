@@ -1,0 +1,367 @@
+import pytest
+
+from himp.services.remediation_workflow import (
+    RemediationWorkflowService,
+)
+
+
+class FakeProposalService:
+    def __init__(
+        self,
+        proposals=None,
+    ):
+        self.proposals = proposals or []
+        self.calls = []
+
+    def propose(
+        self,
+        source_type,
+        source_id,
+        baseline=None,
+        change_limit=10,
+    ):
+        self.calls.append(
+            {
+                "source_type": source_type,
+                "source_id": source_id,
+                "baseline": baseline,
+                "change_limit": change_limit,
+            }
+        )
+
+        return {
+            "source_type": source_type,
+            "source_id": source_id,
+            "proposals": self.proposals,
+        }
+
+
+class FakeExecutionService:
+    def __init__(
+        self,
+        decisions=None,
+    ):
+        self.decisions = decisions or []
+        self.calls = []
+
+    def execute(
+        self,
+        proposal,
+        confirmed=False,
+    ):
+        self.calls.append(
+            (
+                proposal,
+                confirmed,
+            )
+        )
+
+        decision = (
+            self.decisions.pop(0)
+            if self.decisions
+            else "ALLOW"
+        )
+
+        result = {
+            "decision": decision,
+            "policy": {
+                "decision": decision,
+                "task_id": proposal["task_id"],
+                "reason": proposal["reason"],
+                "evidence": proposal["evidence"],
+                "risk_level": "maintenance",
+                "confirmation_required": (
+                    decision == "CONFIRM_REQUIRED"
+                ),
+            },
+        }
+
+        if decision == "ALLOW":
+            result["execution"] = {
+                "id": 42,
+                "success": True,
+            }
+
+        return result
+
+
+def proposal(
+    task_id="scheduled_updates",
+):
+    return {
+        "task_id": task_id,
+        "reason": (
+            "Host health indicates maintenance is required."
+        ),
+        "evidence": {
+            "hostname": "pve01",
+            "status": "WARNING",
+        },
+    }
+
+
+def make_service(
+    proposals=None,
+    decisions=None,
+):
+    proposal_service = FakeProposalService(
+        proposals=proposals,
+    )
+
+    execution_service = FakeExecutionService(
+        decisions=decisions,
+    )
+
+    service = RemediationWorkflowService(
+        proposals=proposal_service,
+        execution=execution_service,
+    )
+
+    return (
+        service,
+        proposal_service,
+        execution_service,
+    )
+
+
+def test_remediation_workflow_executes_proposals():
+    service, proposal_service, execution_service = (
+        make_service(
+            proposals=[
+                proposal(),
+            ],
+            decisions=[
+                "ALLOW",
+            ],
+        )
+    )
+
+    result = service.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["source_type"] == "host"
+    assert result["source_id"] == "pve01"
+
+    assert result["proposal_count"] == 1
+    assert result["executed_count"] == 1
+    assert result["blocked_count"] == 0
+
+    assert result["results"][0]["decision"] == "ALLOW"
+    assert result["results"][0]["execution"]["success"] is True
+
+    assert proposal_service.calls == [
+        {
+            "source_type": "host",
+            "source_id": "pve01",
+            "baseline": None,
+            "change_limit": 10,
+        }
+    ]
+
+    assert len(execution_service.calls) == 1
+    assert execution_service.calls[0][1] is False
+
+
+def test_remediation_workflow_preserves_denied_proposals():
+    service, _, execution_service = make_service(
+        proposals=[
+            proposal(),
+        ],
+        decisions=[
+            "DENY",
+        ],
+    )
+
+    result = service.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["proposal_count"] == 1
+    assert result["executed_count"] == 0
+    assert result["blocked_count"] == 1
+
+    assert result["results"][0]["decision"] == "DENY"
+    assert "execution" not in result["results"][0]
+
+    assert len(execution_service.calls) == 1
+
+
+def test_remediation_workflow_preserves_confirmation_required():
+    service, _, execution_service = make_service(
+        proposals=[
+            proposal(),
+        ],
+        decisions=[
+            "CONFIRM_REQUIRED",
+        ],
+    )
+
+    result = service.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["proposal_count"] == 1
+    assert result["executed_count"] == 0
+    assert result["blocked_count"] == 1
+
+    assert result["results"][0]["decision"] == (
+        "CONFIRM_REQUIRED"
+    )
+    assert (
+        result["results"][0]["policy"][
+            "confirmation_required"
+        ]
+        is True
+    )
+
+
+def test_remediation_workflow_passes_confirmation():
+    service, _, execution_service = make_service(
+        proposals=[
+            proposal(),
+        ],
+        decisions=[
+            "ALLOW",
+        ],
+    )
+
+    result = service.run(
+        source_type="host",
+        source_id="pve01",
+        confirmed=True,
+    )
+
+    assert result["results"][0]["decision"] == "ALLOW"
+
+    assert execution_service.calls == [
+        (
+            proposal(),
+            True,
+        )
+    ]
+
+
+def test_remediation_workflow_supports_multiple_proposals():
+    proposals = [
+        proposal(
+            task_id="scheduled_updates",
+        ),
+        {
+            "task_id": "restart_service",
+            "reason": "Related service requires restart.",
+            "evidence": {
+                "hostname": "pve01",
+                "service": "example",
+            },
+        },
+    ]
+
+    service, _, execution_service = make_service(
+        proposals=proposals,
+        decisions=[
+            "ALLOW",
+            "DENY",
+        ],
+    )
+
+    result = service.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result["proposal_count"] == 2
+    assert result["executed_count"] == 1
+    assert result["blocked_count"] == 1
+
+    assert [
+        item["decision"]
+        for item in result["results"]
+    ] == [
+        "ALLOW",
+        "DENY",
+    ]
+
+    assert len(execution_service.calls) == 2
+
+
+def test_remediation_workflow_returns_empty_result_when_no_proposals():
+    service, _, execution_service = make_service()
+
+    result = service.run(
+        source_type="host",
+        source_id="pve01",
+    )
+
+    assert result == {
+        "source_type": "host",
+        "source_id": "pve01",
+        "baseline": None,
+        "proposal_count": 0,
+        "executed_count": 0,
+        "blocked_count": 0,
+        "results": [],
+    }
+
+    assert execution_service.calls == []
+
+
+def test_remediation_workflow_proposal_errors_propagate():
+    class FailingProposalService:
+        def propose(
+            self,
+            source_type,
+            source_id,
+            baseline=None,
+            change_limit=10,
+        ):
+            raise RuntimeError(
+                "proposal generation failed"
+            )
+
+    service = RemediationWorkflowService(
+        proposals=FailingProposalService(),
+        execution=FakeExecutionService(),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="proposal generation failed",
+    ):
+        service.run(
+            source_type="host",
+            source_id="pve01",
+        )
+
+
+def test_remediation_workflow_execution_errors_propagate():
+    class FailingExecutionService:
+        def execute(
+            self,
+            proposal,
+            confirmed=False,
+        ):
+            raise RuntimeError(
+                "remediation execution failed"
+            )
+
+    service = RemediationWorkflowService(
+        proposals=FakeProposalService(
+            proposals=[
+                proposal(),
+            ]
+        ),
+        execution=FailingExecutionService(),
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="remediation execution failed",
+    ):
+        service.run(
+            source_type="host",
+            source_id="pve01",
+        )
