@@ -35,6 +35,9 @@ from himp.api.workflows import (
     router as workflows_router,
     workflow_execution_service,
 )
+from himp.api.remediation import (
+    router as remediation_router,
+)
 from himp.services.scheduler import SchedulerService
 from himp.app import HIMP
 
@@ -146,6 +149,12 @@ app.include_router(
 
 app.include_router(
     workflows_router,
+    prefix="/api",
+    dependencies=[Depends(require_session)],
+)
+
+app.include_router(
+    remediation_router,
     prefix="/api",
     dependencies=[Depends(require_session)],
 )
