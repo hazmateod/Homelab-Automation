@@ -259,3 +259,59 @@ def test_logs_csv_export_returns_csv(monkeypatch):
     )
     assert "automation:1" in response.text
     assert "scheduled_updates" in response.text
+
+
+def test_logs_csv_export_truncates_oversized_details(monkeypatch):
+    oversized_details = {
+        "host_health_check": "X" * 40000,
+    }
+
+    expected = [
+        {
+            "id": "automation:oversized",
+            "timestamp": "2026-08-15 14:00:00",
+            "source": "automation",
+            "event": "automation_execution",
+            "status": "success",
+            "message": "Automation execution: host_health_check",
+            "details": oversized_details,
+        }
+    ]
+
+    monkeypatch.setattr(
+        server.log_service,
+        "history",
+        lambda limit: expected,
+    )
+
+    server.app.dependency_overrides[
+        require_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get("/api/logs/export/csv")
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith(
+        "text/csv"
+    )
+
+    import csv
+    import io
+
+    rows = list(csv.reader(io.StringIO(response.text)))
+
+    assert len(rows) == 2
+
+    header = rows[0]
+    data = rows[1]
+
+    details_index = header.index("details")
+    details = data[details_index]
+
+    assert len(details) <= 32767
+    assert details.endswith("[truncated]")
+    assert "host_health_check" in details

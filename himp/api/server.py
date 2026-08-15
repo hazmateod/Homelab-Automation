@@ -701,7 +701,28 @@ def logs_export_txt():
 def logs_export_csv():
     import csv
     import io
+    import json
     from fastapi.responses import Response
+
+    max_cell_length = 32767
+
+    def csv_cell(value):
+        if isinstance(value, (dict, list, tuple)):
+            value = json.dumps(
+                value,
+                default=str,
+                ensure_ascii=False,
+            )
+        else:
+            value = str(value)
+
+        if len(value) <= max_cell_length:
+            return value
+
+        return (
+            value[: max_cell_length - len(" [truncated]")]
+            + " [truncated]"
+        )
 
     buffer = io.StringIO(newline="")
     writer = csv.writer(buffer)
@@ -721,13 +742,13 @@ def logs_export_csv():
     for record in log_service.history(500):
         writer.writerow(
             [
-                record["id"],
-                record["timestamp"],
-                record["source"],
-                record["event"],
-                record["status"],
-                record["message"],
-                record["details"],
+                csv_cell(record["id"]),
+                csv_cell(record["timestamp"]),
+                csv_cell(record["source"]),
+                csv_cell(record["event"]),
+                csv_cell(record["status"]),
+                csv_cell(record["message"]),
+                csv_cell(record["details"]),
             ]
         )
 
