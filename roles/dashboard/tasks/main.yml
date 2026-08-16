@@ -2,7 +2,7 @@
 - name: Ensure dashboard directory exists
   run_once: true
   delegate_to: localhost
-
+  become: false
   ansible.builtin.file:
     path: "{{ playbook_dir }}/../reports/dashboard"
     state: directory
@@ -11,7 +11,7 @@
 - name: Find JSON reports
   run_once: true
   delegate_to: localhost
-
+  become: false
   ansible.builtin.find:
     paths: "{{ playbook_dir }}/../reports/json"
     patterns: "*.json"
@@ -20,14 +20,14 @@
 - name: Initialize dashboard host list
   run_once: true
   delegate_to: localhost
-
+  become: false
   ansible.builtin.set_fact:
     dashboard_hosts: []
 
 - name: Read JSON reports
   run_once: true
   delegate_to: localhost
-
+  become: false
   ansible.builtin.set_fact:
     dashboard_hosts: >-
       {{
@@ -45,7 +45,7 @@
 - name: Generate dashboard JSON
   run_once: true
   delegate_to: localhost
-
+  become: false
   ansible.builtin.template:
     src: dashboard.json.j2
     dest: "{{ playbook_dir }}/../reports/dashboard/dashboard.json"
@@ -53,7 +53,7 @@
 - name: Generate dashboard HTML
   run_once: true
   delegate_to: localhost
-
+  become: false
   ansible.builtin.template:
     src: index.html.j2
     dest: "{{ playbook_dir }}/../reports/dashboard/index.html"
@@ -61,7 +61,7 @@
 - name: Generate dashboard CSS
   run_once: true
   delegate_to: localhost
-
+  become: false
   ansible.builtin.template:
     src: style.css.j2
     dest: "{{ playbook_dir }}/../reports/dashboard/style.css"
@@ -69,7 +69,7 @@
 - name: Generate dashboard JavaScript
   run_once: true
   delegate_to: localhost
-
+  become: false
   ansible.builtin.template:
     src: dashboard.js.j2
     dest: "{{ playbook_dir }}/../reports/dashboard/dashboard.js"
@@ -77,8 +77,8 @@
 - name: Display dashboard summary
   run_once: true
   delegate_to: localhost
-
-  debug:
+  become: false
+  ansible.builtin.debug:
     msg:
       - "Dashboard generated."
       - "Hosts: {{ dashboard_hosts | length }}"
