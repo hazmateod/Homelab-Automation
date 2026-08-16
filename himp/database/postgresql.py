@@ -10,6 +10,7 @@ connection for the complete transaction boundary.
 
 from contextlib import contextmanager
 from threading import Lock
+import re
 
 import psycopg
 from psycopg.rows import dict_row
@@ -60,6 +61,7 @@ class PostgreSQLDatabase:
             config.postgres_database,
             config.postgres_user,
             config.postgres_password,
+            config.postgres_schema,
         )
 
     @classmethod
@@ -70,6 +72,15 @@ class PostgreSQLDatabase:
         key = cls._pool_key(
             config
         )
+
+        if not re.fullmatch(
+            r"[A-Za-z_][A-Za-z0-9_]*",
+            config.postgres_schema,
+        ):
+            raise ValueError(
+                "Invalid PostgreSQL schema name: "
+                f"{config.postgres_schema}"
+            )
 
         with cls._pools_lock:
             pool = cls._pools.get(
@@ -87,6 +98,10 @@ class PostgreSQLDatabase:
                         "password": config.postgres_password,
                         "row_factory": dict_row,
                         "autocommit": True,
+                        "options": (
+                            "-c "
+                            f"search_path={config.postgres_schema}"
+                        ),
                     },
                     min_size=cls.POOL_MIN_SIZE,
                     max_size=cls.POOL_MAX_SIZE,

@@ -986,3 +986,12 @@ def test_oneshot_services_do_not_use_development_runtime():
 
         for value in forbidden:
             assert value not in service
+
+
+def test_cli_launcher_uses_project_virtual_environment():
+    launcher = Path("bin/himp").read_text()
+
+    assert '.venv/bin/python' in launcher
+    assert 'exec "$PYTHON" -m himp.cli "$@"' in launcher
+    assert 'exec python3 -m himp.cli "$@"' not in launcher
+    assert '/usr/bin/python3' not in launcher

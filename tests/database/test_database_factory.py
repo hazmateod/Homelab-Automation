@@ -17,6 +17,7 @@ def clear_database_environment(
         "HIMP_DATABASE_NAME",
         "HIMP_DATABASE_USER",
         "HIMP_DATABASE_PASSWORD",
+        "HIMP_DATABASE_SCHEMA",
     ):
         monkeypatch.delenv(
             name,
@@ -253,3 +254,62 @@ def test_runtime_database_consumers_use_factory():
         )
 
         assert "Database()" not in source
+
+
+def test_factory_preserves_custom_postgresql_schema(
+    monkeypatch,
+):
+    clear_database_environment(
+        monkeypatch
+    )
+
+    monkeypatch.setenv(
+        "HIMP_DATABASE_BACKEND",
+        "postgresql",
+    )
+    monkeypatch.setenv(
+        "HIMP_DATABASE_HOST",
+        "himpdb01.server.arpa",
+    )
+    monkeypatch.setenv(
+        "HIMP_DATABASE_NAME",
+        "himp",
+    )
+    monkeypatch.setenv(
+        "HIMP_DATABASE_USER",
+        "himp_app",
+    )
+    monkeypatch.setenv(
+        "HIMP_DATABASE_PASSWORD",
+        "test-secret",
+    )
+    monkeypatch.setenv(
+        "HIMP_DATABASE_SCHEMA",
+        "phase_11_6_2_rehearsal",
+    )
+
+    sentinel = object()
+    captured = {}
+
+    def fake_postgresql_database(
+        config=None,
+    ):
+        captured["config"] = config
+        return sentinel
+
+    monkeypatch.setattr(
+        "himp.database.factory.PostgreSQLDatabase",
+        fake_postgresql_database,
+    )
+
+    database = create_database()
+
+    assert database is sentinel
+
+    config = captured["config"]
+
+    assert config.is_postgresql
+    assert (
+        config.postgres_schema
+        == "phase_11_6_2_rehearsal"
+    )

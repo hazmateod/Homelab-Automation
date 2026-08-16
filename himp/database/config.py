@@ -34,6 +34,7 @@ class DatabaseConfig:
     postgres_database: str | None = None
     postgres_user: str | None = None
     postgres_password: str | None = None
+    postgres_schema: str = "public"
 
     @classmethod
     def from_environment(cls):
@@ -95,6 +96,12 @@ class DatabaseConfig:
             postgres_password=_optional_environment(
                 "HIMP_DATABASE_PASSWORD"
             ),
+            postgres_schema=(
+                _optional_environment(
+                    "HIMP_DATABASE_SCHEMA"
+                )
+                or "public"
+            ),
         )
 
         config.validate()
@@ -112,6 +119,11 @@ class DatabaseConfig:
     def validate(self):
         if self.is_sqlite:
             return
+
+        if not self.postgres_schema:
+            raise ValueError(
+                "HIMP_DATABASE_SCHEMA must not be empty."
+            )
 
         required = {
             "HIMP_DATABASE_HOST": self.postgres_host,

@@ -3,7 +3,13 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+PYTHON="$SCRIPT_DIR/.venv/bin/python"
 
 cd "$SCRIPT_DIR"
 
-exec python3 -m himp.cli "$@"
+if [[ ! -x "$PYTHON" ]]; then
+    echo "ERROR: HIMP virtual-environment Python not found: $PYTHON" >&2
+    exit 1
+fi
+
+exec "$PYTHON" -m himp.cli "$@"

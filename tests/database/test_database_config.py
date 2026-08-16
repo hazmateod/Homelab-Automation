@@ -15,6 +15,7 @@ def clear_database_environment(monkeypatch):
         "HIMP_DATABASE_NAME",
         "HIMP_DATABASE_USER",
         "HIMP_DATABASE_PASSWORD",
+        "HIMP_DATABASE_SCHEMA",
     ):
         monkeypatch.delenv(
             name,
@@ -36,6 +37,7 @@ def test_database_config_defaults_to_sqlite(monkeypatch):
         "data/himp.db"
     )
     assert config.postgres_port == 5432
+    assert config.postgres_schema == "public"
 
 
 def test_database_config_accepts_custom_sqlite_path(
@@ -98,12 +100,69 @@ def test_database_config_accepts_postgresql(
         == "himpdb01.server.arpa"
     )
     assert config.postgres_port == 5432
+    assert config.postgres_schema == "public"
     assert config.postgres_database == "himp"
     assert config.postgres_user == "himp_app"
     assert (
         config.postgres_password
         == "test-secret"
     )
+    assert config.postgres_schema == "public"
+
+
+def test_database_config_accepts_custom_postgresql_schema(
+    monkeypatch,
+):
+    clear_database_environment(
+        monkeypatch
+    )
+
+    values = {
+        "HIMP_DATABASE_BACKEND":
+            "postgresql",
+        "HIMP_DATABASE_HOST":
+            "himpdb01.server.arpa",
+        "HIMP_DATABASE_NAME":
+            "himp",
+        "HIMP_DATABASE_USER":
+            "himp_app",
+        "HIMP_DATABASE_PASSWORD":
+            "test-secret",
+        "HIMP_DATABASE_SCHEMA":
+            "phase_11_6_2_rehearsal",
+    }
+
+    for name, value in values.items():
+        monkeypatch.setenv(
+            name,
+            value,
+        )
+
+    config = DatabaseConfig.from_environment()
+
+    assert (
+        config.postgres_schema
+        == "phase_11_6_2_rehearsal"
+    )
+
+
+def test_database_config_rejects_empty_postgresql_schema():
+    config = DatabaseConfig(
+        backend="postgresql",
+        postgres_host="himpdb01.server.arpa",
+        postgres_port=5432,
+        postgres_database="himp",
+        postgres_user="himp_app",
+        postgres_password="test-secret",
+        postgres_schema="",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="HIMP_DATABASE_SCHEMA",
+    ):
+        config.validate()
+
 
 
 def test_database_config_rejects_unknown_backend(

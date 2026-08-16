@@ -14,6 +14,7 @@ from himp.commands import (
     history,
     inventory,
     inventory_sync,
+    migration,
     scheduler_run,
     plugin,
     plugin_run,
@@ -101,6 +102,19 @@ def main():
     )
     inventory_sync_parser.set_defaults(
         func=inventory_sync.run,
+    )
+
+    migration_parser = subparsers.add_parser(
+        "migration",
+        help="Migrate SQLite data to PostgreSQL",
+    )
+    migration_parser.add_argument(
+        "--execute",
+        action="store_true",
+        help="Perform the migration instead of a rehearsal",
+    )
+    migration_parser.set_defaults(
+        func=migration.run,
     )
 
     automation_run_parser = subparsers.add_parser(

@@ -1,4 +1,6 @@
 from contextlib import contextmanager
+
+import pytest
 from pathlib import Path
 
 from himp.database.config import DatabaseConfig
@@ -13,6 +15,7 @@ def postgresql_config():
         postgres_database="himp",
         postgres_user="himp_app",
         postgres_password="test-secret",
+        postgres_schema="public",
     )
 
 
@@ -195,6 +198,25 @@ def test_pool_is_bounded():
     )
 
 
+def test_pool_key_includes_postgresql_schema():
+    first = postgresql_config()
+
+    second = DatabaseConfig(
+        backend="postgresql",
+        postgres_host=first.postgres_host,
+        postgres_port=first.postgres_port,
+        postgres_database=first.postgres_database,
+        postgres_user=first.postgres_user,
+        postgres_password=first.postgres_password,
+        postgres_schema="other_schema",
+    )
+
+    assert (
+        PostgreSQLDatabase._pool_key(first)
+        != PostgreSQLDatabase._pool_key(second)
+    )
+
+
 def test_pool_key_is_stable_for_same_configuration():
     first = postgresql_config()
     second = postgresql_config()
@@ -203,6 +225,26 @@ def test_pool_key_is_stable_for_same_configuration():
         PostgreSQLDatabase._pool_key(first)
         == PostgreSQLDatabase._pool_key(second)
     )
+
+
+def test_invalid_postgresql_schema_is_rejected(
+    monkeypatch,
+):
+    config = DatabaseConfig(
+        backend="postgresql",
+        postgres_host="himpdb01.server.arpa",
+        postgres_port=5432,
+        postgres_database="himp",
+        postgres_user="himp_app",
+        postgres_password="test-secret",
+        postgres_schema="bad-schema",
+    )
+
+    with pytest.raises(
+        ValueError,
+        match="Invalid PostgreSQL schema name",
+    ):
+        PostgreSQLDatabase._get_pool(config)
 
 
 def test_query_checks_connection_out_and_back_in():
