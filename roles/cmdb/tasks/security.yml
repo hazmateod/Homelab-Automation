@@ -1,0 +1,190 @@
+---
+###############################################################################
+# CMDB Security Posture
+#
+# Read-only inventory of host security controls. This collector does not
+# install packages, modify configuration, or change service state.
+###############################################################################
+
+- name: Detect security and firewall tooling
+  ansible.builtin.shell: |
+    for command in nft ufw firewall-cmd fail2ban-client aide; do
+        if command -v "$command" >/dev/null 2>&1; then
+            printf '%s=present\n' "$command"
+        else
+            printf '%s=absent\n' "$command"
+        fi
+    done
+
+    if dpkg-query -W -f='${Status}' unattended-upgrades \
+        2>/dev/null | grep -q 'install ok installed'; then
+        printf 'unattended-upgrades=present\n'
+    else
+        printf 'unattended-upgrades=absent\n'
+    fi
+  args:
+    executable: /bin/bash
+  register: security_tool_detection
+  changed_when: false
+  failed_when: false
+
+- name: Determine active firewall framework
+  ansible.builtin.shell: |
+    if command -v ufw >/dev/null 2>&1 &&
+       ufw status 2>/dev/null | grep -qi '^Status: active'; then
+        printf 'ufw\n'
+    elif command -v firewall-cmd >/dev/null 2>&1 &&
+         firewall-cmd --state 2>/dev/null | grep -qi '^running$'; then
+        printf 'firewalld\n'
+    elif command -v nft >/dev/null 2>&1 &&
+         nft list ruleset 2>/dev/null | grep -q '[^[:space:]]'; then
+        printf 'nftables\n'
+    else
+        printf 'none_detected\n'
+    fi
+  args:
+    executable: /bin/bash
+  register: active_firewall
+  changed_when: false
+  failed_when: false
+
+- name: Build security section
+  ansible.builtin.set_fact:
+    cmdb_security:
+      ssh:
+        installed: >-
+          {{
+            (
+              'ssh.service' in ansible_facts.services or
+              'sshd.service' in ansible_facts.services
+            )
+          }}
+        state: >-
+          {{
+            ansible_facts.services['ssh.service'].state
+            if 'ssh.service' in ansible_facts.services
+            else
+            ansible_facts.services['sshd.service'].state
+            if 'sshd.service' in ansible_facts.services
+            else
+            'not-found'
+          }}
+        status: >-
+          {{
+            ansible_facts.services['ssh.service'].status
+            if 'ssh.service' in ansible_facts.services
+            else
+            ansible_facts.services['sshd.service'].status
+            if 'sshd.service' in ansible_facts.services
+            else
+            'not-found'
+          }}
+
+      apparmor:
+        installed: "{{ 'apparmor.service' in ansible_facts.services }}"
+        state: >-
+          {{
+            ansible_facts.services['apparmor.service'].state
+            if 'apparmor.service' in ansible_facts.services
+            else
+            'not-found'
+          }}
+        status: >-
+          {{
+            ansible_facts.services['apparmor.service'].status
+            if 'apparmor.service' in ansible_facts.services
+            else
+            'not-found'
+          }}
+
+      auditd:
+        installed: "{{ 'auditd.service' in ansible_facts.services }}"
+        state: >-
+          {{
+            ansible_facts.services['auditd.service'].state
+            if 'auditd.service' in ansible_facts.services
+            else
+            'not-found'
+          }}
+        status: >-
+          {{
+            ansible_facts.services['auditd.service'].status
+            if 'auditd.service' in ansible_facts.services
+            else
+            'not-found'
+          }}
+
+      fail2ban:
+        installed: >-
+          {{
+            'fail2ban.service' in ansible_facts.services or
+            'fail2ban-client=present' in security_tool_detection.stdout
+          }}
+        state: >-
+          {{
+            ansible_facts.services['fail2ban.service'].state
+            if 'fail2ban.service' in ansible_facts.services
+            else
+            'not-found'
+          }}
+        status: >-
+          {{
+            ansible_facts.services['fail2ban.service'].status
+            if 'fail2ban.service' in ansible_facts.services
+            else
+            'not-found'
+          }}
+
+      aide:
+        installed: >-
+          {{
+            'aide=present' in security_tool_detection.stdout
+          }}
+
+      unattended_upgrades:
+        installed: >-
+          {{
+            'unattended-upgrades=present'
+            in security_tool_detection.stdout
+          }}
+        service_state: >-
+          {{
+            ansible_facts.services[
+              'unattended-upgrades.service'
+            ].state
+            if 'unattended-upgrades.service'
+            in ansible_facts.services
+            else
+            'not-found'
+          }}
+        service_status: >-
+          {{
+            ansible_facts.services[
+              'unattended-upgrades.service'
+            ].status
+            if 'unattended-upgrades.service'
+            in ansible_facts.services
+            else
+            'not-found'
+          }}
+
+      firewall:
+        active_framework: >-
+          {{
+            active_firewall.stdout
+            | default('none_detected')
+            | trim
+          }}
+        nftables_installed: >-
+          {{
+            'nft=present' in security_tool_detection.stdout
+          }}
+        ufw_installed: >-
+          {{
+            'ufw=present' in security_tool_detection.stdout
+          }}
+        firewalld_installed: >-
+          {{
+            'firewall-cmd=present'
+            in security_tool_detection.stdout
+          }}

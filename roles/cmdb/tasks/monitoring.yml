@@ -1,0 +1,157 @@
+---
+###############################################################################
+# CMDB Monitoring / Operational State
+#
+# Read-only collection of operational monitoring signals that complement,
+# rather than duplicate, the CMDB health scoring subsystem.
+###############################################################################
+
+- name: Read host uptime
+  ansible.builtin.command:
+    cmd: cat /proc/uptime
+  register: cmdb_uptime_raw
+  changed_when: false
+  failed_when: false
+
+- name: Read systemd system state
+  ansible.builtin.command:
+    cmd: systemctl is-system-running
+  register: cmdb_system_state
+  changed_when: false
+  failed_when: false
+
+- name: Count failed systemd units for monitoring
+  ansible.builtin.shell: |
+    systemctl --failed --no-legend --no-pager | wc -l
+  register: cmdb_monitoring_failed_units
+  changed_when: false
+  failed_when: false
+
+- name: Build monitoring section
+  ansible.builtin.set_fact:
+    cmdb_monitoring:
+      uptime:
+        seconds: >-
+          {{
+            (
+              cmdb_uptime_raw.stdout.split()[0] | float
+            ) | int
+            if (
+              cmdb_uptime_raw.rc | default(1) == 0 and
+              cmdb_uptime_raw.stdout | default('') | length > 0
+            )
+            else
+            0
+          }}
+        observed_at: >-
+          {{
+            ansible_date_time.iso8601
+            if ansible_date_time is defined
+            else
+            'unknown'
+          }}
+
+      load:
+        load_1m: "{{ ansible_loadavg['1m'] | default(0) | float }}"
+        load_5m: "{{ ansible_loadavg['5m'] | default(0) | float }}"
+        load_15m: "{{ ansible_loadavg['15m'] | default(0) | float }}"
+
+      system:
+        state: >-
+          {{
+            cmdb_system_state.stdout
+            | default('unknown')
+            | trim
+          }}
+        failed_units: >-
+          {{
+            cmdb_monitoring_failed_units.stdout
+            | default('0')
+            | trim
+            | int
+          }}
+
+      time_sync:
+        chrony:
+          installed: >-
+            {{
+              'chrony.service' in ansible_facts.services or
+              'chronyd.service' in ansible_facts.services
+            }}
+          state: >-
+            {{
+              ansible_facts.services['chrony.service'].state
+              if 'chrony.service' in ansible_facts.services
+              else
+              ansible_facts.services['chronyd.service'].state
+              if 'chronyd.service' in ansible_facts.services
+              else
+              'not-found'
+            }}
+        systemd_timesyncd:
+          installed: >-
+            {{
+              'systemd-timesyncd.service'
+              in ansible_facts.services
+            }}
+          state: >-
+            {{
+              ansible_facts.services[
+                'systemd-timesyncd.service'
+              ].state
+              if 'systemd-timesyncd.service'
+              in ansible_facts.services
+              else
+              'not-found'
+            }}
+
+      agents:
+        prometheus_node_exporter:
+          installed: >-
+            {{
+              'prometheus-node-exporter.service'
+              in ansible_facts.services or
+              'node_exporter.service'
+              in ansible_facts.services
+            }}
+          state: >-
+            {{
+              ansible_facts.services[
+                'prometheus-node-exporter.service'
+              ].state
+              if 'prometheus-node-exporter.service'
+              in ansible_facts.services
+              else
+              ansible_facts.services[
+                'node_exporter.service'
+              ].state
+              if 'node_exporter.service'
+              in ansible_facts.services
+              else
+              'not-found'
+            }}
+
+        zabbix_agent:
+          installed: >-
+            {{
+              'zabbix-agent.service'
+              in ansible_facts.services or
+              'zabbix-agent2.service'
+              in ansible_facts.services
+            }}
+          state: >-
+            {{
+              ansible_facts.services[
+                'zabbix-agent.service'
+              ].state
+              if 'zabbix-agent.service'
+              in ansible_facts.services
+              else
+              ansible_facts.services[
+                'zabbix-agent2.service'
+              ].state
+              if 'zabbix-agent2.service'
+              in ansible_facts.services
+              else
+              'not-found'
+            }}
