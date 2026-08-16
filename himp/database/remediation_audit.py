@@ -72,7 +72,7 @@ class RemediationAuditRepository:
         execution_id=None,
         execution_success=None,
     ):
-        cursor = self.database.execute(
+        audit_id = self.database.execute_insert(
             """
             INSERT INTO remediation_audit
             (
@@ -123,7 +123,7 @@ class RemediationAuditRepository:
         )
 
         return self.find(
-            cursor.lastrowid
+            audit_id
         )
 
     def find(

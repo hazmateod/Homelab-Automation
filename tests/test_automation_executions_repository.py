@@ -21,6 +21,25 @@ class TemporaryDatabase:
         cursor.execute(sql, parameters)
         return cursor.fetchall()
 
+    def table_columns(self, table_name):
+        cursor = self.connection.cursor()
+        cursor.execute(
+            f"PRAGMA table_info({table_name})"
+        )
+        return [
+            row["name"]
+            for row in cursor.fetchall()
+        ]
+
+    def execute_insert(self, sql, parameters=()):
+        cursor = self.connection.cursor()
+        cursor.execute(
+            sql,
+            parameters,
+        )
+        self.connection.commit()
+        return cursor.lastrowid
+
 
 def make_repository():
     repository = object.__new__(

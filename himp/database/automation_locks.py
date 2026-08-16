@@ -53,8 +53,8 @@ class AutomationLockRepository:
 
         try:
             with self.database.transaction() as connection:
-                connection.execute(
-                    "BEGIN IMMEDIATE"
+                self.database.begin_lock_transaction(
+                    connection
                 )
 
                 connection.execute(

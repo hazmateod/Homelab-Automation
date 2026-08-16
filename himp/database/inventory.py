@@ -68,12 +68,9 @@ class InventoryRepository:
             """
         )
 
-        columns = [
-            row["name"]
-            for row in self.database.query(
-                "PRAGMA table_info(inventory_hosts)"
-            )
-        ]
+        columns = self.database.table_columns(
+            "inventory_hosts"
+        )
 
         if "active" not in columns:
 

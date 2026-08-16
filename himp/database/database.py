@@ -98,12 +98,9 @@ class Database:
 
             # Extend the existing executions table for persisted
             # execution output and diagnostic information.
-            execution_columns = {
-                row[1]
-                for row in cursor.execute(
-                    "PRAGMA table_info(executions)"
-                ).fetchall()
-            }
+            execution_columns = self.table_columns(
+                "executions"
+            )
 
             execution_migrations = {
                 "stdout": "ALTER TABLE executions ADD COLUMN stdout TEXT",

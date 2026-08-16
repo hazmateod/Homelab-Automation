@@ -38,12 +38,9 @@ class AutomationExecutionRepository:
             """
         )
 
-        columns = {
-            row[1]
-            for row in self.database.query(
-                "PRAGMA table_info(automation_executions)"
-            )
-        }
+        columns = self.database.table_columns(
+            "automation_executions"
+        )
 
         if "workflow_execution_id" not in columns:
             self.database.execute(
@@ -62,7 +59,7 @@ class AutomationExecutionRepository:
         executed_at=None,
         workflow_execution_id=None,
     ):
-        cursor = self.database.execute(
+        execution_id = self.database.execute_insert(
             """
             INSERT INTO automation_executions
             (
@@ -93,7 +90,7 @@ class AutomationExecutionRepository:
             ),
         )
 
-        return cursor.lastrowid
+        return execution_id
 
     def find(self, execution_id):
         rows = self.database.query(

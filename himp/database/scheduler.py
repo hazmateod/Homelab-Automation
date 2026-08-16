@@ -50,12 +50,9 @@ class SchedulerRepository:
             """
         )
 
-        columns = {
-            row[1]
-            for row in self.database.query(
-                "PRAGMA table_info(automation_schedules)"
-            )
-        }
+        columns = self.database.table_columns(
+            "automation_schedules"
+        )
 
         if "day_of_month" not in columns:
             self.database.execute(

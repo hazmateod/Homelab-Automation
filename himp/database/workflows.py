@@ -82,7 +82,7 @@ class WorkflowRepository:
         description="",
         enabled=True,
     ):
-        cursor = self.database.execute(
+        workflow_id = self.database.execute_insert(
             """
             INSERT INTO workflows
             (
@@ -99,7 +99,7 @@ class WorkflowRepository:
             ),
         )
 
-        return self.get(cursor.lastrowid)
+        return self.get(workflow_id)
 
     def get(self, workflow_id):
         rows = self.database.query(
@@ -206,7 +206,7 @@ class WorkflowRepository:
         task_id,
         position,
     ):
-        cursor = self.database.execute(
+        task_row_id = self.database.execute_insert(
             """
             INSERT INTO workflow_tasks
             (
@@ -230,7 +230,7 @@ class WorkflowRepository:
             WHERE id=?
             LIMIT 1
             """,
-            (cursor.lastrowid,),
+            (task_row_id,),
         )
 
         if not rows:
@@ -318,7 +318,7 @@ class WorkflowRepository:
         task_id,
         depends_on_task_id,
     ):
-        cursor = self.database.execute(
+        dependency_row_id = self.database.execute_insert(
             """
             INSERT INTO workflow_dependencies
             (
@@ -342,7 +342,7 @@ class WorkflowRepository:
             WHERE id=?
             LIMIT 1
             """,
-            (cursor.lastrowid,),
+            (dependency_row_id,),
         )
 
         if not rows:

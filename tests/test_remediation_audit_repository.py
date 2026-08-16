@@ -35,6 +35,12 @@ class TemporaryDatabase:
         )
         return cursor.fetchall()
 
+    def execute_insert(self, sql, parameters=()):
+        cursor = self.connection.cursor()
+        cursor.execute(sql, parameters)
+        self.connection.commit()
+        return cursor.lastrowid
+
 
 def make_repository():
     repository = object.__new__(

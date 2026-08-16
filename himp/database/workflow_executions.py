@@ -36,14 +36,9 @@ class WorkflowExecutionRepository:
             """
         )
 
-        columns = self.database.query(
-            "PRAGMA table_info(workflow_executions)"
+        column_names = self.database.table_columns(
+            "workflow_executions"
         )
-
-        column_names = {
-            column["name"]
-            for column in columns
-        }
 
         if "current_task_id" not in column_names:
             self.database.execute(
