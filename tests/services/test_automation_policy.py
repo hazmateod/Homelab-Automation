@@ -1333,3 +1333,266 @@ def test_scheduled_updates_lock_covers_configured_timeout():
 
     assert call["task_id"] == "scheduled_updates"
     assert call["lease_seconds"] == 3660
+
+
+def test_update_host_task_dispatches_to_update_service():
+    service = make_service()
+
+    class FakeUpdates:
+        def __init__(self):
+            self.calls = []
+
+        def update(self, target, limit=None, timeout=None):
+            self.calls.append(
+                {
+                    "target": target,
+                    "limit": limit,
+                    "timeout": timeout,
+                }
+            )
+
+            return {
+                "target": target,
+                "success": True,
+            }
+
+    updates = FakeUpdates()
+    service.updates = updates
+
+    result = service._execute_task(
+        "update_host",
+        limit="himpdb01.server.arpa",
+        timeout=3600,
+    )
+
+    assert result == {
+        "target": "update_host",
+        "success": True,
+    }
+
+    assert updates.calls == [
+        {
+            "target": "update_host",
+            "limit": "himpdb01.server.arpa",
+            "timeout": 3600,
+        }
+    ]
+
+
+def test_update_host_task_requires_hostname():
+    service = make_service()
+
+    class FakeUpdates:
+        def update(self, *args, **kwargs):
+            raise AssertionError(
+                "Update service must not be called without a hostname"
+            )
+
+    service.updates = FakeUpdates()
+
+    with pytest.raises(
+        ValueError,
+        match="Host update requires a hostname",
+    ):
+        service._execute_task(
+            "update_host",
+            limit=None,
+            timeout=3600,
+        )
+
+
+def test_update_host_uses_automation_execution_persistence():
+    service = make_service()
+
+    service.tasks.append(
+        {
+            "id": "update_host",
+            "name": "Update Host",
+            "description": "Run maintenance updates for a specific inventory host.",
+            "enabled": True,
+            "schedule": "manual",
+            "timeout_seconds": 3600,
+            "retry_attempts": 1,
+            "retry_delay_seconds": 0,
+            "risk_level": "maintenance",
+        }
+    )
+
+    history = RecordingExecutionRepository()
+    lock = FakeLockRepository()
+
+    service.execution_repository = history
+    service.lock_repository = lock
+
+    class FakeUpdates:
+        def update(self, target, limit=None, timeout=None):
+            return {
+                "target": target,
+                "limit": limit,
+                "success": True,
+            }
+
+    service.updates = FakeUpdates()
+
+    result = service.run(
+        "update_host",
+        limit="himpdb01.server.arpa",
+        confirmed=True,
+    )
+
+    assert result["result"]["success"] is True
+    assert result["task"] == "update_host"
+    assert result["result"] == {
+        "target": "update_host",
+        "limit": "himpdb01.server.arpa",
+        "success": True,
+    }
+
+    assert len(history.saved) == 1
+    assert history.saved[0]["task_id"] == "update_host"
+    assert history.saved[0]["success"] is True
+    assert history.saved[0]["result"]["result"]["limit"] == (
+        "himpdb01.server.arpa"
+    )
+
+    assert lock.acquire_calls == [
+        {
+            "task_id": "update_host",
+            "lease_seconds": 3660,
+        }
+    ]
+
+    assert lock.release_calls == [
+        "update_host"
+    ]
+
+def test_update_group_task_dispatches_to_update_service():
+    service = make_service()
+
+    class FakeUpdates:
+        def __init__(self):
+            self.calls = []
+
+        def update(self, target, limit=None, timeout=None):
+            self.calls.append(
+                {
+                    "target": target,
+                    "limit": limit,
+                    "timeout": timeout,
+                }
+            )
+
+            return {
+                "target": target,
+                "success": True,
+            }
+
+    updates = FakeUpdates()
+    service.updates = updates
+
+    result = service._execute_task(
+        "update_group",
+        limit="infrastructure",
+        timeout=3600,
+    )
+
+    assert result == {
+        "target": "update_group",
+        "success": True,
+    }
+
+    assert updates.calls == [
+        {
+            "target": "update_group",
+            "limit": "infrastructure",
+            "timeout": 3600,
+        }
+    ]
+
+
+def test_update_group_task_requires_group_name():
+    service = make_service()
+
+    class FakeUpdates:
+        def update(self, *args, **kwargs):
+            raise AssertionError(
+                "Update service must not be called without a group name"
+            )
+
+    service.updates = FakeUpdates()
+
+    with pytest.raises(
+        ValueError,
+        match="Group update requires a group name",
+    ):
+        service._execute_task(
+            "update_group",
+            limit=None,
+            timeout=3600,
+        )
+
+
+def test_update_group_uses_automation_execution_persistence():
+    service = make_service()
+
+    service.tasks.append(
+        {
+            "id": "update_group",
+            "name": "Update Group",
+            "description": "Run maintenance updates for an inventory group.",
+            "enabled": True,
+            "schedule": "manual",
+            "timeout_seconds": 3600,
+            "retry_attempts": 1,
+            "retry_delay_seconds": 0,
+            "risk_level": "maintenance",
+        }
+    )
+
+    history = RecordingExecutionRepository()
+    lock = FakeLockRepository()
+
+    service.execution_repository = history
+    service.lock_repository = lock
+
+    class FakeUpdates:
+        def update(self, target, limit=None, timeout=None):
+            return {
+                "target": target,
+                "limit": limit,
+                "success": True,
+            }
+
+    service.updates = FakeUpdates()
+
+    result = service.run(
+        "update_group",
+        limit="infrastructure",
+        confirmed=True,
+    )
+
+    assert result["result"]["success"] is True
+    assert result["task"] == "update_group"
+    assert result["result"] == {
+        "target": "update_group",
+        "limit": "infrastructure",
+        "success": True,
+    }
+
+    assert len(history.saved) == 1
+    assert history.saved[0]["task_id"] == "update_group"
+    assert history.saved[0]["success"] is True
+    assert history.saved[0]["result"]["result"]["limit"] == (
+        "infrastructure"
+    )
+
+    assert lock.acquire_calls == [
+        {
+            "task_id": "update_group",
+            "lease_seconds": 3660,
+        }
+    ]
+
+    assert lock.release_calls == [
+        "update_group"
+    ]

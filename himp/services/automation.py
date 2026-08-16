@@ -203,6 +203,28 @@ class AutomationService:
                 "retry_delay_seconds": 0,
                 "risk_level": "maintenance",
             },
+            {
+                "id": "update_host",
+                "name": "Update Host",
+                "description": "Run maintenance updates for a specific inventory host.",
+                "enabled": True,
+                "schedule": "manual",
+                "timeout_seconds": 3600,
+                "retry_attempts": 1,
+                "retry_delay_seconds": 0,
+                "risk_level": "maintenance",
+            },
+            {
+                "id": "update_group",
+                "name": "Update Group",
+                "description": "Run maintenance updates for an inventory group.",
+                "enabled": True,
+                "schedule": "manual",
+                "timeout_seconds": 3600,
+                "retry_attempts": 1,
+                "retry_delay_seconds": 0,
+                "risk_level": "maintenance",
+            },
         ]
 
 
@@ -728,6 +750,42 @@ class AutomationService:
 
             return self.updates.update(
                 "maintenance",
+                limit=limit,
+                timeout=timeout,
+            )
+
+        if task_id == "update_host":
+
+            if self.updates is None:
+                raise RuntimeError(
+                    "Update service not configured"
+                )
+
+            if not limit:
+                raise ValueError(
+                    "Host update requires a hostname"
+                )
+
+            return self.updates.update(
+                "update_host",
+                limit=limit,
+                timeout=timeout,
+            )
+
+        if task_id == "update_group":
+
+            if self.updates is None:
+                raise RuntimeError(
+                    "Update service not configured"
+                )
+
+            if not limit:
+                raise ValueError(
+                    "Group update requires a group name"
+                )
+
+            return self.updates.update(
+                "update_group",
                 limit=limit,
                 timeout=timeout,
             )

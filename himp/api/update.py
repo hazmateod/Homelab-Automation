@@ -6,6 +6,7 @@ Provides host and group maintenance/update execution.
 
 from fastapi import APIRouter, HTTPException
 
+from himp.app import HIMP
 from himp.services.inventory import InventoryService
 from himp.services.update import UpdateService
 
@@ -18,6 +19,7 @@ router = APIRouter(
 
 inventory = InventoryService()
 updates = UpdateService()
+himp = HIMP()
 
 
 @router.post("/host/{hostname}")
@@ -33,7 +35,11 @@ async def update_host(hostname: str):
             },
         )
 
-    return updates.update(hostname)
+    return himp.automation.run(
+        "update_host",
+        limit=hostname,
+        confirmed=True,
+    )
 
 
 @router.post("/group/{group}")
@@ -54,4 +60,8 @@ async def update_group(group: str):
             },
         )
 
-    return updates.update(group)
+    return himp.automation.run(
+        "update_group",
+        limit=group,
+        confirmed=True,
+    )
