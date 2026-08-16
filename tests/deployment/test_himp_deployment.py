@@ -811,6 +811,160 @@ def test_oneshot_services_use_production_runtime():
         )
 
 
+
+def test_all_runtime_units_use_external_database_environment():
+    services = (
+        "himp.service",
+        "himp-scheduler.service",
+        "himp-inventory-sync.service",
+        "himp-scheduled-updates.service",
+    )
+
+    contract = (
+        "EnvironmentFile=-/etc/himp/database.env"
+    )
+
+    for service_name in services:
+        service = (
+            Path("systemd")
+            / service_name
+        ).read_text()
+
+        assert contract in service
+
+
+def test_database_environment_is_not_embedded_in_systemd_units():
+    services = (
+        "himp.service",
+        "himp-scheduler.service",
+        "himp-inventory-sync.service",
+        "himp-scheduled-updates.service",
+    )
+
+    forbidden = (
+        "HIMP_DATABASE_PASSWORD=",
+        "HIMP_DATABASE_HOST=himpdb01.server.arpa",
+        "HIMP_DATABASE_USER=himp_app",
+    )
+
+    for service_name in services:
+        service = (
+            Path("systemd")
+            / service_name
+        ).read_text()
+
+        for value in forbidden:
+            assert value not in service
+
+
+def test_database_example_is_deployment_documentation_only():
+    example = Path(
+        "config/database.env.example"
+    ).read_text()
+
+    assert (
+        "HIMP_DATABASE_BACKEND=postgresql"
+        in example
+    )
+
+    assert (
+        "HIMP_DATABASE_PASSWORD="
+        "REPLACE_WITH_EXTERNAL_SECRET"
+        in example
+    )
+
+    assert (
+        "/etc/himp/database.env"
+        in example
+    )
+
+
+def test_deployment_script_does_not_install_database_environment():
+    deployment = Path(
+        "scripts/deploy/himp.sh"
+    ).read_text()
+
+    assert (
+        "/etc/himp/database.env"
+        not in deployment
+    )
+
+    assert (
+        "database.env.example"
+        not in deployment
+    )
+
+    assert (
+        "HIMP_DATABASE_PASSWORD"
+        not in deployment
+    )
+
+
+def test_systemd_installer_does_not_install_database_environment():
+    installer = Path(
+        "scripts/systemd/install.sh"
+    ).read_text()
+
+    assert (
+        "/etc/himp/database.env"
+        not in installer
+    )
+
+    assert (
+        "database.env.example"
+        not in installer
+    )
+
+    assert (
+        "HIMP_DATABASE_PASSWORD"
+        not in installer
+    )
+
+
+def test_application_deployment_preserves_external_database_config(
+    tmp_path,
+):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    external_root = (
+        tmp_path
+        / "external-etc"
+        / "himp"
+    )
+
+    external_root.mkdir(
+        parents=True
+    )
+
+    database_env = (
+        external_root
+        / "database.env"
+    )
+
+    database_env.write_text(
+        "HIMP_DATABASE_BACKEND=postgresql\n"
+        "HIMP_DATABASE_HOST=external-db.example.invalid\n"
+        "HIMP_DATABASE_PORT=5432\n"
+        "HIMP_DATABASE_NAME=himp\n"
+        "HIMP_DATABASE_USER=himp_app\n"
+        "HIMP_DATABASE_PASSWORD=external-secret\n"
+    )
+
+    before = database_env.read_bytes()
+
+    _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    after = database_env.read_bytes()
+
+    assert after == before
+
 def test_oneshot_services_do_not_use_development_runtime():
     services = (
         "himp-scheduler.service",

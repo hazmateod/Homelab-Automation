@@ -15,6 +15,7 @@ Environment=PATH=/opt/himp/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/himp
 Environment=ANSIBLE_PRIVATE_KEY_FILE=/var/lib/himp/.ssh/id_ed25519
 Environment=PYTHONUNBUFFERED=1
+EnvironmentFile=-/etc/himp/database.env
 
 ExecStart=/opt/himp/.venv/bin/uvicorn himp.api.server:app --host 0.0.0.0 --port 9347
 
