@@ -5,11 +5,14 @@ Business logic layer for HIMP inventory.
 """
 
 from collections import Counter
+import json
+import subprocess
 
 from himp.collectors.inventory import InventoryCollector
 from himp.database.inventory import InventoryRepository
 from himp.health.repository import HealthRepository
 from himp.services.inventory_writer import InventoryFileWriter
+from himp.config import config
 from himp.models.inventory import (
     InventoryGroup,
     InventoryHost,
@@ -56,6 +59,78 @@ class InventoryService:
             limit
         )
 
+    def _validate_inventory_host(
+        self,
+        hostname,
+        expected_ip,
+    ):
+        inventory_result = subprocess.run(
+            [
+                "ansible-inventory",
+                "-i",
+                config.inventory,
+                "--host",
+                hostname,
+                "--json",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+
+        if inventory_result.returncode != 0:
+            raise ValueError(
+                "Ansible inventory validation failed for "
+                f"{hostname}: "
+                f"{inventory_result.stderr.strip()}"
+            )
+
+        try:
+            inventory_data = json.loads(
+                inventory_result.stdout
+            )
+        except json.JSONDecodeError as error:
+            raise ValueError(
+                "Ansible inventory returned invalid JSON for "
+                f"{hostname}: {error}"
+            ) from error
+
+        actual_ip = inventory_data.get(
+            "ansible_host"
+        )
+
+        if actual_ip != expected_ip:
+            raise ValueError(
+                "Ansible inventory IP mismatch for "
+                f"{hostname}: expected {expected_ip}, "
+                f"got {actual_ip}"
+            )
+
+        ping_result = subprocess.run(
+            [
+                "ansible",
+                "-i",
+                config.inventory,
+                hostname,
+                "-m",
+                "ping",
+            ],
+            capture_output=True,
+            text=True,
+            timeout=60,
+            check=False,
+        )
+
+        if ping_result.returncode != 0:
+            raise ValueError(
+                "Ansible SSH validation failed for "
+                f"{hostname}: "
+                f"{ping_result.stderr.strip() or ping_result.stdout.strip()}"
+            )
+
+        return inventory_data
+
     def add_host(
         self,
         hostname,
@@ -81,6 +156,17 @@ class InventoryService:
             user=user,
             become=become,
         )
+
+        try:
+            self._validate_inventory_host(
+                hostname=hostname,
+                expected_ip=ip,
+            )
+        except Exception:
+            self.writer.remove_host(
+                hostname=hostname,
+            )
+            raise
 
         self.repository.save_host(host)
 
@@ -114,6 +200,21 @@ class InventoryService:
             user=user,
             become=become,
         )
+
+        try:
+            self._validate_inventory_host(
+                hostname=hostname,
+                expected_ip=ip,
+            )
+        except Exception:
+            self.writer.update_host(
+                hostname=hostname,
+                group=existing["group_name"],
+                ip=existing["ip"],
+                user=existing["ansible_user"],
+                become=bool(existing["become"]),
+            )
+            raise
 
         self.repository.save_host(host)
 
