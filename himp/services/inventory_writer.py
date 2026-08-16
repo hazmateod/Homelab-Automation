@@ -399,6 +399,71 @@ class InventoryFileWriter:
             "become": bool(become),
         }
 
+    def rename_group(
+        self,
+        group,
+        new_group,
+    ):
+        content = self._read()
+        inventory = self._load(content)
+        children = self._children(inventory)
+
+        if group not in children:
+            raise ValueError(
+                f"Inventory group does not exist: {group}"
+            )
+
+        if not new_group or not new_group.strip():
+            raise ValueError(
+                "Inventory group name cannot be empty"
+            )
+
+        new_group = new_group.strip()
+
+        if group == new_group:
+            return {
+                "previous_group": group,
+                "group": new_group,
+            }
+
+        if new_group in children:
+            raise ValueError(
+                f"Inventory group already exists: {new_group}"
+            )
+
+        lines = content.splitlines(keepends=True)
+
+        pattern = re.compile(
+            rf"^    {re.escape(group)}:\s*$"
+        )
+
+        renamed = False
+
+        for index, line in enumerate(lines):
+            if pattern.match(line):
+                ending = "\n" if line.endswith("\n") else ""
+                lines[index] = (
+                    f"    {new_group}:{ending}"
+                )
+                renamed = True
+                break
+
+        if not renamed:
+            raise ValueError(
+                f"Inventory group does not exist: {group}"
+            )
+
+        updated = "".join(lines)
+
+        yaml.safe_load(updated)
+
+        self.filename.write_text(updated)
+
+        return {
+            "previous_group": group,
+            "group": new_group,
+        }
+
     def remove_host(
         self,
         hostname,

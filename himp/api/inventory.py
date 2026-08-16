@@ -30,6 +30,10 @@ class InventoryHostUpdate(BaseModel):
     become: bool = False
 
 
+class InventoryGroupUpdate(BaseModel):
+    new_group: str
+
+
 router = APIRouter(
     prefix="/inventory",
     tags=["Inventory"],
@@ -70,6 +74,42 @@ async def inventory_hosts():
     return {
         "count": repository.count(),
         "hosts": repository.all_hosts(),
+    }
+
+
+@router.put("/groups/{group}")
+async def update_inventory_group(
+    group: str,
+    request: InventoryGroupUpdate,
+):
+    try:
+        result = service.rename_group(
+            group=group,
+            new_group=request.new_group,
+        )
+
+    except ValueError as exc:
+        message = str(exc)
+
+        if message.startswith(
+            "Inventory group does not exist:"
+        ):
+            status_code = 404
+        elif message.startswith(
+            "Inventory group already exists:"
+        ):
+            status_code = 409
+        else:
+            status_code = 400
+
+        raise HTTPException(
+            status_code=status_code,
+            detail={"error": message},
+        ) from exc
+
+    return {
+        "group": result,
+        "message": "Inventory group updated successfully.",
     }
 
 

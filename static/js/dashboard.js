@@ -479,6 +479,132 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /*
+ * HIMP Inventory Group Selector
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const addGroup = document.getElementById(
+        "addHostGroup"
+    );
+
+    const editGroup = document.getElementById(
+        "editHostGroup"
+    );
+
+    if (!addGroup && !editGroup) {
+        return;
+    }
+
+    async function loadGroups() {
+        const selects = [
+            addGroup,
+            editGroup,
+        ].filter(Boolean);
+
+        try {
+            const response = await fetch(
+                "/api/inventory/groups"
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.detail ||
+                    `HTTP ${response.status}`
+                );
+            }
+
+            const groups = result.groups || [];
+
+            selects.forEach((select) => {
+                const currentValue = select.value;
+
+                select.replaceChildren();
+
+                const placeholder =
+                    document.createElement("option");
+
+                placeholder.value = "";
+                placeholder.textContent =
+                    "Select a group";
+
+                select.appendChild(placeholder);
+
+                groups.forEach((group) => {
+                    const option =
+                        document.createElement("option");
+
+                    option.value = group.name;
+                    option.textContent =
+                        `${group.name} (${group.hosts})`;
+
+                    select.appendChild(option);
+                });
+
+                if (
+                    currentValue &&
+                    groups.some(
+                        (group) =>
+                            group.name === currentValue
+                    )
+                ) {
+                    select.value = currentValue;
+                }
+            });
+        } catch (err) {
+            console.error(
+                "Unable to load inventory groups:",
+                err
+            );
+
+            selects.forEach((select) => {
+                select.replaceChildren();
+
+                const option =
+                    document.createElement("option");
+
+                option.value = "";
+                option.textContent =
+                    "Unable to load groups";
+
+                select.appendChild(option);
+            });
+        }
+    }
+
+    if (addGroup) {
+        const addModal =
+            document.getElementById(
+                "addHostModal"
+            );
+
+        if (addModal) {
+            addModal.addEventListener(
+                "show.bs.modal",
+                loadGroups
+            );
+        }
+    }
+
+    if (editGroup) {
+        const editModal =
+            document.getElementById(
+                "editHostModal"
+            );
+
+        if (editModal) {
+            editModal.addEventListener(
+                "show.bs.modal",
+                loadGroups
+            );
+        }
+    }
+
+    loadGroups();
+});
+
+/*
  * HIMP Inventory Host Add UI
  */
 
@@ -3095,3 +3221,159 @@ document.addEventListener(
     "DOMContentLoaded",
     initializeRemediationRun
 );
+
+/*
+ * HIMP Inventory Group Edit UI
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const modalElement =
+        document.getElementById(
+            "editInventoryGroupModal"
+        );
+
+    const nameInput =
+        document.getElementById(
+            "editInventoryGroupName"
+        );
+
+    const saveButton =
+        document.getElementById(
+            "saveInventoryGroup"
+        );
+
+    const errorElement =
+        document.getElementById(
+            "editInventoryGroupError"
+        );
+
+    if (
+        !modalElement ||
+        !nameInput ||
+        !saveButton ||
+        !errorElement
+    ) {
+        return;
+    }
+
+    let currentGroup = null;
+
+    const showError = (message) => {
+        errorElement.textContent = message;
+        errorElement.classList.remove("d-none");
+    };
+
+    const clearError = () => {
+        errorElement.textContent = "";
+        errorElement.classList.add("d-none");
+    };
+
+    document
+        .querySelectorAll(
+            '.update-target[data-update-type="group"]'
+        )
+        .forEach((button) => {
+            button.addEventListener(
+                "click",
+                () => {
+                    currentGroup =
+                        button.dataset.target;
+
+                    nameInput.value =
+                        currentGroup;
+
+                    clearError();
+
+                    bootstrap.Modal
+                        .getOrCreateInstance(
+                            modalElement
+                        )
+                        .show();
+
+                    window.setTimeout(
+                        () => {
+                            nameInput.focus();
+                            nameInput.select();
+                        },
+                        150
+                    );
+                }
+            );
+        });
+
+    saveButton.addEventListener(
+        "click",
+        async () => {
+            const newGroup =
+                nameInput.value.trim();
+
+            clearError();
+
+            if (!currentGroup) {
+                showError(
+                    "No inventory group was selected."
+                );
+                return;
+            }
+
+            if (!newGroup) {
+                showError(
+                    "Group name cannot be empty."
+                );
+                return;
+            }
+
+            saveButton.disabled = true;
+
+            try {
+                const response =
+                    await fetch(
+                        `/api/inventory/groups/${encodeURIComponent(
+                            currentGroup
+                        )}`,
+                        {
+                            method: "PUT",
+                            headers: {
+                                "Content-Type":
+                                    "application/json",
+                            },
+                            body: JSON.stringify({
+                                new_group: newGroup,
+                            }),
+                        }
+                    );
+
+                const result =
+                    await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        result?.detail?.error ||
+                        result?.detail ||
+                        `HTTP ${response.status}`
+                    );
+                }
+
+                bootstrap.Modal
+                    .getOrCreateInstance(
+                        modalElement
+                    )
+                    .hide();
+
+                window.location.reload();
+            } catch (error) {
+                console.error(
+                    "Unable to update inventory group:",
+                    error
+                );
+
+                showError(
+                    error.message ||
+                    "Unable to update inventory group."
+                );
+            } finally {
+                saveButton.disabled = false;
+            }
+        }
+    );
+});

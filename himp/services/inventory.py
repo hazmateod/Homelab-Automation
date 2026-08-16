@@ -122,6 +122,36 @@ class InventoryService:
             include_inactive=True,
         )
 
+    def rename_group(
+        self,
+        group,
+        new_group,
+    ):
+        result = self.writer.rename_group(
+            group=group,
+            new_group=new_group,
+        )
+
+        hosts = self.repository.all_hosts(
+            include_inactive=True,
+        )
+
+        for host in hosts:
+            if host["group_name"] != group:
+                continue
+
+            self.repository.save_host(
+                {
+                    "hostname": host["hostname"],
+                    "group": new_group,
+                    "ip": host["ip"],
+                    "user": host["ansible_user"],
+                    "become": bool(host["become"]),
+                }
+            )
+
+        return result
+
     def remove_host(
         self,
         hostname,
