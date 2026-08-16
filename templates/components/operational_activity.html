@@ -2,10 +2,23 @@
 
 <div class="card bg-dark text-light border-secondary mb-4">
 
-    <div class="card-header border-secondary">
-        <h4 class="mb-0">
-            Recent Activity
-        </h4>
+    <div
+        class="card-header border-secondary d-flex justify-content-between align-items-center"
+    >
+        <div>
+            <h4 class="mb-0">
+                Recent Activity
+            </h4>
+
+            <div class="small text-secondary mt-1">
+                Historical execution results. These records do not
+                represent current operational health.
+            </div>
+        </div>
+
+        <span class="badge bg-secondary">
+            History
+        </span>
     </div>
 
     <div class="card-body p-0">
@@ -14,15 +27,18 @@
 
         <div class="table-responsive">
 
-            <table class="table table-dark table-striped table-hover mb-0">
+            <table
+                class="table table-dark table-striped table-hover mb-0"
+            >
 
                 <thead>
                     <tr>
                         <th>Category</th>
                         <th>Activity</th>
-                        <th>Status</th>
+                        <th>Result</th>
                         <th>Runtime</th>
-                        <th>Time</th>
+                        <th>When</th>
+                        <th>Details</th>
                     </tr>
                 </thead>
 
@@ -48,23 +64,67 @@
                         <td>
 
                             {% if item.status == "SUCCESS" %}
-                                <span class="badge bg-success">
+                                <span
+                                    class="badge bg-success"
+                                    title="Historical execution succeeded"
+                                >
                                     SUCCESS
                                 </span>
                             {% else %}
-                                <span class="badge bg-danger">
+                                <span
+                                    class="badge bg-danger"
+                                    title="Historical execution failed"
+                                >
                                     FAIL
                                 </span>
                             {% endif %}
 
+                            {% if item.historical %}
+                                <div class="small text-secondary mt-1">
+                                    Historical result
+                                </div>
+                            {% endif %}
+
                         </td>
 
-                        <td>
+                        <td
+                            class="activity-runtime"
+                            data-elapsed="{{ item.elapsed }}"
+                        >
                             {{ item.elapsed }} sec
                         </td>
 
                         <td>
-                            {{ item.timestamp }}
+                            <div
+                                class="activity-relative-time"
+                                data-timestamp="{{ item.timestamp }}"
+                            >
+                                {{ item.timestamp }}
+                            </div>
+
+                            <div
+                                class="small text-secondary activity-exact-time"
+                                data-timestamp="{{ item.timestamp }}"
+                                title="{{ item.timestamp }}"
+                            >
+                                {{ item.timestamp }}
+                            </div>
+                        </td>
+
+                        <td>
+                            {% if item.detail_href %}
+                                <a
+                                    href="{{ item.detail_href }}"
+                                    class="btn btn-sm btn-outline-light"
+                                    title="View persisted execution details"
+                                >
+                                    View
+                                </a>
+                            {% else %}
+                                <span class="text-secondary">
+                                    —
+                                </span>
+                            {% endif %}
                         </td>
 
                     </tr>
@@ -80,7 +140,7 @@
         {% else %}
 
             <div class="p-4 text-secondary">
-                No recent activity.
+                No recent historical activity.
             </div>
 
         {% endif %}

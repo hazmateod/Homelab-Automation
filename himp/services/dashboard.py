@@ -314,6 +314,8 @@ class DashboardService:
         activity = []
 
         for execution in self.execution.history(limit):
+            execution_id = execution.get("id")
+
             activity.append(
                 {
                     "category": "Plugin",
@@ -323,9 +325,15 @@ class DashboardService:
                         if execution["success"]
                         else "FAIL"
                     ),
+                    "historical": True,
                     "timestamp": execution["executed_at"],
                     "elapsed": execution["elapsed"],
                     "href": f'/plugins/{execution["plugin"]}',
+                    "detail_href": (
+                        f"/api/executions/id/{execution_id}"
+                        if execution_id is not None
+                        else None
+                    ),
                 }
             )
 

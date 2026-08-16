@@ -1148,6 +1148,158 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /*
+ * HIMP Historical Activity Presentation
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const relativeTimeElements = document.querySelectorAll(
+        ".activity-relative-time"
+    );
+
+    const runtimeElements = document.querySelectorAll(
+        ".activity-runtime"
+    );
+
+    const exactTimeElements = document.querySelectorAll(
+        ".activity-exact-time"
+    );
+
+    const normalizeTimestamp = value => {
+        if (!value) {
+            return null;
+        }
+
+        let normalized = String(value).trim();
+
+        if (
+            !normalized.endsWith("Z") &&
+            !/[+-]\\d{2}:?\\d{2}$/.test(normalized)
+        ) {
+            normalized = normalized.replace(" ", "T") + "Z";
+        }
+
+        const parsed = new Date(normalized);
+
+        if (Number.isNaN(parsed.getTime())) {
+            return null;
+        }
+
+        return parsed;
+    };
+
+    const formatRelativeTime = timestamp => {
+        const elapsedSeconds = Math.max(
+            Math.floor(
+                (Date.now() - timestamp.getTime()) / 1000
+            ),
+            0
+        );
+
+        if (elapsedSeconds < 60) {
+            return "just now";
+        }
+
+        const minutes = Math.floor(
+            elapsedSeconds / 60
+        );
+
+        if (minutes < 60) {
+            return `${minutes}m ago`;
+        }
+
+        const hours = Math.floor(
+            minutes / 60
+        );
+
+        if (hours < 24) {
+            return `${hours}h ago`;
+        }
+
+        const days = Math.floor(
+            hours / 24
+        );
+
+        if (days < 30) {
+            return `${days}d ago`;
+        }
+
+        return timestamp.toLocaleDateString();
+    };
+
+    const formatRuntime = value => {
+        const seconds = Number(value);
+
+        if (!Number.isFinite(seconds)) {
+            return value;
+        }
+
+        if (seconds < 1) {
+            return `${seconds.toFixed(3)} sec`;
+        }
+
+        if (seconds < 60) {
+            return `${seconds.toFixed(2)} sec`;
+        }
+
+        const totalSeconds = Math.floor(seconds);
+        const hours = Math.floor(
+            totalSeconds / 3600
+        );
+        const minutes = Math.floor(
+            (totalSeconds % 3600) / 60
+        );
+        const remainingSeconds =
+            totalSeconds % 60;
+
+        if (hours > 0) {
+            return (
+                `${hours}h ` +
+                `${String(minutes).padStart(2, "0")}m ` +
+                `${String(remainingSeconds).padStart(2, "0")}s`
+            );
+        }
+
+        return (
+            `${minutes}m ` +
+            `${String(remainingSeconds).padStart(2, "0")}s`
+        );
+    };
+
+    relativeTimeElements.forEach(element => {
+        const timestamp = normalizeTimestamp(
+            element.dataset.timestamp
+        );
+
+        if (!timestamp) {
+            return;
+        }
+
+        element.textContent = formatRelativeTime(
+            timestamp
+        );
+    });
+
+    exactTimeElements.forEach(element => {
+        const timestamp = normalizeTimestamp(
+            element.dataset.timestamp
+        );
+
+        if (!timestamp) {
+            return;
+        }
+
+        element.textContent = timestamp.toLocaleString();
+    });
+
+    runtimeElements.forEach(element => {
+        element.textContent = formatRuntime(
+            element.dataset.elapsed
+        );
+    });
+});
+
+
+/*
  * HIMP Automation Active Execution Status
  */
 

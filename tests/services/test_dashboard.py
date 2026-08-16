@@ -586,19 +586,46 @@ def test_recent_activity_exposes_plugin_execution_history():
             "category": "Plugin",
             "name": "Detail",
             "status": "FAIL",
+            "historical": True,
             "timestamp": "2026-08-09T23:36:03",
             "elapsed": 0.0,
             "href": "/plugins/detail",
+            "detail_href": "/api/executions/id/20",
         },
         {
             "category": "Plugin",
             "name": "Media Services",
             "status": "SUCCESS",
+            "historical": True,
             "timestamp": "2026-08-08T17:31:23",
             "elapsed": 13.369,
             "href": "/plugins/media",
+            "detail_href": "/api/executions/id/19",
         },
     ]
+
+
+def test_recent_activity_detail_link_is_optional():
+    dashboard = make_dashboard()
+
+    class ActivityExecutionService:
+        def history(self, limit):
+            return [
+                {
+                    "plugin": "detail",
+                    "plugin_name": "Detail",
+                    "success": 1,
+                    "elapsed": 1.0,
+                    "executed_at": "2026-08-09T23:36:03",
+                }
+            ]
+
+    dashboard.execution = ActivityExecutionService()
+
+    result = dashboard.recent_activity()
+
+    assert result[0]["historical"] is True
+    assert result[0]["detail_href"] is None
 
 
 def test_operational_summary_exposes_attention_items():

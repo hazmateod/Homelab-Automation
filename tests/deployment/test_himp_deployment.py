@@ -423,3 +423,31 @@ def test_python_sources_do_not_use_deprecated_datetime_utcnow():
             offenders.append(str(path))
 
     assert offenders == []
+
+def test_dashboard_recent_activity_is_identified_as_history():
+    component = Path(
+        "templates/components/operational_activity.html"
+    ).read_text()
+
+    javascript = Path(
+        "static/js/dashboard.js"
+    ).read_text()
+
+    assert "Recent Activity" in component
+    assert "Historical execution results" in component
+    assert "current operational health" in component
+    assert "Historical result" in component
+    assert "History" in component
+
+    assert "activity-relative-time" in component
+    assert "activity-exact-time" in component
+    assert "activity-runtime" in component
+    assert "detail_href" in component
+
+    assert (
+        "HIMP Historical Activity Presentation"
+        in javascript
+    )
+    assert "formatRelativeTime" in javascript
+    assert "formatRuntime" in javascript
+    assert "toLocaleString" in javascript
