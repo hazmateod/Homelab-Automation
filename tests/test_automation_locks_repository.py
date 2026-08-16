@@ -38,9 +38,20 @@ class TemporaryDatabase:
             parameters,
         )
         return cursor.fetchall()
+
     def begin_lock_transaction(self, connection):
         connection.execute("BEGIN IMMEDIATE")
 
+    def execute_transaction(
+        self,
+        connection,
+        sql,
+        parameters=(),
+    ):
+        return connection.execute(
+            sql,
+            parameters,
+        )
 
     @contextmanager
     def transaction(self):

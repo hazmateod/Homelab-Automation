@@ -6,7 +6,7 @@ Stores inventory snapshots and tracks changes.
 
 from datetime import datetime, timezone
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class InventoryRepository:
@@ -16,7 +16,7 @@ class InventoryRepository:
 
     def __init__(self):
 
-        self.database = Database()
+        self.database = create_database()
 
         self.initialize()
 

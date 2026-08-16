@@ -6,14 +6,14 @@ Stores infrastructure discovery information.
 
 from datetime import datetime, timezone
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class DiscoveryRepository:
 
     def __init__(self):
 
-        self.database = Database()
+        self.database = create_database()
 
         self.initialize()
 

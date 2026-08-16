@@ -7,7 +7,7 @@ individual infrastructure plugins.
 
 from pathlib import Path
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 from himp.services.automation import AutomationService
 from himp.services.scheduler import SchedulerService
 from himp.services.settings import SettingsService
@@ -21,7 +21,7 @@ class ApplicationHealthService:
         settings=None,
     ):
 
-        self.database = Database()
+        self.database = create_database()
         self.scheduler = SchedulerService()
         self.automation = (
             automation

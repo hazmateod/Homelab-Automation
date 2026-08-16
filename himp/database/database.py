@@ -231,3 +231,18 @@ class Database:
         connection.execute(
             "BEGIN IMMEDIATE"
         )
+
+
+    @staticmethod
+    def execute_transaction(
+        connection,
+        sql,
+        parameters=(),
+    ):
+        """
+        Execute repository SQL on an existing SQLite transaction.
+        """
+        return connection.execute(
+            sql,
+            parameters,
+        )

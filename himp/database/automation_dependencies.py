@@ -6,7 +6,7 @@ Stores dependencies between HIMP automation tasks.
 
 from datetime import datetime, timezone
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class AutomationDependencyRepository:
@@ -15,7 +15,7 @@ class AutomationDependencyRepository:
     """
 
     def __init__(self):
-        self.database = Database()
+        self.database = create_database()
         self._ensure_table()
 
     def _ensure_table(self):
@@ -71,7 +71,9 @@ class AutomationDependencyRepository:
             )
 
         except Exception as error:
-            if "UNIQUE constraint failed" in str(error):
+            if self.database.is_integrity_error(
+                error
+            ):
                 raise ValueError(
                     "Automation dependency already exists: "
                     f"{task_id} -> {depends_on_task_id}"

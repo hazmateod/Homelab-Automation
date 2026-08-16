@@ -4,14 +4,14 @@ Health History Repository.
 
 import json
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class HealthHistoryRepository:
 
     def __init__(self):
 
-        self.database = Database()
+        self.database = create_database()
 
     def save(self, execution):
 

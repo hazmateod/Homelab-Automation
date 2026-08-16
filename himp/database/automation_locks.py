@@ -4,7 +4,7 @@ Automation execution lock repository.
 
 from datetime import datetime, timedelta, timezone
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class AutomationLockRepository:
@@ -18,7 +18,7 @@ class AutomationLockRepository:
     DEFAULT_LEASE_SECONDS = 300
 
     def __init__(self):
-        self.database = Database()
+        self.database = create_database()
         self._ensure_table()
 
     def _ensure_table(self):
@@ -57,7 +57,8 @@ class AutomationLockRepository:
                     connection
                 )
 
-                connection.execute(
+                self.database.execute_transaction(
+                    connection,
                     """
                     DELETE FROM automation_locks
                     WHERE expires_at <= ?
@@ -65,7 +66,8 @@ class AutomationLockRepository:
                     (now,),
                 )
 
-                connection.execute(
+                self.database.execute_transaction(
+                    connection,
                     """
                     INSERT INTO automation_locks
                     (

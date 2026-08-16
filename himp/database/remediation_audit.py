@@ -6,7 +6,7 @@ Persists remediation policy decisions and execution outcomes.
 
 import json
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class RemediationAuditRepository:
@@ -19,7 +19,7 @@ class RemediationAuditRepository:
         database=None,
     ):
         if database is None:
-            database = Database()
+            database = create_database()
 
         self.database = database
         self.initialize()

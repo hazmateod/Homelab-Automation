@@ -11,9 +11,11 @@ class InventoryBaselineRepository:
 
     def __init__(self, database=None):
         if database is None:
-            from himp.database.database import Database
+            from himp.database.factory import (
+                create_database,
+            )
 
-            database = Database()
+            database = create_database()
 
         self.database = database
         self.initialize()

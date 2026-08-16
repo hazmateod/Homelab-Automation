@@ -2,7 +2,7 @@
 Workflow execution repository.
 """
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class WorkflowExecutionRepository:
@@ -11,7 +11,7 @@ class WorkflowExecutionRepository:
     """
 
     def __init__(self):
-        self.database = Database()
+        self.database = create_database()
         self._ensure_table()
 
     def _ensure_table(self):

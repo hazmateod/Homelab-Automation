@@ -4,7 +4,7 @@ Automation Execution Repository.
 
 import json
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class AutomationExecutionRepository:
@@ -13,7 +13,7 @@ class AutomationExecutionRepository:
     """
 
     def __init__(self):
-        self.database = Database()
+        self.database = create_database()
         self._ensure_table()
 
     def _ensure_table(self):

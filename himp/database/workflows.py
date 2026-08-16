@@ -2,7 +2,7 @@
 Workflow definition repository.
 """
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class WorkflowRepository:
@@ -12,7 +12,7 @@ class WorkflowRepository:
     """
 
     def __init__(self):
-        self.database = Database()
+        self.database = create_database()
         self._ensure_tables()
 
     def _ensure_tables(self):

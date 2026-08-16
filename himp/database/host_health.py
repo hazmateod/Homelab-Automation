@@ -4,7 +4,7 @@ Host Health Repository.
 
 import json
 
-from himp.database.database import Database
+from himp.database.factory import create_database
 
 
 class HostHealthRepository:
@@ -14,7 +14,7 @@ class HostHealthRepository:
 
     def __init__(self):
 
-        self.database = Database()
+        self.database = create_database()
 
         self.initialize()
 
