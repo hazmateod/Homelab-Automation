@@ -6,6 +6,7 @@ import sys
 from datetime import datetime
 
 from himp.app import HIMP
+from himp.database.postgresql import PostgreSQLDatabase
 from himp.services.operational_dispatcher import (
     OperationalDispatcher,
 )
@@ -13,73 +14,95 @@ from himp.services.scheduler import SchedulerService
 
 
 def run(args):
-    himp = HIMP()
-    scheduler = SchedulerService()
-    dispatcher = OperationalDispatcher(
-        automation=himp.automation,
-    )
-
-    if args.at:
-        try:
-            now = datetime.fromisoformat(
-                args.at
-            )
-        except ValueError as exc:
-            print(
-                "Invalid --at value. "
-                "Use ISO format such as "
-                "2026-08-09T03:00:00.",
-                file=sys.stderr,
-            )
-            return 2
-    else:
-        now = datetime.now()
-
-    due_tasks = scheduler.due_tasks(now)
-
-    print(
-        f"Scheduler evaluation time: "
-        f"{now.isoformat()}"
-    )
-    print(
-        f"Due tasks: {len(due_tasks)}"
-    )
-
-    if not due_tasks:
-        print("No scheduled tasks are due.")
-        return 0
-
-    failed = False
-
-    for schedule in due_tasks:
-        task_id = schedule["task_id"]
-
-        print()
-        print(
-            f"=== RUNNING {task_id} ==="
+    try:
+        himp = HIMP()
+        scheduler = SchedulerService()
+        dispatcher = OperationalDispatcher(
+            automation=himp.automation,
         )
 
-        try:
-            result = dispatcher.dispatch(
-                task_id
+        if args.at:
+            try:
+                now = datetime.fromisoformat(
+                    args.at
+                )
+            except ValueError:
+                print(
+                    "Invalid --at value. "
+                    "Use ISO format such as "
+                    "2026-08-09T03:00:00.",
+                    file=sys.stderr,
+                )
+                return 2
+        else:
+            now = datetime.now()
+
+        due_tasks = scheduler.due_tasks(now)
+
+        print(
+            f"Scheduler evaluation time: "
+            f"{now.isoformat()}"
+        )
+        print(
+            f"Due tasks: {len(due_tasks)}"
+        )
+
+        if not due_tasks:
+            print("No scheduled tasks are due.")
+            return 0
+
+        failed = False
+
+        for schedule in due_tasks:
+            task_id = schedule["task_id"]
+
+            print()
+            print(
+                f"=== RUNNING {task_id} ==="
             )
 
-            task_result = result.get(
-                "result",
-                {},
-            )
+            try:
+                result = dispatcher.dispatch(
+                    task_id
+                )
 
-            if isinstance(
-                task_result,
-                dict,
-            ) and task_result.get(
-                "success",
-                True,
-            ) is False:
-                failed = True
+                task_result = result.get(
+                    "result",
+                    {},
+                )
+
+                if isinstance(
+                    task_result,
+                    dict,
+                ) and task_result.get(
+                    "success",
+                    True,
+                ) is False:
+                    failed = True
+
+                    print(
+                        "Automation task failed."
+                    )
+                    print(
+                        f"Task       : {result['task']}"
+                    )
+                    print(
+                        f"Executed   : {result['executed_at']}"
+                    )
+                    print(
+                        f"Error      : "
+                        f"{task_result.get('error', 'Unknown error')}",
+                        file=sys.stderr,
+                    )
+
+                    continue
+
+                scheduler.record_run(
+                    task_id
+                )
 
                 print(
-                    "Automation task failed."
+                    "Automation task completed successfully."
                 )
                 print(
                     f"Task       : {result['task']}"
@@ -87,42 +110,24 @@ def run(args):
                 print(
                     f"Executed   : {result['executed_at']}"
                 )
+
+            except Exception as exc:
+                failed = True
+
                 print(
-                    f"Error      : "
-                    f"{task_result.get('error', 'Unknown error')}",
+                    f"Automation task failed: {exc}",
                     file=sys.stderr,
                 )
 
-                continue
+        if failed:
+            return 1
 
-            scheduler.record_run(
-                task_id
-            )
+        print()
+        print(
+            "Scheduler run completed successfully."
+        )
 
-            print(
-                "Automation task completed successfully."
-            )
-            print(
-                f"Task       : {result['task']}"
-            )
-            print(
-                f"Executed   : {result['executed_at']}"
-            )
+        return 0
 
-        except Exception as exc:
-            failed = True
-
-            print(
-                f"Automation task failed: {exc}",
-                file=sys.stderr,
-            )
-
-    if failed:
-        return 1
-
-    print()
-    print(
-        "Scheduler run completed successfully."
-    )
-
-    return 0
+    finally:
+        PostgreSQLDatabase.close_pools()

@@ -1,4 +1,5 @@
 from himp.commands import scheduler_run
+from types import SimpleNamespace
 
 
 class FakeAutomation:
@@ -826,3 +827,39 @@ def test_scheduler_run_fails_closed_for_missing_remediation_configuration(
 
     assert result == 1
     assert scheduler.recorded == []
+
+
+def test_scheduler_run_closes_postgresql_pools(monkeypatch):
+    calls = []
+
+    automation = FakeAutomation()
+    himp = FakeHIMP(automation)
+    scheduler = FakeScheduler()
+
+    class FakePoolDatabase:
+        @classmethod
+        def close_pools(cls):
+            calls.append("close_pools")
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "PostgreSQLDatabase",
+        FakePoolDatabase,
+    )
+    monkeypatch.setattr(
+        scheduler_run,
+        "HIMP",
+        lambda: himp,
+    )
+    monkeypatch.setattr(
+        scheduler_run,
+        "SchedulerService",
+        lambda: scheduler,
+    )
+
+    result = scheduler_run.run(
+        Args()
+    )
+
+    assert result == 0
+    assert calls == ["close_pools"]
