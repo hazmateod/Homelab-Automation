@@ -51,44 +51,40 @@ class AutomationLockRepository:
             )
         )
 
-        connection = self.database.connection
-
         try:
-            connection.execute(
-                "BEGIN IMMEDIATE"
-            )
-
-            connection.execute(
-                """
-                DELETE FROM automation_locks
-                WHERE expires_at <= ?
-                """,
-                (now,),
-            )
-
-            connection.execute(
-                """
-                INSERT INTO automation_locks
-                (
-                    task_id,
-                    locked_at,
-                    expires_at
+            with self.database.transaction() as connection:
+                connection.execute(
+                    "BEGIN IMMEDIATE"
                 )
-                VALUES (?, ?, ?)
-                """,
-                (
-                    task_id,
-                    now,
-                    expires_at,
-                ),
-            )
 
-            connection.commit()
+                connection.execute(
+                    """
+                    DELETE FROM automation_locks
+                    WHERE expires_at <= ?
+                    """,
+                    (now,),
+                )
+
+                connection.execute(
+                    """
+                    INSERT INTO automation_locks
+                    (
+                        task_id,
+                        locked_at,
+                        expires_at
+                    )
+                    VALUES (?, ?, ?)
+                    """,
+                    (
+                        task_id,
+                        now,
+                        expires_at,
+                    ),
+                )
 
             return True
 
         except Exception:
-            connection.rollback()
             return False
 
     def release(

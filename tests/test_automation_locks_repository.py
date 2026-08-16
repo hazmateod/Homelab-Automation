@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import sqlite3
 from datetime import datetime, timedelta
 
@@ -37,6 +38,16 @@ class TemporaryDatabase:
             parameters,
         )
         return cursor.fetchall()
+
+    @contextmanager
+    def transaction(self):
+        try:
+            yield self.connection
+            self.connection.commit()
+
+        except Exception:
+            self.connection.rollback()
+            raise
 
 
 def make_repository():

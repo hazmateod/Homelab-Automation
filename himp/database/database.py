@@ -3,8 +3,10 @@ SQLite Database Manager.
 """
 
 import sqlite3
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
+from threading import RLock
 
 
 def _adapt_datetime(value):
@@ -46,94 +48,115 @@ class Database:
 
         self.connection.row_factory = sqlite3.Row
 
+        self._connection_lock = RLock()
+
         self.initialize()
 
     def initialize(self):
 
-        cursor = self.connection.cursor()
+        with self._connection_lock:
+            cursor = self.connection.cursor()
 
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS executions
-            (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS executions
+                (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-                plugin TEXT NOT NULL,
+                    plugin TEXT NOT NULL,
 
-                success INTEGER NOT NULL,
+                    success INTEGER NOT NULL,
 
-                return_code INTEGER NOT NULL,
+                    return_code INTEGER NOT NULL,
 
-                elapsed REAL NOT NULL,
+                    elapsed REAL NOT NULL,
 
-                executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
             )
-            """
-        )
 
-        # Extend the existing executions table for persisted
-        # execution output and diagnostic information.
-        execution_columns = {
-            row[1]
-            for row in cursor.execute(
-                "PRAGMA table_info(executions)"
-            ).fetchall()
-        }
+            # Extend the existing executions table for persisted
+            # execution output and diagnostic information.
+            execution_columns = {
+                row[1]
+                for row in cursor.execute(
+                    "PRAGMA table_info(executions)"
+                ).fetchall()
+            }
 
-        execution_migrations = {
-            "stdout": "ALTER TABLE executions ADD COLUMN stdout TEXT",
-            "stderr": "ALTER TABLE executions ADD COLUMN stderr TEXT",
-            "warnings": "ALTER TABLE executions ADD COLUMN warnings TEXT",
-            "artifacts": "ALTER TABLE executions ADD COLUMN artifacts TEXT",
-        }
+            execution_migrations = {
+                "stdout": "ALTER TABLE executions ADD COLUMN stdout TEXT",
+                "stderr": "ALTER TABLE executions ADD COLUMN stderr TEXT",
+                "warnings": "ALTER TABLE executions ADD COLUMN warnings TEXT",
+                "artifacts": "ALTER TABLE executions ADD COLUMN artifacts TEXT",
+            }
 
-        for column, statement in execution_migrations.items():
+            for column, statement in execution_migrations.items():
 
-            if column not in execution_columns:
+                if column not in execution_columns:
 
-                cursor.execute(statement)
+                    cursor.execute(statement)
 
+            cursor.execute(
+                """
+                CREATE TABLE IF NOT EXISTS health_history
+                (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
 
-        cursor.execute(
-            """
-            CREATE TABLE IF NOT EXISTS health_history
-            (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    plugin TEXT NOT NULL,
 
-                plugin TEXT NOT NULL,
+                    status TEXT NOT NULL,
 
-                status TEXT NOT NULL,
+                    score INTEGER NOT NULL,
 
-                score INTEGER NOT NULL,
+                    possible INTEGER NOT NULL,
 
-                possible INTEGER NOT NULL,
+                    issues TEXT,
 
-                issues TEXT,
+                    metadata TEXT,
 
-                metadata TEXT,
-
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )
+                """
             )
-            """
-        )
 
+            self.connection.commit()
 
-        self.connection.commit()
+    @contextmanager
+    def transaction(self):
+
+        with self._connection_lock:
+            try:
+                yield self.connection
+                self.connection.commit()
+
+            except Exception:
+                self.connection.rollback()
+                raise
 
     def execute(self, sql, parameters=()):
 
-        cursor = self.connection.cursor()
+        with self._connection_lock:
+            cursor = self.connection.cursor()
 
-        cursor.execute(sql, parameters)
+            cursor.execute(
+                sql,
+                parameters,
+            )
 
-        self.connection.commit()
+            self.connection.commit()
 
-        return cursor
+            return cursor
 
     def query(self, sql, parameters=()):
 
-        cursor = self.connection.cursor()
+        with self._connection_lock:
+            cursor = self.connection.cursor()
 
-        cursor.execute(sql, parameters)
+            cursor.execute(
+                sql,
+                parameters,
+            )
 
-        return cursor.fetchall()
+            return cursor.fetchall()
