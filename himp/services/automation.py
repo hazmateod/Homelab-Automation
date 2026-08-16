@@ -737,6 +737,86 @@ class AutomationService:
         )
 
 
+    def active_execution_status(
+        self,
+        task_id,
+    ):
+        self.find_task(task_id)
+
+        lock = self.lock_repository.get(
+            task_id
+        )
+
+        if lock is None:
+            return {
+                "task_id": task_id,
+                "running": False,
+                "started_at": None,
+                "expires_at": None,
+                "elapsed_seconds": None,
+            }
+
+        def normalize_timestamp(value):
+            if value is None:
+                return None
+
+            if isinstance(value, datetime):
+                parsed = value
+            else:
+                parsed = datetime.fromisoformat(
+                    str(value)
+                )
+
+            if parsed.tzinfo is None:
+                parsed = parsed.replace(
+                    tzinfo=timezone.utc
+                )
+
+            return parsed.astimezone(
+                timezone.utc
+            )
+
+        started_at = normalize_timestamp(
+            lock["locked_at"]
+        )
+
+        expires_at = normalize_timestamp(
+            lock["expires_at"]
+        )
+
+        now = datetime.now(
+            timezone.utc
+        )
+
+        if expires_at <= now:
+            return {
+                "task_id": task_id,
+                "running": False,
+                "started_at": None,
+                "expires_at": None,
+                "elapsed_seconds": None,
+            }
+
+        elapsed_seconds = max(
+            (
+                now
+                - started_at
+            ).total_seconds(),
+            0,
+        )
+
+        return {
+            "task_id": task_id,
+            "running": True,
+            "started_at": started_at.isoformat(),
+            "expires_at": expires_at.isoformat(),
+            "elapsed_seconds": round(
+                elapsed_seconds,
+                3,
+            ),
+        }
+
+
     def run(
         self,
         task_id,
@@ -750,8 +830,28 @@ class AutomationService:
             confirmed=confirmed,
         )
 
+        timeout = policy["timeout_seconds"]
+
+        if timeout is None:
+            lease_seconds = (
+                self.lock_repository.DEFAULT_LEASE_SECONDS
+            )
+        else:
+            lease_seconds = (
+                (timeout * policy["retry_attempts"])
+                + (
+                    policy["retry_delay_seconds"]
+                    * max(
+                        policy["retry_attempts"] - 1,
+                        0,
+                    )
+                )
+                + 60
+            )
+
         if not self.lock_repository.acquire(
-            task_id
+            task_id,
+            lease_seconds=lease_seconds,
         ):
             raise AutomationAlreadyRunningError(
                 f"Automation task is already running: {task_id}"

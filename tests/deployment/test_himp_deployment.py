@@ -387,3 +387,27 @@ def test_dashboard_local_tasks_disable_become():
 
     assert dashboard_tasks.count("delegate_to: localhost") == 9
     assert dashboard_tasks.count("become: false") == 9
+
+
+def test_automation_page_exposes_current_execution_status():
+    template = Path(
+        "templates/automation.html"
+    ).read_text()
+
+    javascript = Path(
+        "static/js/dashboard.js"
+    ).read_text()
+
+    assert "Current Execution" in template
+    assert "automation-current-status" in template
+    assert "automation-current-badge" in template
+    assert "automation-current-started" in template
+    assert "automation-current-elapsed" in template
+
+    assert (
+        "/api/automation/"
+        in javascript
+    )
+    assert "/status" in javascript
+    assert "elapsed_seconds" in javascript
+    assert "Running" in javascript

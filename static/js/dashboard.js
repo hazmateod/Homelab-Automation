@@ -1148,6 +1148,165 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /*
+ * HIMP Automation Active Execution Status
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const statusElements = document.querySelectorAll(
+        ".automation-current-status"
+    );
+
+    if (statusElements.length === 0) {
+        return;
+    }
+
+    const formatElapsed = seconds => {
+        const totalSeconds = Math.max(
+            Math.floor(Number(seconds) || 0),
+            0
+        );
+
+        const hours = Math.floor(
+            totalSeconds / 3600
+        );
+
+        const minutes = Math.floor(
+            (totalSeconds % 3600) / 60
+        );
+
+        const remainingSeconds =
+            totalSeconds % 60;
+
+        if (hours > 0) {
+            return (
+                `${hours}h ` +
+                `${String(minutes).padStart(2, "0")}m ` +
+                `${String(remainingSeconds).padStart(2, "0")}s`
+            );
+        }
+
+        if (minutes > 0) {
+            return (
+                `${minutes}m ` +
+                `${String(remainingSeconds).padStart(2, "0")}s`
+            );
+        }
+
+        return `${remainingSeconds}s`;
+    };
+
+    const updateTaskStatus = async element => {
+        const taskId = element.dataset.taskId;
+
+        const badge = element.querySelector(
+            ".automation-current-badge"
+        );
+
+        const started = element.querySelector(
+            ".automation-current-started"
+        );
+
+        const elapsed = element.querySelector(
+            ".automation-current-elapsed"
+        );
+
+        const runButton = document.querySelector(
+            `.automation-run-button[data-task-id="${CSS.escape(taskId)}"]`
+        );
+
+        try {
+            const response = await fetch(
+                `/api/automation/${encodeURIComponent(taskId)}/status`,
+                {
+                    headers: {
+                        "Accept": "application/json"
+                    }
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.detail ||
+                    `HTTP ${response.status}`
+                );
+            }
+
+            if (result.running) {
+                badge.className =
+                    "badge bg-warning text-dark automation-current-badge";
+                badge.textContent = "Running";
+
+                started.textContent =
+                    result.started_at
+                        ? `Started — ${result.started_at}`
+                        : "";
+
+                elapsed.textContent =
+                    result.elapsed_seconds !== null
+                        ? `Elapsed — ${formatElapsed(result.elapsed_seconds)}`
+                        : "";
+
+                if (runButton) {
+                    runButton.disabled = true;
+
+                    if (
+                        runButton.textContent.trim() === "Run Now"
+                    ) {
+                        runButton.textContent = "Running...";
+                    }
+                }
+
+                return;
+            }
+
+            badge.className =
+                "badge bg-secondary automation-current-badge";
+            badge.textContent = "Idle";
+            started.textContent = "";
+            elapsed.textContent = "";
+
+            if (runButton) {
+                runButton.disabled = false;
+
+                if (
+                    runButton.textContent.trim() === "Running..."
+                ) {
+                    runButton.textContent = "Run Now";
+                }
+            }
+
+        } catch (error) {
+            console.error(
+                `Unable to load automation status for ${taskId}:`,
+                error
+            );
+
+            badge.className =
+                "badge bg-secondary automation-current-badge";
+            badge.textContent = "Unknown";
+            started.textContent = "";
+            elapsed.textContent = "";
+        }
+    };
+
+    const refreshStatuses = () => {
+        statusElements.forEach(
+            element => updateTaskStatus(element)
+        );
+    };
+
+    refreshStatuses();
+
+    window.setInterval(
+        refreshStatuses,
+        5000
+    );
+});
+
+
+/*
  * HIMP Automation Run UI
  */
 

@@ -305,13 +305,24 @@ def test_valid_policy_returns_retry_and_timeout_configuration():
 
 
 class FakeLockRepository:
+    DEFAULT_LEASE_SECONDS = 300
+
     def __init__(self, acquire_result=True):
         self.acquire_result = acquire_result
         self.acquire_calls = []
         self.release_calls = []
 
-    def acquire(self, task_id):
-        self.acquire_calls.append(task_id)
+    def acquire(
+        self,
+        task_id,
+        lease_seconds=None,
+    ):
+        self.acquire_calls.append(
+            {
+                "task_id": task_id,
+                "lease_seconds": lease_seconds,
+            }
+        )
         return self.acquire_result
 
     def release(self, task_id):
@@ -461,7 +472,10 @@ def test_successful_execution_acquires_and_releases_lock():
     ]
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 360,
+        }
     ]
 
     assert lock.release_calls == [
@@ -502,7 +516,10 @@ def test_execution_failure_still_releases_lock():
         )
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 360,
+        }
     ]
 
     assert lock.release_calls == [
@@ -580,7 +597,10 @@ def test_failed_result_retries_and_stops_after_success():
     assert history.saved[1]["success"] is True
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 960,
+        }
     ]
 
     assert lock.release_calls == [
@@ -644,7 +664,10 @@ def test_execution_exception_retries_and_stops_after_success():
     assert history.saved[2]["success"] is True
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 960,
+        }
     ]
 
     assert lock.release_calls == [
@@ -707,7 +730,10 @@ def test_execution_exception_exhausts_retries_and_raises_final_error():
     ]
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 960,
+        }
     ]
 
     assert lock.release_calls == [
@@ -850,7 +876,10 @@ def test_timeout_exception_is_persisted_and_retried():
     assert history.saved[1]["success"] is True
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 120,
+        }
     ]
 
     assert lock.release_calls == [
@@ -929,7 +958,10 @@ def test_timeout_exhausts_retries_and_raises_final_error():
     )
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 120,
+        }
     ]
 
     assert lock.release_calls == [
@@ -966,7 +998,10 @@ def test_timeout_execution_is_persisted_as_timeout_failure():
         )
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 360,
+        }
     ]
 
     assert lock.release_calls == [
@@ -1085,7 +1120,10 @@ def test_timeout_retry_can_recover():
     assert history.saved[1]["success"] is True
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 660,
+        }
     ]
 
     assert lock.release_calls == [
@@ -1188,7 +1226,10 @@ def test_keyboard_interrupt_still_releases_lock():
         )
 
     assert lock.acquire_calls == [
-        "health_check"
+        {
+            "task_id": "health_check",
+            "lease_seconds": 360,
+        }
     ]
 
     assert lock.release_calls == [
@@ -1222,3 +1263,73 @@ def test_maintenance_task_is_allowed_without_confirmation():
     assert policy["task_id"] == "scheduled_updates"
     assert policy["risk_level"] == "maintenance"
     assert policy["confirmed"] is False
+
+
+def test_execution_lock_lease_covers_timeout_and_retries():
+    service = make_service()
+    service.execution_repository = (
+        RecordingExecutionRepository()
+    )
+
+    task = service.find_task(
+        "health_check"
+    )
+    task["timeout_seconds"] = 600
+    task["retry_attempts"] = 3
+    task["retry_delay_seconds"] = 5
+
+    lock = FakeLockRepository()
+    service.lock_repository = lock
+
+    service._execute_task = lambda *args, **kwargs: {
+        "success": True,
+    }
+
+    service.run(
+        "health_check"
+    )
+
+    assert len(lock.acquire_calls) == 1
+
+    call = lock.acquire_calls[0]
+
+    assert call["task_id"] == "health_check"
+    assert call["lease_seconds"] == 1870
+
+
+def test_scheduled_updates_lock_covers_configured_timeout():
+    service = make_service()
+
+    service.tasks.append(
+        {
+            "id": "scheduled_updates",
+            "name": "Scheduled Updates",
+            "description": "Run maintenance updates.",
+            "enabled": True,
+            "schedule": "daily 03:15",
+            "timeout_seconds": 3600,
+            "retry_attempts": 1,
+            "retry_delay_seconds": 0,
+            "risk_level": "maintenance",
+        }
+    )
+
+    service.execution_repository = (
+        RecordingExecutionRepository()
+    )
+
+    lock = FakeLockRepository()
+    service.lock_repository = lock
+
+    service._execute_task = lambda *args, **kwargs: {
+        "success": True,
+    }
+
+    service.run(
+        "scheduled_updates"
+    )
+
+    call = lock.acquire_calls[0]
+
+    assert call["task_id"] == "scheduled_updates"
+    assert call["lease_seconds"] == 3660

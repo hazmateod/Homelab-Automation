@@ -73,6 +73,24 @@ def automation_summary():
 
 
 
+@router.get("/automation/{task_id}/status")
+def automation_execution_status(
+    task_id: str,
+):
+    try:
+        return JSONResponse(
+            himp.automation.active_execution_status(
+                task_id
+            )
+        )
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        )
+
+
 @router.get("/automation/executions")
 def automation_execution_history(
     limit: int = Query(

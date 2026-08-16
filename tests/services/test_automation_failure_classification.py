@@ -78,7 +78,11 @@ def test_non_retryable_failure_is_not_retried():
             return []
 
     class FakeLockRepository:
-        def acquire(self, task_id):
+        def acquire(
+            self,
+            task_id,
+            lease_seconds=None,
+        ):
             return True
 
         def release(self, task_id):
