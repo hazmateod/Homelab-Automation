@@ -75,10 +75,43 @@ def _make_project(tmp_path):
             project / "systemd" / unit,
         )
 
+    subprocess.run(
+        ["git", "init", "-q"],
+        cwd=project,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.name", "HIMP Deployment Test"],
+        cwd=project,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "config", "user.email", "himp-test@example.invalid"],
+        cwd=project,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "add", "."],
+        cwd=project,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "initial deployment fixture"],
+        cwd=project,
+        check=True,
+    )
+
     return project
 
 
-def _run_deployment(project, deploy_root, systemd_root, bin_dir):
+def _run_deployment(
+    project,
+    deploy_root,
+    systemd_root,
+    bin_dir,
+    *,
+    check=True,
+):
     env = os.environ.copy()
     env["DEPLOY_ROOT"] = str(deploy_root)
     env["SYSTEMD_TARGET_ROOT"] = str(systemd_root)
@@ -90,7 +123,7 @@ def _run_deployment(project, deploy_root, systemd_root, bin_dir):
         env=env,
         text=True,
         capture_output=True,
-        check=True,
+        check=check,
     )
 
 
@@ -156,6 +189,53 @@ def test_unchanged_deployment_does_not_restart_himp(tmp_path):
     assert "daemon-reload" not in _log_lines(log_file)
 
 
+def test_dirty_working_tree_is_rejected(tmp_path):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    dirty_file = project / "himp" / "dirty.py"
+    dirty_file.write_text("dirty = True\n")
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+        check=False,
+    )
+
+    assert result.returncode != 0
+    assert "Deployment source contains uncommitted changes." in result.stdout
+    assert not (deploy_root / ".himp-release").exists()
+
+
+def test_successful_deployment_records_source_revision(tmp_path):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    expected_revision = subprocess.run(
+        ["git", "rev-parse", "HEAD"],
+        cwd=project,
+        text=True,
+        capture_output=True,
+        check=True,
+    ).stdout.strip()
+
+    release_marker = deploy_root / ".himp-release"
+
+    assert release_marker.exists()
+    assert release_marker.read_text() == f"{expected_revision}\n"
+
+
 def test_application_change_restarts_himp(tmp_path):
     project, deploy_root, systemd_root, bin_dir, log_file = (
         _prepare_environment(tmp_path)
@@ -171,6 +251,16 @@ def test_application_change_restarts_himp(tmp_path):
     _clear_log(log_file)
 
     (project / "himp" / "marker.txt").write_text("version-2\n")
+    subprocess.run(
+        ["git", "add", "himp/marker.txt"],
+        cwd=project,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "change application"],
+        cwd=project,
+        check=True,
+    )
 
     result = _run_deployment(
         project,
@@ -200,6 +290,16 @@ def test_himp_service_change_restarts_himp(tmp_path):
     service = project / "systemd" / "himp.service"
     service.write_text(
         service.read_text() + "\n# deployment regression test\n"
+    )
+    subprocess.run(
+        ["git", "add", "systemd/himp.service"],
+        cwd=project,
+        check=True,
+    )
+    subprocess.run(
+        ["git", "commit", "-q", "-m", "change himp service"],
+        cwd=project,
+        check=True,
     )
 
     result = _run_deployment(

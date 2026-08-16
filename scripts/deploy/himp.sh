@@ -55,6 +55,25 @@ DEPLOY_FILES=(
 
 echo "Validating deployment source..."
 
+if ! git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+    echo "ERROR: Deployment source is not a Git working tree."
+    exit 1
+fi
+
+if [[ -n "$(git status --porcelain)" ]]; then
+    echo "ERROR: Deployment source contains uncommitted changes."
+    echo
+    git status --short
+    echo
+    echo "Commit or discard all changes before deploying HIMP."
+    exit 1
+fi
+
+SOURCE_REVISION="$(git rev-parse HEAD)"
+RELEASE_MARKER="$DEPLOY_ROOT/.himp-release"
+
+echo "Source revision: $SOURCE_REVISION"
+
 for dir in "${DEPLOY_DIRS[@]}"; do
     if [[ ! -d "$PROJECT_ROOT/$dir" ]]; then
         echo "ERROR: Missing deployment directory:"
@@ -183,6 +202,26 @@ if ! systemctl is-active --quiet himp; then
     systemctl status himp --no-pager
     exit 1
 fi
+
+printf '%s\n' "$SOURCE_REVISION" > "$RELEASE_MARKER"
+chown himp:himp "$RELEASE_MARKER"
+chmod 0644 "$RELEASE_MARKER"
+
+if [[ ! -s "$RELEASE_MARKER" ]]; then
+    echo "ERROR: Release marker was not created:"
+    echo "  $RELEASE_MARKER"
+    exit 1
+fi
+
+if [[ "$(cat "$RELEASE_MARKER")" != "$SOURCE_REVISION" ]]; then
+    echo "ERROR: Release marker does not match deployed source revision."
+    echo "  expected: $SOURCE_REVISION"
+    echo "  actual:   $(cat "$RELEASE_MARKER")"
+    exit 1
+fi
+
+echo
+echo "Deployed revision: $(cat "$RELEASE_MARKER")"
 
 echo
 echo "========================================="
