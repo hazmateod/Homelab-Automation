@@ -302,9 +302,9 @@ class InventoryRepository:
             FROM inventory_changes
             WHERE hostname=?
             AND change_type=?
-            AND field IS ?
-            AND old_value IS ?
-            AND new_value IS ?
+            AND field IS NOT DISTINCT FROM ?
+            AND old_value IS NOT DISTINCT FROM ?
+            AND new_value IS NOT DISTINCT FROM ?
             LIMIT 1
             """,
             (
