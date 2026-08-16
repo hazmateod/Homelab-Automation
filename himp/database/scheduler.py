@@ -4,7 +4,7 @@ Scheduler Repository.
 Stores HIMP automation schedule configuration.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from himp.database.database import Database
 
@@ -249,7 +249,7 @@ class SchedulerRepository:
                 schedule_time,
                 day_of_week,
                 day_of_month,
-                datetime.utcnow(),
+                datetime.now(timezone.utc).replace(tzinfo=None),
                 task_id,
             ),
         )
@@ -268,8 +268,8 @@ class SchedulerRepository:
             WHERE task_id=?
             """,
             (
-                datetime.utcnow(),
-                datetime.utcnow(),
+                datetime.now(timezone.utc).replace(tzinfo=None),
+                datetime.now(timezone.utc).replace(tzinfo=None),
                 task_id,
             ),
         )

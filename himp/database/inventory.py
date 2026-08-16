@@ -4,7 +4,7 @@ Inventory Repository.
 Stores inventory snapshots and tracks changes.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from himp.database.database import Database
 
@@ -186,7 +186,7 @@ class InventoryRepository:
                 host["ip"],
                 host["user"],
                 int(host["become"]),
-                datetime.utcnow(),
+                datetime.now(timezone.utc).replace(tzinfo=None),
             ),
         )
 
@@ -226,7 +226,7 @@ class InventoryRepository:
             WHERE hostname=?
             """,
             (
-                datetime.utcnow(),
+                datetime.now(timezone.utc).replace(tzinfo=None),
                 hostname,
             ),
         )

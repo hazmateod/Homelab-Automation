@@ -411,3 +411,15 @@ def test_automation_page_exposes_current_execution_status():
     assert "/status" in javascript
     assert "elapsed_seconds" in javascript
     assert "Running" in javascript
+
+
+def test_python_sources_do_not_use_deprecated_datetime_utcnow():
+    source_root = Path("himp")
+
+    offenders = []
+
+    for path in source_root.rglob("*.py"):
+        if "datetime.utcnow()" in path.read_text():
+            offenders.append(str(path))
+
+    assert offenders == []

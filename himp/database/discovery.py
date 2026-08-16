@@ -4,7 +4,7 @@ Discovery Repository.
 Stores infrastructure discovery information.
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 
 from himp.database.database import Database
 
@@ -88,7 +88,7 @@ class DiscoveryRepository:
                     record["category"],
                     record["name"],
                     record.get("value"),
-                    datetime.utcnow(),
+                    datetime.now(timezone.utc).replace(tzinfo=None),
                 ),
             )
 
