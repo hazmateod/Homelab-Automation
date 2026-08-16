@@ -2,6 +2,8 @@
 HIMP REST API Server.
 """
 
+from contextlib import asynccontextmanager
+
 import logging
 import subprocess
 import time
@@ -18,6 +20,14 @@ from himp.lib.logging_config import configure_logging
 configure_logging()
 
 logger = logging.getLogger("himp")
+
+@asynccontextmanager
+async def application_lifespan(_app):
+    try:
+        yield
+    finally:
+        PostgreSQLDatabase.close_pools()
+
 
 from himp.api.auth import router as auth_router
 from himp.api.dependencies import require_admin, require_page_admin, require_page_session, require_session
@@ -40,6 +50,7 @@ from himp.api.workflows import (
 from himp.api.remediation import (
     router as remediation_router,
 )
+from himp.database.postgresql import PostgreSQLDatabase
 from himp.database.remediation_audit import (
     RemediationAuditRepository,
 )
@@ -51,6 +62,7 @@ from himp.app import HIMP
 app = FastAPI(
     title="Homelab Infrastructure Management Platform",
     version="1.0.1",
+    lifespan=application_lifespan,
 )
 
 
