@@ -54,7 +54,7 @@ class WorkflowExecutionRepository:
         workflow_execution_id,
         started_at=None,
     ):
-        cursor = self.database.execute(
+        self.database.execute(
             """
             INSERT INTO workflow_executions
             (

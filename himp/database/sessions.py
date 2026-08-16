@@ -251,7 +251,7 @@ class SessionRepository:
                 tzinfo=None
             )
 
-        cursor = self.database.execute(
+        return self.database.execute_affected(
             """
             DELETE FROM sessions
             WHERE expires_at <= ?
@@ -259,5 +259,3 @@ class SessionRepository:
             """,
             (now,),
         )
-
-        return cursor.rowcount

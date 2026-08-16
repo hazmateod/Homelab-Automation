@@ -45,6 +45,19 @@ class TemporaryDatabase:
         self.connection.commit()
         return cursor
 
+
+    def execute_affected(
+        self,
+        sql,
+        parameters=(),
+    ):
+        cursor = self.execute(
+            sql,
+            parameters,
+        )
+
+        return cursor.rowcount
+
     def query(
         self,
         sql,

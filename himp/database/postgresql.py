@@ -1,15 +1,19 @@
 """
 PostgreSQL database backend.
 
-Phase 11 foundation for PostgreSQL connectivity. This backend intentionally
-does not initialize HIMP schema yet; schema migration is handled by later
-Phase 11 slices.
+Provides HIMP's PostgreSQL database contract through a bounded,
+process-local connection pool. Repository database objects do not own
+permanent PostgreSQL sessions. Ordinary operations borrow a connection
+for the duration of the operation, while explicit transactions pin one
+connection for the complete transaction boundary.
 """
 
 from contextlib import contextmanager
+from threading import Lock
 
 import psycopg
 from psycopg.rows import dict_row
+from psycopg_pool import ConnectionPool
 
 from himp.database.config import DatabaseConfig
 from himp.database.postgresql_schema import (
@@ -18,6 +22,12 @@ from himp.database.postgresql_schema import (
 
 
 class PostgreSQLDatabase:
+    _pools = {}
+    _pools_lock = Lock()
+
+    POOL_MIN_SIZE = 1
+    POOL_MAX_SIZE = 8
+    POOL_TIMEOUT = 10
 
     def __init__(
         self,
@@ -35,15 +45,58 @@ class PostgreSQLDatabase:
                 "backend=postgresql."
             )
 
-        self.connection = psycopg.connect(
-            host=self.config.postgres_host,
-            port=self.config.postgres_port,
-            dbname=self.config.postgres_database,
-            user=self.config.postgres_user,
-            password=self.config.postgres_password,
-            row_factory=dict_row,
-            autocommit=True,
+        self.pool = self._get_pool(
+            self.config
         )
+
+    @classmethod
+    def _pool_key(
+        cls,
+        config,
+    ):
+        return (
+            config.postgres_host,
+            config.postgres_port,
+            config.postgres_database,
+            config.postgres_user,
+            config.postgres_password,
+        )
+
+    @classmethod
+    def _get_pool(
+        cls,
+        config,
+    ):
+        key = cls._pool_key(
+            config
+        )
+
+        with cls._pools_lock:
+            pool = cls._pools.get(
+                key
+            )
+
+            if pool is None:
+                pool = ConnectionPool(
+                    conninfo="",
+                    kwargs={
+                        "host": config.postgres_host,
+                        "port": config.postgres_port,
+                        "dbname": config.postgres_database,
+                        "user": config.postgres_user,
+                        "password": config.postgres_password,
+                        "row_factory": dict_row,
+                        "autocommit": True,
+                    },
+                    min_size=cls.POOL_MIN_SIZE,
+                    max_size=cls.POOL_MAX_SIZE,
+                    timeout=cls.POOL_TIMEOUT,
+                    open=True,
+                )
+
+                cls._pools[key] = pool
+
+        return pool
 
     @staticmethod
     def _normalize_sql(sql):
@@ -72,37 +125,75 @@ class PostgreSQLDatabase:
         sql,
         parameters=(),
     ):
-        cursor = self.connection.cursor()
+        """
+        Execute a statement using a pooled connection.
 
-        cursor.execute(
-            self._normalize_sql(sql),
-            parameters,
-        )
+        The cursor never escapes the checkout boundary.
+        """
+        with self.pool.connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    self._normalize_sql(sql),
+                    parameters,
+                )
 
-        return cursor
+        return None
+
+    def execute_affected(
+        self,
+        sql,
+        parameters=(),
+    ):
+        """
+        Execute a statement and return its affected-row count.
+
+        Row-count consumers receive a detached integer rather than
+        a cursor tied to a connection that has returned to the pool.
+        """
+        with self.pool.connection() as connection:
+            with connection.cursor() as cursor:
+                cursor.execute(
+                    self._normalize_sql(sql),
+                    parameters,
+                )
+
+                return cursor.rowcount
 
     def query(
         self,
         sql,
         parameters=(),
     ):
-        cursor = self.connection.cursor()
+        with self.pool.connection() as connection:
+            cursor = connection.cursor()
 
-        cursor.execute(
-            self._normalize_sql(sql),
-            parameters,
-        )
+            cursor.execute(
+                self._normalize_sql(sql),
+                parameters,
+            )
 
-        return cursor.fetchall()
+            return cursor.fetchall()
 
     @contextmanager
     def transaction(self):
-        try:
-            with self.connection.transaction():
-                yield self.connection
+        """
+        Pin one pooled connection for an explicit repository transaction.
+        """
+        with self.pool.connection() as connection:
+            with connection.transaction():
+                yield connection
 
-        except Exception:
-            raise
+    @contextmanager
+    def connection(self):
+        """
+        Pin one pooled connection without implicitly opening a transaction.
+
+        This compatibility boundary supports operations such as database
+        migration that need direct cursor access while still ensuring the
+        PostgreSQL session is returned to the shared pool.
+        """
+        with self.pool.connection() as connection:
+            yield connection
 
     def initialize_schema(self):
         """
@@ -112,13 +203,36 @@ class PostgreSQLDatabase:
         transaction. If any statement fails, PostgreSQL rolls back
         the entire schema initialization.
         """
-        with self.connection.transaction():
-            with self.connection.cursor() as cursor:
+        with self.transaction() as connection:
+            with connection.cursor() as cursor:
                 for statement in schema_statements():
                     cursor.execute(statement)
 
     def close(self):
-        self.connection.close()
+        """
+        Release this database facade.
+
+        Connections are owned by the process-wide pool rather than by
+        individual repository database objects, so there is no dedicated
+        connection to close here.
+        """
+        return None
+
+    @classmethod
+    def close_pools(cls):
+        """
+        Close every process-local PostgreSQL pool.
+
+        Intended for orderly process shutdown and tests.
+        """
+        with cls._pools_lock:
+            pools = tuple(
+                cls._pools.values()
+            )
+            cls._pools.clear()
+
+        for pool in pools:
+            pool.close()
 
     def table_columns(
         self,
@@ -153,25 +267,23 @@ class PostgreSQLDatabase:
     ):
         """
         Execute an INSERT and return its generated integer ID.
-
-        PostgreSQL requires the INSERT to expose the generated
-        identifier through RETURNING id.
         """
         normalized_sql = sql.rstrip().rstrip(";")
 
         if "returning" not in normalized_sql.lower():
             normalized_sql += " RETURNING id"
 
-        cursor = self.connection.cursor()
+        with self.pool.connection() as connection:
+            cursor = connection.cursor()
 
-        cursor.execute(
-            self._normalize_sql(
-                normalized_sql
-            ),
-            parameters,
-        )
+            cursor.execute(
+                self._normalize_sql(
+                    normalized_sql
+                ),
+                parameters,
+            )
 
-        row = cursor.fetchone()
+            row = cursor.fetchone()
 
         if row is None:
             raise RuntimeError(
@@ -202,7 +314,6 @@ class PostgreSQLDatabase:
         BEGIN IMMEDIATE statement is required.
         """
         return None
-
 
     def execute_transaction(
         self,

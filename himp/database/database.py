@@ -166,6 +166,21 @@ class Database:
 
             return cursor
 
+    def execute_affected(
+        self,
+        sql,
+        parameters=(),
+    ):
+        """
+        Execute a statement and return the number of affected rows.
+        """
+        cursor = self.execute(
+            sql,
+            parameters,
+        )
+
+        return cursor.rowcount
+
     def query(self, sql, parameters=()):
 
         with self._connection_lock:

@@ -1,4 +1,5 @@
 import sqlite3
+from contextlib import contextmanager
 
 import psycopg
 
@@ -46,6 +47,18 @@ class PostgreSQLCapabilityConnection:
         return self.cursor_instance
 
 
+class PostgreSQLCapabilityPool:
+    def __init__(
+        self,
+        connection,
+    ):
+        self.connection_instance = connection
+
+    @contextmanager
+    def connection(self):
+        yield self.connection_instance
+
+
 def postgresql_database(
     row=None,
 ):
@@ -62,10 +75,12 @@ def postgresql_database(
         postgres_password="test-secret",
     )
 
-    database.connection = (
-        PostgreSQLCapabilityConnection(
-            row=row
-        )
+    connection = PostgreSQLCapabilityConnection(
+        row=row
+    )
+
+    database.pool = PostgreSQLCapabilityPool(
+        connection
     )
 
     return database
@@ -194,7 +209,8 @@ def test_postgresql_execute_insert_adds_returning_id():
     assert identifier == 42
 
     sql, parameters = (
-        database.connection
+        database.pool
+        .connection_instance
         .cursor_instance
         .calls[0]
     )
@@ -227,7 +243,8 @@ def test_postgresql_execute_insert_preserves_returning():
     assert identifier == 84
 
     sql = (
-        database.connection
+        database.pool
+        .connection_instance
         .cursor_instance
         .calls[0][0]
     )
@@ -292,7 +309,7 @@ def test_postgresql_lock_transaction_is_noop():
     database = postgresql_database()
 
     assert database.begin_lock_transaction(
-        database.connection
+        database.pool.connection_instance
     ) is None
 
 
@@ -397,3 +414,65 @@ def test_postgresql_execute_transaction_normalizes_sql():
             ),
         )
     ]
+
+
+def test_sqlite_execute_affected_returns_rowcount(
+    tmp_path,
+):
+    database = Database(
+        config=DatabaseConfig(
+            backend="sqlite",
+            sqlite_path=(
+                tmp_path
+                / "affected-rows.db"
+            ),
+        )
+    )
+
+    try:
+        database.execute(
+            """
+            CREATE TABLE affected_rows
+            (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL
+            )
+            """
+        )
+
+        database.execute(
+            """
+            INSERT INTO affected_rows(name)
+            VALUES (?)
+            """,
+            (
+                "one",
+            ),
+        )
+
+        database.execute(
+            """
+            INSERT INTO affected_rows(name)
+            VALUES (?)
+            """,
+            (
+                "two",
+            ),
+        )
+
+        affected = (
+            database.execute_affected(
+                """
+                DELETE FROM affected_rows
+                WHERE id >= ?
+                """,
+                (
+                    1,
+                ),
+            )
+        )
+
+        assert affected == 2
+
+    finally:
+        database.connection.close()

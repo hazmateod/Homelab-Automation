@@ -441,13 +441,10 @@ class SQLitePostgreSQLMigrator:
             try:
                 with (
                     self.postgresql_database
-                    .connection
                     .transaction()
-                ):
+                ) as connection:
                     with (
-                        self.postgresql_database
-                        .connection
-                        .cursor()
+                        connection.cursor()
                     ) as cursor:
                         for table in MIGRATION_TABLES:
                             rows = self._source_rows(
@@ -519,9 +516,7 @@ class SQLitePostgreSQLMigrator:
                     # table has been copied and row-count verified.
                     # Rehearsal never executes setval().
                     with (
-                        self.postgresql_database
-                        .connection
-                        .cursor()
+                        connection.cursor()
                     ) as identity_cursor:
                         for result in results:
                             if (
