@@ -6,10 +6,15 @@ Wants=network-online.target
 [Service]
 Type=oneshot
 
-WorkingDirectory=/root/Homelab-Automation
+User=himp
+Group=himp
 
-ExecStart=/usr/bin/python3 -m himp.cli inventory-sync
+WorkingDirectory=/opt/himp
 
-User=root
-
+Environment=HOME=/var/lib/himp
+Environment=PATH=/opt/himp/.venv/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/himp
+Environment=ANSIBLE_PRIVATE_KEY_FILE=/var/lib/himp/.ssh/id_ed25519
 Environment=PYTHONUNBUFFERED=1
+
+ExecStart=/opt/himp/.venv/bin/python -m himp.cli inventory-sync

@@ -772,3 +772,63 @@ def test_failed_dependency_install_does_not_advance_markers(
     )
 
     assert "restart himp" not in lines
+
+def test_oneshot_services_use_production_runtime():
+    services = (
+        "himp-scheduler.service",
+        "himp-inventory-sync.service",
+        "himp-scheduled-updates.service",
+    )
+
+    for service_name in services:
+        service = (
+            Path("systemd")
+            / service_name
+        ).read_text()
+
+        assert "User=himp" in service
+        assert "Group=himp" in service
+        assert (
+            "WorkingDirectory=/opt/himp"
+            in service
+        )
+        assert (
+            "Environment=HOME=/var/lib/himp"
+            in service
+        )
+        assert (
+            "Environment=PYTHONPATH=/opt/himp"
+            in service
+        )
+        assert (
+            "Environment=ANSIBLE_PRIVATE_KEY_FILE="
+            "/var/lib/himp/.ssh/id_ed25519"
+            in service
+        )
+        assert (
+            "ExecStart=/opt/himp/.venv/bin/python "
+            in service
+        )
+
+
+def test_oneshot_services_do_not_use_development_runtime():
+    services = (
+        "himp-scheduler.service",
+        "himp-inventory-sync.service",
+        "himp-scheduled-updates.service",
+    )
+
+    forbidden = (
+        "/root/Homelab-Automation",
+        "ExecStart=/usr/bin/python3",
+        "User=root",
+    )
+
+    for service_name in services:
+        service = (
+            Path("systemd")
+            / service_name
+        ).read_text()
+
+        for value in forbidden:
+            assert value not in service
