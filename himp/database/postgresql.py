@@ -12,6 +12,9 @@ import psycopg
 from psycopg.rows import dict_row
 
 from himp.database.config import DatabaseConfig
+from himp.database.postgresql_schema import (
+    schema_statements,
+)
 
 
 class PostgreSQLDatabase:
@@ -93,6 +96,19 @@ class PostgreSQLDatabase:
 
         except Exception:
             raise
+
+    def initialize_schema(self):
+        """
+        Initialize the complete HIMP PostgreSQL schema atomically.
+
+        Every schema statement is executed inside one PostgreSQL
+        transaction. If any statement fails, PostgreSQL rolls back
+        the entire schema initialization.
+        """
+        with self.connection.transaction():
+            with self.connection.cursor() as cursor:
+                for statement in schema_statements():
+                    cursor.execute(statement)
 
     def close(self):
         self.connection.close()
