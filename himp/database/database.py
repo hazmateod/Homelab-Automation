@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from threading import RLock
 
+from himp.database.config import DatabaseConfig
+
 
 def _adapt_datetime(value):
     return value.isoformat(" ")
@@ -32,13 +34,31 @@ sqlite3.register_converter(
 
 class Database:
 
-    def __init__(self):
+    def __init__(
+        self,
+        config=None,
+    ):
 
-        self.path = Path("data")
+        self.config = (
+            config
+            if config is not None
+            else DatabaseConfig.from_environment()
+        )
 
-        self.path.mkdir(exist_ok=True)
+        if not self.config.is_sqlite:
+            raise NotImplementedError(
+                "PostgreSQL database connections are not "
+                "enabled yet. Phase 11 backend migration "
+                "is still in progress."
+            )
 
-        self.filename = self.path / "himp.db"
+        self.filename = self.config.sqlite_path
+        self.path = self.filename.parent
+
+        self.path.mkdir(
+            parents=True,
+            exist_ok=True,
+        )
 
         self.connection = sqlite3.connect(
             self.filename,
