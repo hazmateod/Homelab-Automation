@@ -180,3 +180,57 @@ class Database:
             )
 
             return cursor.fetchall()
+
+    def table_columns(
+        self,
+        table_name,
+    ):
+        """
+        Return the column names for a SQLite table.
+        """
+        rows = self.query(
+            f"PRAGMA table_info({table_name})"
+        )
+
+        return {
+            row["name"]
+            for row in rows
+        }
+
+    def execute_insert(
+        self,
+        sql,
+        parameters=(),
+    ):
+        """
+        Execute an INSERT and return its generated integer ID.
+        """
+        cursor = self.execute(
+            sql,
+            parameters,
+        )
+
+        return cursor.lastrowid
+
+    @staticmethod
+    def is_integrity_error(exception):
+        """
+        Return whether an exception represents a database
+        integrity/constraint violation.
+        """
+        return isinstance(
+            exception,
+            sqlite3.IntegrityError,
+        )
+
+    def begin_lock_transaction(
+        self,
+        connection,
+    ):
+        """
+        Acquire SQLite's write transaction boundary used for
+        serialized automation lock acquisition.
+        """
+        connection.execute(
+            "BEGIN IMMEDIATE"
+        )

@@ -96,3 +96,86 @@ class PostgreSQLDatabase:
 
     def close(self):
         self.connection.close()
+
+    def table_columns(
+        self,
+        table_name,
+    ):
+        """
+        Return the column names for a PostgreSQL table in the
+        current schema.
+        """
+        rows = self.query(
+            """
+            SELECT column_name
+            FROM information_schema.columns
+            WHERE table_schema = current_schema()
+              AND table_name = ?
+            ORDER BY ordinal_position
+            """,
+            (
+                table_name,
+            ),
+        )
+
+        return {
+            row["column_name"]
+            for row in rows
+        }
+
+    def execute_insert(
+        self,
+        sql,
+        parameters=(),
+    ):
+        """
+        Execute an INSERT and return its generated integer ID.
+
+        PostgreSQL requires the INSERT to expose the generated
+        identifier through RETURNING id.
+        """
+        normalized_sql = sql.rstrip().rstrip(";")
+
+        if "returning" not in normalized_sql.lower():
+            normalized_sql += " RETURNING id"
+
+        cursor = self.connection.cursor()
+
+        cursor.execute(
+            self._normalize_sql(
+                normalized_sql
+            ),
+            parameters,
+        )
+
+        row = cursor.fetchone()
+
+        if row is None:
+            raise RuntimeError(
+                "PostgreSQL INSERT did not return "
+                "a generated identifier."
+            )
+
+        return row["id"]
+
+    @staticmethod
+    def is_integrity_error(exception):
+        """
+        Return whether an exception represents a PostgreSQL
+        integrity/constraint violation.
+        """
+        return isinstance(
+            exception,
+            psycopg.IntegrityError,
+        )
+
+    def begin_lock_transaction(
+        self,
+        connection,
+    ):
+        """
+        PostgreSQL transaction serialization is provided by its
+        transaction/constraint semantics. No SQLite-style
+        BEGIN IMMEDIATE statement is required.
+        """
+        return None
