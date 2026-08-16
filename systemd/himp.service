@@ -31,6 +31,8 @@ ReadWritePaths=/opt/himp/inventory
 ReadWritePaths=/opt/himp/logs
 ReadWritePaths=/opt/himp/reports
 ReadWritePaths=/opt/himp/playbooks/reports
+ReadWritePaths=/var/lib/himp/.ansible
+ReadWritePaths=/var/lib/himp/.ssh
 
 [Install]
 WantedBy=multi-user.target

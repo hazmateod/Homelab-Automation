@@ -371,3 +371,12 @@ def test_systemd_units_are_installed_into_configured_target(tmp_path):
         assert target.read_text() == (
             (project / "systemd" / unit).read_text()
         )
+
+
+def test_himp_service_allows_required_runtime_state_writes():
+    service = Path("systemd/himp.service").read_text()
+
+    assert "ProtectSystem=strict" in service
+    assert "ProtectHome=true" in service
+    assert "ReadWritePaths=/var/lib/himp/.ansible" in service
+    assert "ReadWritePaths=/var/lib/himp/.ssh" in service
