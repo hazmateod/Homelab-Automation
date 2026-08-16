@@ -6,3 +6,4 @@ argon2-cffi>=23.1.0
 
 httpx2
 reportlab>=4.0
+psycopg[binary]>=3.2
