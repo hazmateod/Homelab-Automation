@@ -1,3 +1,4 @@
+import hashlib
 import os
 import shutil
 import subprocess
@@ -42,6 +43,35 @@ def _write_fake_systemctl(bin_dir, log_file):
         "exit 0\n"
     )
     systemctl.chmod(0o755)
+
+
+def _write_fake_runtime_python(
+    deploy_root,
+    log_file,
+):
+    python_path = (
+        deploy_root
+        / ".venv"
+        / "bin"
+        / "python"
+    )
+
+    python_path.parent.mkdir(
+        parents=True,
+        exist_ok=True,
+    )
+
+    python_path.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -u\n"
+        f'printf "python %s\\n" "$*" >> "{log_file}"\n'
+        'if [[ "${HIMP_TEST_PIP_FAIL:-0}" == "1" ]]; then\n'
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n"
+    )
+
+    python_path.chmod(0o755)
 
 
 def _make_project(tmp_path):
@@ -111,11 +141,15 @@ def _run_deployment(
     bin_dir,
     *,
     check=True,
+    extra_env=None,
 ):
     env = os.environ.copy()
     env["DEPLOY_ROOT"] = str(deploy_root)
     env["SYSTEMD_TARGET_ROOT"] = str(systemd_root)
     env["PATH"] = f"{bin_dir}:{env['PATH']}"
+
+    if extra_env:
+        env.update(extra_env)
 
     return subprocess.run(
         ["bash", str(project / DEPLOYMENT_SCRIPT)],
@@ -139,6 +173,10 @@ def _prepare_environment(tmp_path):
     bin_dir.mkdir()
 
     _write_fake_systemctl(bin_dir, log_file)
+    _write_fake_runtime_python(
+        deploy_root,
+        log_file,
+    )
 
     return (
         project,
@@ -451,3 +489,286 @@ def test_dashboard_recent_activity_is_identified_as_history():
     assert "formatRelativeTime" in javascript
     assert "formatRuntime" in javascript
     assert "toLocaleString" in javascript
+
+def _requirements_hash(path):
+    return hashlib.sha256(
+        path.read_bytes()
+    ).hexdigest()
+
+
+def test_first_deployment_synchronizes_runtime_dependencies(
+    tmp_path,
+):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    marker = (
+        deploy_root
+        / ".requirements.sha256"
+    )
+
+    assert "Requirements changed: true" in result.stdout
+    assert (
+        "Synchronizing HIMP runtime dependencies..."
+        in result.stdout
+    )
+    assert (
+        "Runtime dependencies synchronized."
+        in result.stdout
+    )
+
+    assert marker.exists()
+
+    assert marker.read_text().strip() == (
+        _requirements_hash(
+            project / "requirements.txt"
+        )
+    )
+
+    lines = _log_lines(log_file)
+
+    pip_events = [
+        line
+        for line in lines
+        if line.startswith(
+            "python -m pip install -r "
+        )
+    ]
+
+    assert len(pip_events) == 1
+
+    pip_index = lines.index(
+        pip_events[0]
+    )
+    restart_index = lines.index(
+        "restart himp"
+    )
+
+    assert pip_index < restart_index
+
+
+def test_unchanged_deployment_does_not_reinstall_dependencies(
+    tmp_path,
+):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    _clear_log(log_file)
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    assert "Requirements changed: false" in result.stdout
+    assert (
+        "Runtime dependencies already synchronized."
+        in result.stdout
+    )
+
+    assert not any(
+        line.startswith(
+            "python -m pip install -r "
+        )
+        for line in _log_lines(log_file)
+    )
+
+
+def test_changed_requirements_reinstall_dependencies(
+    tmp_path,
+):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    old_marker = (
+        deploy_root
+        / ".requirements.sha256"
+    ).read_text()
+
+    requirements = (
+        project / "requirements.txt"
+    )
+
+    requirements.write_text(
+        requirements.read_text()
+        + "example-runtime-package>=1.0\n"
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "add",
+            "requirements.txt",
+        ],
+        cwd=project,
+        check=True,
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-q",
+            "-m",
+            "change runtime requirements",
+        ],
+        cwd=project,
+        check=True,
+    )
+
+    _clear_log(log_file)
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    marker = (
+        deploy_root
+        / ".requirements.sha256"
+    )
+
+    assert "Requirements changed: true" in result.stdout
+
+    assert marker.read_text() != old_marker
+
+    assert marker.read_text().strip() == (
+        _requirements_hash(
+            project / "requirements.txt"
+        )
+    )
+
+    assert any(
+        line.startswith(
+            "python -m pip install -r "
+        )
+        for line in _log_lines(log_file)
+    )
+
+
+def test_failed_dependency_install_does_not_advance_markers(
+    tmp_path,
+):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    requirements_marker = (
+        deploy_root
+        / ".requirements.sha256"
+    )
+
+    release_marker = (
+        deploy_root
+        / ".himp-release"
+    )
+
+    old_requirements_marker = (
+        requirements_marker.read_text()
+    )
+
+    old_release_marker = (
+        release_marker.read_text()
+    )
+
+    requirements = (
+        project / "requirements.txt"
+    )
+
+    requirements.write_text(
+        requirements.read_text()
+        + "broken-runtime-package>=99.0\n"
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "add",
+            "requirements.txt",
+        ],
+        cwd=project,
+        check=True,
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-q",
+            "-m",
+            "broken runtime requirements",
+        ],
+        cwd=project,
+        check=True,
+    )
+
+    _clear_log(log_file)
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+        check=False,
+        extra_env={
+            "HIMP_TEST_PIP_FAIL": "1",
+        },
+    )
+
+    assert result.returncode != 0
+
+    assert (
+        requirements_marker.read_text()
+        == old_requirements_marker
+    )
+
+    assert (
+        release_marker.read_text()
+        == old_release_marker
+    )
+
+    lines = _log_lines(log_file)
+
+    assert any(
+        line.startswith(
+            "python -m pip install -r "
+        )
+        for line in lines
+    )
+
+    assert "restart himp" not in lines

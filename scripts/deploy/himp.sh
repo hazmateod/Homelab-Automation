@@ -71,6 +71,7 @@ fi
 
 SOURCE_REVISION="$(git rev-parse HEAD)"
 RELEASE_MARKER="$DEPLOY_ROOT/.himp-release"
+REQUIREMENTS_MARKER="$DEPLOY_ROOT/.requirements.sha256"
 
 echo "Source revision: $SOURCE_REVISION"
 
@@ -132,8 +133,29 @@ if [[ ! -f "$SYSTEMD_TARGET_ROOT/himp.service" ]] || \
     HIMP_SERVICE_CHANGED=true
 fi
 
+SOURCE_REQUIREMENTS_HASH="$(
+    sha256sum "$PROJECT_ROOT/requirements.txt" |
+    awk '{print $1}'
+)"
+
+INSTALLED_REQUIREMENTS_HASH=""
+
+if [[ -f "$REQUIREMENTS_MARKER" ]]; then
+    INSTALLED_REQUIREMENTS_HASH="$(
+        tr -d '[:space:]' < "$REQUIREMENTS_MARKER"
+    )"
+fi
+
+REQUIREMENTS_CHANGED=false
+
+if [[ "$SOURCE_REQUIREMENTS_HASH" != \
+      "$INSTALLED_REQUIREMENTS_HASH" ]]; then
+    REQUIREMENTS_CHANGED=true
+fi
+
 echo "  Application changed: $APPLICATION_CHANGED"
 echo "  HIMP service changed: $HIMP_SERVICE_CHANGED"
+echo "  Requirements changed: $REQUIREMENTS_CHANGED"
 
 echo
 echo "Deploying application directories..."
@@ -170,6 +192,36 @@ chown himp:himp \
     "$DEPLOY_ROOT/ansible.cfg" \
     "$DEPLOY_ROOT/requirements.txt" \
     "$DEPLOY_ROOT/requirements-dev.txt"
+
+if [[ "$REQUIREMENTS_CHANGED" == "true" ]]; then
+    echo
+    echo "Synchronizing HIMP runtime dependencies..."
+
+    if [[ ! -x "$DEPLOY_ROOT/.venv/bin/python" ]]; then
+        echo "ERROR: HIMP runtime Python not found:"
+        echo "  $DEPLOY_ROOT/.venv/bin/python"
+        exit 1
+    fi
+
+    "$DEPLOY_ROOT/.venv/bin/python" \
+        -m pip install \
+        -r "$DEPLOY_ROOT/requirements.txt"
+
+    printf '%s\n' \
+        "$SOURCE_REQUIREMENTS_HASH" \
+        > "$REQUIREMENTS_MARKER"
+
+    chown himp:himp \
+        "$REQUIREMENTS_MARKER"
+
+    chmod 0644 \
+        "$REQUIREMENTS_MARKER"
+
+    echo "Runtime dependencies synchronized."
+else
+    echo
+    echo "Runtime dependencies already synchronized."
+fi
 
 echo
 echo "Installing Git-managed systemd units..."
