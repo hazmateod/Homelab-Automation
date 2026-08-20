@@ -426,9 +426,20 @@ class StorageCapacityService:
                     "highest_used_percent": (
                         highest
                     ),
-                    "filesystems": len(
+                    "filesystem_count": len(
                         filesystems
                     ),
+                    "filesystems": [
+                        self._decorate(
+                            record
+                        )
+                        for record in sorted(
+                            filesystems,
+                            key=lambda item: (
+                                item["mount_point"]
+                            ),
+                        )
+                    ],
                 }
             )
 

@@ -409,6 +409,72 @@ def test_storage_host_summary_reports_worst_filesystem():
     ) == 2
 
 
+def test_storage_summary_exposes_individual_filesystems():
+    repository = FakeRepository()
+
+    for record in (
+        {
+            "hostname": "host01",
+            "filesystem": "/dev/sda1",
+            "mount_point": "/",
+            "total_bytes": 100,
+            "used_bytes": 40,
+            "available_bytes": 60,
+            "used_percent": 40.0,
+            "status": "PASS",
+        },
+        {
+            "hostname": "host01",
+            "filesystem": "/dev/sdb1",
+            "mount_point": "/data",
+            "total_bytes": 1000,
+            "used_bytes": 820,
+            "available_bytes": 180,
+            "used_percent": 82.0,
+            "status": "WARNING",
+        },
+    ):
+        repository.save(
+            record
+        )
+
+    service = StorageCapacityService(
+        repository=repository,
+        inventory=FakeInventory(),
+        collector=FakeCollector([]),
+    )
+
+    result = service.summary()
+
+    host = next(
+        item
+        for item in result["hosts"]
+        if item["hostname"] == "host01"
+    )
+
+    assert host["status"] == "WARNING"
+    assert host["highest_used_percent"] == 82.0
+    assert host["filesystem_count"] == 2
+
+    assert [
+        filesystem["mount_point"]
+        for filesystem in host["filesystems"]
+    ] == [
+        "/",
+        "/data",
+    ]
+
+    assert (
+        host["filesystems"][0]["used_display"]
+        == "40 B"
+    )
+
+    assert (
+        host["filesystems"][1]["status"]
+        == "WARNING"
+    )
+
+
 def test_storage_summary_includes_unknown_inventory_hosts():
     repository = FakeRepository()
 

@@ -292,7 +292,7 @@
                 <tr>
                     <th>Host</th>
                     <th>Status</th>
-                    <th>Highest Utilization</th>
+                    <th>Drive / Filesystem Utilization</th>
                     <th>Filesystems</th>
                 </tr>
             </thead>
@@ -330,37 +330,74 @@
                     </td>
 
                     <td>
-                        {% if storage_host.highest_used_percent is not none %}
+                        {% if storage_host.filesystems %}
 
-                        <div class="d-flex align-items-center gap-2">
+                        {% for filesystem in storage_host.filesystems %}
+
+                        <div
+                            class="{% if not loop.last %}mb-3{% endif %}"
+                        >
+                            <div class="d-flex justify-content-between mb-1">
+
+                                <div>
+                                    <strong>
+                                        {{ filesystem.mount_point }}
+                                    </strong>
+
+                                    <span class="text-secondary ms-2 small">
+                                        {{ filesystem.filesystem }}
+                                    </span>
+                                </div>
+
+                                <div class="text-nowrap ms-3">
+                                    {{ filesystem.used_percent }}%
+
+                                    {% if filesystem.status == "PASS" %}
+                                    <span class="badge bg-success ms-1">
+                                        PASS
+                                    </span>
+                                    {% elif filesystem.status == "WARNING" %}
+                                    <span class="badge bg-warning text-dark ms-1">
+                                        WARNING
+                                    </span>
+                                    {% elif filesystem.status == "CRITICAL" %}
+                                    <span class="badge bg-danger ms-1">
+                                        CRITICAL
+                                    </span>
+                                    {% endif %}
+                                </div>
+
+                            </div>
 
                             <div
-                                class="progress flex-grow-1"
-                                style="min-width: 120px;"
+                                class="progress"
                                 role="progressbar"
-                                aria-valuenow="{{ storage_host.highest_used_percent }}"
+                                aria-valuenow="{{ filesystem.used_percent }}"
                                 aria-valuemin="0"
                                 aria-valuemax="100"
                             >
                                 <div
                                     class="progress-bar
-                                    {% if storage_host.status == 'CRITICAL' %}
+                                    {% if filesystem.status == 'CRITICAL' %}
                                     bg-danger
-                                    {% elif storage_host.status == 'WARNING' %}
+                                    {% elif filesystem.status == 'WARNING' %}
                                     bg-warning text-dark
                                     {% else %}
                                     bg-success
                                     {% endif %}"
-                                    style="width: {{ storage_host.highest_used_percent }}%"
+                                    style="width: {{ filesystem.used_percent }}%"
                                 >
                                 </div>
                             </div>
 
-                            <span>
-                                {{ storage_host.highest_used_percent }}%
-                            </span>
-
+                            <div class="small text-secondary mt-1">
+                                {{ filesystem.used_display }} used /
+                                {{ filesystem.total_display }} total —
+                                {{ filesystem.available_display }} available
+                            </div>
                         </div>
+
+                        {% endfor %}
 
                         {% else %}
                         —
@@ -368,7 +405,7 @@
                     </td>
 
                     <td>
-                        {{ storage_host.filesystems }}
+                        {{ storage_host.filesystem_count }}
                     </td>
 
                 </tr>
