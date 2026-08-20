@@ -2,66 +2,31 @@
 Dashboard Health Cards Service.
 """
 
-import json
-from pathlib import Path
+from himp.health.repository import HealthRepository
 
 
 class HealthCardsService:
 
-    REPORT_DIR = Path("reports/health")
+    def __init__(self):
+
+        self.repository = HealthRepository()
 
     def all(self):
 
         cards = []
 
-        for report in sorted(self.REPORT_DIR.glob("*.json")):
+        for execution in self.repository.plugins():
 
-            with report.open() as f:
-                data = json.load(f)
-
-            hosts = data.get("hosts", [])
-
-            if hosts:
-
-                scores = [
-                    host.get("health", {})
-                    for host in hosts
-                ]
-
-                earned = sum(
-                    item.get("earned", 0)
-                    for item in scores
-                )
-
-                possible = sum(
-                    item.get("possible", 0)
-                    for item in scores
-                )
-
-                status = (
-                    "HEALTHY"
-                    if all(
-                        item.get("status") == "HEALTHY"
-                        for item in scores
-                    )
-                    else "WARNING"
-                )
-
-            else:
-
-                health = data.get("health", {})
-
-                earned = health.get("earned", 0)
-                possible = health.get("possible", 0)
-                status = health.get("status", "UNKNOWN")
+            summary = execution.summary
 
             cards.append(
                 {
-                    "plugin": data.get("plugin"),
-                    "status": status,
-                    "earned": earned,
-                    "possible": possible,
-                    "hosts": len(hosts) if hosts else 1,
+                    "source": "PLUGIN",
+                    "plugin": summary.plugin,
+                    "status": summary.status.value,
+                    "earned": summary.score,
+                    "possible": summary.possible,
+                    "hosts": len(execution.hosts) or 1,
                 }
             )
 
@@ -70,5 +35,7 @@ class HealthCardsService:
     def summary(self):
 
         return {
-            "cards": self.all()
+            "source": "PLUGIN",
+            "label": "Plugin Health",
+            "cards": self.all(),
         }

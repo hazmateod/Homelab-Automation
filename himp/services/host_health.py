@@ -6,6 +6,7 @@ from himp.database.host_health import HostHealthRepository
 from himp.database.inventory import InventoryRepository
 from himp.health.models import (
     HealthCheckResult,
+    HealthSource,
     HealthStatus,
     HostHealthResult,
 )
@@ -60,6 +61,7 @@ class HostHealthService:
             plugin="host",
             check=self.CHECK_NAME,
             status=status,
+            source=HealthSource.HOST_CONNECTIVITY,
             message=ssh.message,
             duration_ms=round(
                 ssh.elapsed * 1000,

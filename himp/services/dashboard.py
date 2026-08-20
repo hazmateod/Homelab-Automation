@@ -194,10 +194,10 @@ class DashboardService:
             attention.append(
                 {
                     "severity": "FAIL",
-                    "category": "Infrastructure",
+                    "category": "Host Connectivity",
                     "message": (
                         f'{health_summary["failed"]} host(s) '
-                        "failed health checks."
+                        "failed connectivity checks."
                     ),
                     "href": "/health",
                 }
@@ -207,10 +207,10 @@ class DashboardService:
             attention.append(
                 {
                     "severity": "WARNING",
-                    "category": "Infrastructure",
+                    "category": "Host Connectivity",
                     "message": (
                         f'{health_summary["warnings"]} host(s) '
-                        "have health warnings."
+                        "have connectivity warnings."
                     ),
                     "href": "/health",
                 }

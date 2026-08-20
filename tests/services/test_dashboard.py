@@ -679,8 +679,8 @@ def test_operational_summary_exposes_attention_items():
         item["category"]
         for item in result["attention"]
     ] == [
-        "Infrastructure",
-        "Infrastructure",
+        "Host Connectivity",
+        "Host Connectivity",
         "Workflow",
         "Remediation",
         "Remediation",

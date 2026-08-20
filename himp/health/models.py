@@ -13,10 +13,16 @@ class HealthStatus(StrEnum):
     UNKNOWN = "UNKNOWN"
 
 
+class HealthSource(StrEnum):
+    PLUGIN = "PLUGIN"
+    HOST_CONNECTIVITY = "HOST_CONNECTIVITY"
+
+
 class HealthCheckResult(BaseModel):
     plugin: str
     check: str
     status: HealthStatus
+    source: HealthSource = HealthSource.PLUGIN
     message: str
     timestamp: datetime = Field(default_factory=lambda: datetime.now(UTC))
     duration_ms: float = 0.0

@@ -61,6 +61,7 @@ class HostHealthDashboardService:
 
                 results.append(
                     {
+                        "source": "HOST_CONNECTIVITY",
                         "hostname": host["hostname"],
                         "group": host["group_name"],
                         "ip": host["ip"],
@@ -81,6 +82,7 @@ class HostHealthDashboardService:
 
             results.append(
                 {
+                    "source": "HOST_CONNECTIVITY",
                     "hostname": host["hostname"],
                     "group": host["group_name"],
                     "ip": host["ip"],
@@ -181,6 +183,8 @@ class HostHealthDashboardService:
         )
 
         return {
+            "source": "HOST_CONNECTIVITY",
+            "label": "Host Connectivity",
             "total": total,
             "passed": passed,
             "warnings": warnings,

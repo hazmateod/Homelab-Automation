@@ -25,6 +25,8 @@ async def health_summary():
     summary = service.summary()
 
     return {
+        "source": "PLUGIN",
+        "label": "Plugin Health",
         "score": summary.score,
         "passed": summary.passed,
         "warnings": summary.warnings,

@@ -48,6 +48,8 @@ def test_health_summary_returns_serialized_summary(
     )
 
     assert response == {
+        "source": "PLUGIN",
+        "label": "Plugin Health",
         "score": 100,
         "passed": 1,
         "warnings": 0,
