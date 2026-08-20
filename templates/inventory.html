@@ -271,6 +271,118 @@
     </div>
 </div>
 
+<div class="card bg-dark border-secondary mb-4">
+
+    <div class="card-header d-flex justify-content-between align-items-center">
+        <span>
+            Host Storage Capacity
+        </span>
+
+        <span class="small text-secondary">
+            Warning ≥ {{ storage_summary.warning_threshold|int }}% /
+            Critical ≥ {{ storage_summary.critical_threshold|int }}%
+        </span>
+    </div>
+
+    <div class="table-responsive">
+
+        <table class="table table-dark table-striped table-hover mb-0">
+
+            <thead>
+                <tr>
+                    <th>Host</th>
+                    <th>Status</th>
+                    <th>Highest Utilization</th>
+                    <th>Filesystems</th>
+                </tr>
+            </thead>
+
+            <tbody>
+
+            {% for storage_host in storage_summary.hosts %}
+
+                <tr>
+
+                    <td>
+                        <a href="/inventory/hosts/{{ storage_host.hostname }}">
+                            {{ storage_host.hostname }}
+                        </a>
+                    </td>
+
+                    <td>
+                        {% if storage_host.status == "PASS" %}
+                        <span class="badge bg-success">
+                            PASS
+                        </span>
+                        {% elif storage_host.status == "WARNING" %}
+                        <span class="badge bg-warning text-dark">
+                            WARNING
+                        </span>
+                        {% elif storage_host.status == "CRITICAL" %}
+                        <span class="badge bg-danger">
+                            CRITICAL
+                        </span>
+                        {% else %}
+                        <span class="badge bg-secondary">
+                            UNKNOWN
+                        </span>
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {% if storage_host.highest_used_percent is not none %}
+
+                        <div class="d-flex align-items-center gap-2">
+
+                            <div
+                                class="progress flex-grow-1"
+                                style="min-width: 120px;"
+                                role="progressbar"
+                                aria-valuenow="{{ storage_host.highest_used_percent }}"
+                                aria-valuemin="0"
+                                aria-valuemax="100"
+                            >
+                                <div
+                                    class="progress-bar
+                                    {% if storage_host.status == 'CRITICAL' %}
+                                    bg-danger
+                                    {% elif storage_host.status == 'WARNING' %}
+                                    bg-warning text-dark
+                                    {% else %}
+                                    bg-success
+                                    {% endif %}"
+                                    style="width: {{ storage_host.highest_used_percent }}%"
+                                >
+                                </div>
+                            </div>
+
+                            <span>
+                                {{ storage_host.highest_used_percent }}%
+                            </span>
+
+                        </div>
+
+                        {% else %}
+                        —
+                        {% endif %}
+                    </td>
+
+                    <td>
+                        {{ storage_host.filesystems }}
+                    </td>
+
+                </tr>
+
+            {% endfor %}
+
+            </tbody>
+
+        </table>
+
+    </div>
+</div>
+
+
 <div class="card bg-dark border-secondary">
 
     <div class="card-header d-flex justify-content-between align-items-center">

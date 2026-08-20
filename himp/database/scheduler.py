@@ -81,6 +81,18 @@ class SchedulerRepository:
         )
 
         self._seed(
+            task_id="storage_capacity_check",
+            name="Storage Capacity Check",
+            description=(
+                "Collect per-filesystem storage utilization "
+                "across active inventory hosts."
+            ),
+            frequency="daily",
+            schedule_time="04:15",
+            day_of_week=None,
+        )
+
+        self._seed(
             task_id="generate_reports",
             name="Generate Reports",
             description="Generate HIMP infrastructure reports.",

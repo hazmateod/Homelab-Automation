@@ -154,6 +154,128 @@
 
 
 <h2 class="mb-4">
+    Storage Capacity
+</h2>
+
+{% if storage and storage.filesystems %}
+
+<div class="card bg-dark border-secondary mb-4">
+    <div class="card-body">
+
+        <div class="d-flex justify-content-between mb-3">
+            <div>
+                <strong>Host Storage Status</strong>
+            </div>
+
+            <div>
+                {% if storage.status == "PASS" %}
+                <span class="badge bg-success">
+                    PASS
+                </span>
+                {% elif storage.status == "WARNING" %}
+                <span class="badge bg-warning text-dark">
+                    WARNING
+                </span>
+                {% elif storage.status == "CRITICAL" %}
+                <span class="badge bg-danger">
+                    CRITICAL
+                </span>
+                {% else %}
+                <span class="badge bg-secondary">
+                    UNKNOWN
+                </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="small text-secondary mb-4">
+            Warning at {{ storage.warning_threshold|int }}%;
+            critical at {{ storage.critical_threshold|int }}%.
+        </div>
+
+        {% for filesystem in storage.filesystems %}
+
+        <div class="mb-4">
+
+            <div class="d-flex justify-content-between">
+                <div>
+                    <strong>
+                        {{ filesystem.mount_point }}
+                    </strong>
+
+                    <span class="text-secondary ms-2">
+                        {{ filesystem.filesystem }}
+                    </span>
+                </div>
+
+                <div>
+                    <strong>
+                        {{ filesystem.used_percent }}%
+                    </strong>
+
+                    {% if filesystem.status == "PASS" %}
+                    <span class="badge bg-success ms-2">
+                        PASS
+                    </span>
+                    {% elif filesystem.status == "WARNING" %}
+                    <span class="badge bg-warning text-dark ms-2">
+                        WARNING
+                    </span>
+                    {% elif filesystem.status == "CRITICAL" %}
+                    <span class="badge bg-danger ms-2">
+                        CRITICAL
+                    </span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <div
+                class="progress mt-2"
+                role="progressbar"
+                aria-valuenow="{{ filesystem.used_percent }}"
+                aria-valuemin="0"
+                aria-valuemax="100"
+            >
+                <div
+                    class="progress-bar
+                    {% if filesystem.status == 'CRITICAL' %}
+                    bg-danger
+                    {% elif filesystem.status == 'WARNING' %}
+                    bg-warning text-dark
+                    {% else %}
+                    bg-success
+                    {% endif %}"
+                    style="width: {{ filesystem.used_percent }}%"
+                >
+                    {{ filesystem.used_percent }}%
+                </div>
+            </div>
+
+            <div class="small text-secondary mt-1">
+                {{ filesystem.used_display }} used /
+                {{ filesystem.total_display }} total —
+                {{ filesystem.available_display }} available
+            </div>
+
+        </div>
+
+        {% endfor %}
+
+    </div>
+</div>
+
+{% else %}
+
+<div class="alert alert-secondary mb-4">
+    No storage-capacity collection has been recorded for this host.
+</div>
+
+{% endif %}
+
+<hr class="border-secondary">
+
+
+<h2 class="mb-4">
     Health History
 </h2>
 

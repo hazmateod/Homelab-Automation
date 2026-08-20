@@ -134,6 +134,7 @@ class AutomationService:
 
         self.health = None
         self.host_health = None
+        self.storage = None
         self.reports = None
         self.inventory = None
         self.updates = None
@@ -165,6 +166,20 @@ class AutomationService:
                 "description": "Run SSH health checks across active inventory hosts.",
                 "enabled": True,
                 "schedule": "manual",
+                "timeout_seconds": 900,
+                "retry_attempts": 1,
+                "retry_delay_seconds": 0,
+                "risk_level": "read_only",
+            },
+            {
+                "id": "storage_capacity_check",
+                "name": "Storage Capacity Check",
+                "description": (
+                    "Collect per-filesystem storage utilization "
+                    "across active inventory hosts."
+                ),
+                "enabled": True,
+                "schedule": "daily 04:15",
                 "timeout_seconds": 900,
                 "retry_attempts": 1,
                 "retry_delay_seconds": 0,
@@ -380,10 +395,12 @@ class AutomationService:
         inventory,
         updates,
         host_health=None,
+        storage=None,
     ):
 
         self.health = health
         self.host_health = host_health
+        self.storage = storage
         self.reports = reports
         self.inventory = inventory
         self.updates = updates
@@ -708,6 +725,17 @@ class AutomationService:
                 )
 
             return self.host_health.check_all_hosts(
+                timeout=timeout,
+            )
+
+        if task_id == "storage_capacity_check":
+
+            if self.storage is None:
+                raise RuntimeError(
+                    "Storage capacity service not configured"
+                )
+
+            return self.storage.collect_all(
                 timeout=timeout,
             )
 

@@ -1,0 +1,70 @@
+---
+- name: Collect HIMP Host Storage Capacity
+  hosts: all
+  gather_facts: false
+  become: false
+  ignore_unreachable: true
+
+  tasks:
+    - name: Collect filesystem capacity
+      ansible.builtin.command:
+        argv:
+          - df
+          - -B1
+          - --output=source,size,used,avail,pcent,target
+          - -x
+          - tmpfs
+          - -x
+          - devtmpfs
+          - -x
+          - squashfs
+          - -x
+          - overlay
+          - -x
+          - efivarfs
+          - -x
+          - fuse
+      register: himp_storage_df
+      changed_when: false
+      failed_when: false
+
+    - name: Store host storage result
+      ansible.builtin.set_fact:
+        himp_storage_capacity_result:
+          hostname: "{{ inventory_hostname }}"
+          return_code: "{{ himp_storage_df.rc | default(1) }}"
+          stdout_lines: "{{ himp_storage_df.stdout_lines | default([]) }}"
+          stderr: "{{ himp_storage_df.stderr | default('') }}"
+
+    - name: Aggregate storage results
+      ansible.builtin.set_fact:
+        himp_storage_capacity:
+          hosts: >-
+            {{
+              groups['all']
+              | map('extract', hostvars)
+              | map(attribute='himp_storage_capacity_result', default={})
+              | select
+              | list
+            }}
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Create storage report directory
+      ansible.builtin.file:
+        path: "{{ playbook_dir }}/../reports/storage"
+        state: directory
+        mode: "0755"
+      delegate_to: localhost
+      become: false
+      run_once: true
+
+    - name: Write normalized storage collection artifact
+      ansible.builtin.copy:
+        dest: "{{ playbook_dir }}/../reports/storage/capacity.json"
+        content: "{{ himp_storage_capacity | to_nice_json }}"
+        mode: "0644"
+      delegate_to: localhost
+      become: false
+      run_once: true

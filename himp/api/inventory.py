@@ -13,6 +13,7 @@ from himp.database.inventory import InventoryRepository
 from himp.services.host_health import HostHealthService
 from himp.services.inventory import InventoryService
 from himp.services.ssh import SSHService
+from himp.services.storage_capacity import StorageCapacityService
 
 
 class InventoryHostCreate(BaseModel):
@@ -44,6 +45,7 @@ service = InventoryService()
 repository = InventoryRepository()
 ssh_service = SSHService()
 host_health_service = HostHealthService()
+storage_service = StorageCapacityService()
 
 
 @router.get("")
@@ -383,3 +385,26 @@ async def changes():
 @router.get("/sync")
 async def sync_inventory():
     return service.sync()
+
+@router.get("/hosts/{hostname}/storage")
+async def inventory_host_storage(
+    hostname: str,
+):
+    try:
+        return storage_service.host(
+            hostname
+        )
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail={
+                "error": str(exc),
+                "hostname": hostname,
+            },
+        ) from exc
+
+
+@router.get("/storage")
+async def inventory_storage_summary():
+    return storage_service.summary()

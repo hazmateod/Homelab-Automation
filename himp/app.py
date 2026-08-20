@@ -15,6 +15,7 @@ from himp.services.inventory import InventoryService
 from himp.services.plugins import PluginService
 from himp.services.reports import ReportService
 from himp.services.settings import SettingsService
+from himp.services.storage_capacity import StorageCapacityService
 from himp.services.validation import ValidationService
 from himp.services.update import UpdateService
 from himp.services.user_management import UserManagementService
@@ -49,6 +50,8 @@ class HIMP:
 
         self.settings = SettingsService()
 
+        self.storage = StorageCapacityService()
+
         self.updates = UpdateService()
         self.user_management = UserManagementService()
 
@@ -65,6 +68,7 @@ class HIMP:
             self.inventory,
             self.updates,
             self.dashboard.host_health.health,
+            self.storage,
         )
 
         logger.info("HIMP application initialized")

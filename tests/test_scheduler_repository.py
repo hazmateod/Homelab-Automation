@@ -98,3 +98,18 @@ def test_health_check_seed_has_daily_0400_schedule():
     assert schedule["frequency"] == "daily"
     assert schedule["schedule_time"] == "04:00"
     assert schedule["day_of_week"] is None
+
+
+def test_storage_capacity_seed_has_daily_0415_schedule():
+    from himp.database.scheduler import SchedulerRepository
+
+    repository = SchedulerRepository()
+
+    schedule = repository.find(
+        "storage_capacity_check"
+    )
+
+    assert schedule["enabled"] == 1
+    assert schedule["frequency"] == "daily"
+    assert schedule["schedule_time"] == "04:15"
+    assert schedule["day_of_week"] is None

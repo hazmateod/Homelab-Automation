@@ -342,6 +342,10 @@ def inventory(request: Request):
 
     context["inventory"] = himp.inventory.summary()
 
+    context["storage_summary"] = (
+        himp.storage.summary()
+    )
+
     context["inactive_hosts"] = [
         dict(host)
         for host in himp.inventory.repository.all_hosts(
@@ -392,11 +396,18 @@ def inventory_host(
             )
         )
 
+        context["storage"] = (
+            himp.storage.host(
+                hostname
+            )
+        )
+
     else:
 
         context["changes"] = []
         context["current_health"] = None
         context["health_history"] = []
+        context["storage"] = None
 
     return templates.TemplateResponse(
         request=request,
