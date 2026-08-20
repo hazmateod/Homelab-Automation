@@ -117,10 +117,15 @@
           infrastructure_health.earned + 4
       }) }}"
   when:
+    - required_service is defined
     - >
       infrastructure_service_status | default('missing')
       in ['running','active']
-      or required_process.rc == 0
+      or
+      (
+        required_process.rc is defined
+        and required_process.rc == 0
+      )
 
 
 - name: Add service issue
@@ -134,6 +139,7 @@
   when:
     - required_service is defined
     - infrastructure_service_status | default('missing') not in ['running','active']
+    - required_process.rc is defined
     - required_process.rc != 0
 
 

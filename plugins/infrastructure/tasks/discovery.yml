@@ -44,7 +44,10 @@
         if inventory_hostname == 'aptcache'
         else
         'postgres'
-        if inventory_hostname == 'postgres'
+        if inventory_hostname in [
+          'postgres',
+          'himpdb01.server.arpa'
+        ]
         else
         'uptimekuma'
         if inventory_hostname == 'uptimekuma'
