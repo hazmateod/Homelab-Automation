@@ -718,7 +718,20 @@ class AutomationService:
                     "Health service not configured"
                 )
 
-            return self.health.summary()
+            executions = self.health.all(
+                timeout=timeout,
+            )
+
+            return {
+                "success": (
+                    bool(executions)
+                    and all(
+                        execution.success
+                        for execution in executions
+                    )
+                ),
+                "executions": executions,
+            }
 
         if task_id == "generate_reports":
 

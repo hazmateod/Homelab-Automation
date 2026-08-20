@@ -37,9 +37,14 @@ class HealthService:
 
         return execution
 
-    def all(self):
+    def all(
+        self,
+        timeout=None,
+    ):
 
-        return self.runner.health_all()
+        return self.runner.health_all(
+            timeout=timeout,
+        )
 
     def execution(self, name):
 

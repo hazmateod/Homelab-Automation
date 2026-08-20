@@ -1,3 +1,4 @@
+from himp.models.execution import Execution
 from himp.services.automation import AutomationService
 
 
@@ -60,11 +61,17 @@ class FakeExecutionRepository:
 
 
 class FakeHealthService:
-    def summary(self):
-        return {
-            "success": True,
-            "status": "healthy",
-        }
+    def all(
+        self,
+        timeout=None,
+    ):
+        return [
+            Execution(
+                plugin="infrastructure",
+                success=True,
+                return_code=0,
+            )
+        ]
 
 
 def make_service():
@@ -129,7 +136,7 @@ def test_run_returns_persisted_execution_id():
 def test_run_persists_failure_classification():
     service = make_service()
 
-    service.health.summary = lambda: (
+    service.health.all = lambda timeout=None: (
         (_ for _ in ()).throw(
             OSError("connection refused")
         )
