@@ -66,8 +66,8 @@ class SchedulerRepository:
             task_id="health_check",
             name="Health Check",
             description="Run health validation across plugins.",
-            frequency="manual",
-            schedule_time=None,
+            frequency="daily",
+            schedule_time="04:00",
             day_of_week=None,
         )
 

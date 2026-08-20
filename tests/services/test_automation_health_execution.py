@@ -205,3 +205,15 @@ def test_health_execution_result_normalizes_plugin_executions():
             },
         ],
     }
+
+def test_health_check_declares_daily_plugin_health_schedule():
+    service = AutomationService()
+
+    task = next(
+        task
+        for task in service.tasks
+        if task["id"] == "health_check"
+    )
+
+    assert task["enabled"] is True
+    assert task["schedule"] == "daily 04:00"

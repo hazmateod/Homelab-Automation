@@ -153,7 +153,7 @@ class AutomationService:
                 "name": "Health Check",
                 "description": "Run health validation across plugins.",
                 "enabled": True,
-                "schedule": "manual",
+                "schedule": "daily 04:00",
                 "timeout_seconds": 300,
                 "retry_attempts": 1,
                 "retry_delay_seconds": 0,
