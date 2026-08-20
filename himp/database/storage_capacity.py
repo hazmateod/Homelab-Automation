@@ -24,10 +24,10 @@ class StorageCapacityRepository:
                 hostname TEXT NOT NULL,
                 filesystem TEXT NOT NULL,
                 mount_point TEXT NOT NULL,
-                total_bytes INTEGER NOT NULL,
-                used_bytes INTEGER NOT NULL,
-                available_bytes INTEGER NOT NULL,
-                used_percent REAL NOT NULL,
+                total_bytes BIGINT NOT NULL,
+                used_bytes BIGINT NOT NULL,
+                available_bytes BIGINT NOT NULL,
+                used_percent DOUBLE PRECISION NOT NULL,
                 status TEXT NOT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
@@ -49,6 +49,26 @@ class StorageCapacityRepository:
             )
             """
         )
+
+        config = getattr(
+            self.database,
+            "config",
+            None,
+        )
+
+        if (
+            config is not None
+            and config.is_postgresql
+        ):
+            self.database.execute(
+                """
+                ALTER TABLE storage_capacity_history
+                ALTER COLUMN total_bytes TYPE BIGINT,
+                ALTER COLUMN used_bytes TYPE BIGINT,
+                ALTER COLUMN available_bytes TYPE BIGINT,
+                ALTER COLUMN used_percent TYPE DOUBLE PRECISION
+                """
+            )
 
     def latest(
         self,

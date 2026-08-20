@@ -452,3 +452,56 @@ def test_storage_summary_includes_unknown_inventory_hosts():
         result["unknown_hosts"]
         == 1
     )
+
+
+def test_storage_parser_preserves_values_larger_than_postgresql_int32():
+    host = {
+        "hostname": "media01",
+        "return_code": 0,
+        "stdout_lines": [
+            (
+                "Filesystem 1B-blocks Used "
+                "Available Use% Mounted on"
+            ),
+            (
+                "//nas/Movies "
+                "13669205696512 "
+                "9974183948288 "
+                "3695021748224 "
+                "73% /media/Movies"
+            ),
+        ],
+        "stderr": "",
+    }
+
+    records = (
+        StorageCapacityService._parse_host(
+            host
+        )
+    )
+
+    assert len(records) == 1
+
+    record = records[0]
+
+    assert (
+        record["total_bytes"]
+        == 13669205696512
+    )
+
+    assert (
+        record["used_bytes"]
+        == 9974183948288
+    )
+
+    assert (
+        record["available_bytes"]
+        == 3695021748224
+    )
+
+    assert (
+        record["total_bytes"]
+        > 2_147_483_647
+    )
+
+    assert record["used_percent"] == 73.0
