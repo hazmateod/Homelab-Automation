@@ -35,6 +35,35 @@ class FakeOperations:
 
 
 class FakeWorkflow:
+    """
+    Legacy remediation workflow.
+
+    Phase 13.5 keeps this constructor seam for compatibility, but
+    remediation_operations must no longer invoke it.
+    """
+
+    def __init__(self):
+        self.calls = []
+
+    def run(
+        self,
+        *args,
+        **kwargs,
+    ):
+        self.calls.append(
+            {
+                "args": args,
+                "kwargs": kwargs,
+            }
+        )
+
+        raise AssertionError(
+            "legacy remediation workflow "
+            "must not execute"
+        )
+
+
+class FakeAutonomousWorkflow:
     def __init__(self):
         self.calls = []
 
@@ -44,7 +73,6 @@ class FakeWorkflow:
         source_id,
         baseline=None,
         change_limit=10,
-        confirmed=False,
     ):
         self.calls.append(
             {
@@ -52,14 +80,24 @@ class FakeWorkflow:
                 "source_id": source_id,
                 "baseline": baseline,
                 "change_limit": change_limit,
-                "confirmed": confirmed,
             }
         )
 
         return {
             "source_type": source_type,
             "source_id": source_id,
-            "executed_count": 1,
+            "baseline": baseline,
+            "change_limit": change_limit,
+            "recommendation_count": 1,
+            "automatic_eligible_count": 0,
+            "executed_count": 0,
+            "completed_count": 0,
+            "failed_count": 0,
+            "approval_required_count": 1,
+            "denied_count": 0,
+            "execution_performed": False,
+            "audit_ids": [],
+            "results": [],
         }
 
 
@@ -71,11 +109,17 @@ def make_dispatcher(
         configuration=configuration
     )
     workflow = FakeWorkflow()
+    autonomous_workflow = (
+        FakeAutonomousWorkflow()
+    )
 
     dispatcher = OperationalDispatcher(
         automation=automation,
         remediation_operations=operations,
         remediation_workflow=workflow,
+        remediation_autonomous_workflow=(
+            autonomous_workflow
+        ),
     )
 
     return (
@@ -83,6 +127,7 @@ def make_dispatcher(
         automation,
         operations,
         workflow,
+        autonomous_workflow,
     )
 
 
@@ -92,6 +137,7 @@ def test_normal_task_uses_existing_automation():
         automation,
         operations,
         workflow,
+        autonomous_workflow,
     ) = make_dispatcher()
 
     result = dispatcher.dispatch(
@@ -106,12 +152,13 @@ def test_normal_task_uses_existing_automation():
     assert workflow.calls == []
 
 
-def test_enabled_remediation_uses_existing_workflow():
+def test_enabled_remediation_uses_autonomous_workflow():
     (
         dispatcher,
         automation,
         operations,
         workflow,
+        autonomous_workflow,
     ) = make_dispatcher(
         configuration={
             "enabled": True,
@@ -129,12 +176,28 @@ def test_enabled_remediation_uses_existing_workflow():
     )
 
     assert result["success"] is True
-    assert result["result"]["executed_count"] == 1
+
+    assert result["result"][
+        "executed_count"
+    ] == 0
+
+    assert result["result"][
+        "approval_required_count"
+    ] == 1
+
+    assert result["result"][
+        "execution_performed"
+    ] is False
+
     assert automation.calls == []
+
     assert operations.calls == [
         ("get",)
     ]
-    assert workflow.calls == [
+
+    assert workflow.calls == []
+
+    assert autonomous_workflow.calls == [
         {
             "source_type": "host",
             "source_id": "pve01",
@@ -142,7 +205,6 @@ def test_enabled_remediation_uses_existing_workflow():
                 "status": "WARNING",
             },
             "change_limit": 5,
-            "confirmed": False,
         }
     ]
 
@@ -153,6 +215,7 @@ def test_disabled_remediation_does_not_execute():
         automation,
         operations,
         workflow,
+        autonomous_workflow,
     ) = make_dispatcher(
         configuration={
             "enabled": False,
@@ -179,6 +242,7 @@ def test_missing_remediation_configuration_fails_closed():
         automation,
         operations,
         workflow,
+        autonomous_workflow,
     ) = make_dispatcher()
 
     result = dispatcher.dispatch(
@@ -191,12 +255,13 @@ def test_missing_remediation_configuration_fails_closed():
     assert workflow.calls == []
 
 
-def test_scheduled_remediation_never_confirms_automatically():
+def test_scheduled_remediation_never_uses_legacy_confirmation_path():
     (
         dispatcher,
         _,
         _,
         workflow,
+        autonomous_workflow,
     ) = make_dispatcher(
         configuration={
             "enabled": True,
@@ -211,7 +276,16 @@ def test_scheduled_remediation_never_confirms_automatically():
         "remediation_operations"
     )
 
-    assert workflow.calls[0]["confirmed"] is False
+    assert workflow.calls == []
+
+    assert autonomous_workflow.calls == [
+        {
+            "source_type": "host",
+            "source_id": "pve01",
+            "baseline": None,
+            "change_limit": 10,
+        }
+    ]
 
 
 def test_enabled_remediation_returns_scheduler_compatible_result():
@@ -220,6 +294,7 @@ def test_enabled_remediation_returns_scheduler_compatible_result():
         _,
         _,
         _,
+        autonomous_workflow,
     ) = make_dispatcher(
         configuration={
             "enabled": True,
@@ -246,6 +321,7 @@ def test_disabled_remediation_returns_scheduler_compatible_result():
         _,
         _,
         _,
+        autonomous_workflow,
     ) = make_dispatcher(
         configuration={
             "enabled": False,

@@ -7,11 +7,29 @@ Does not implement scheduling or automation execution.
 
 from datetime import datetime
 
+from himp.services.automation import (
+    AutomationService,
+)
+from himp.services.remediation_autonomous_execution import (
+    RemediationAutonomousExecutionService,
+)
+from himp.services.remediation_autonomous_workflow import (
+    RemediationAutonomousWorkflowService,
+)
+from himp.services.remediation_autonomy import (
+    RemediationAutonomyPolicyService,
+)
+from himp.services.remediation_execution import (
+    RemediationExecutionService,
+)
 from himp.services.remediation_operations import (
     RemediationOperationsService,
 )
-from himp.services.remediation_workflow import (
-    RemediationWorkflowService,
+from himp.services.remediation_policy import (
+    RemediationPolicyService,
+)
+from himp.services.remediation_recommendations import (
+    RemediationRecommendationService,
 )
 
 
@@ -27,6 +45,7 @@ class OperationalDispatcher:
         automation,
         remediation_operations=None,
         remediation_workflow=None,
+        remediation_autonomous_workflow=None,
     ):
         self.automation = automation
 
@@ -36,11 +55,59 @@ class OperationalDispatcher:
             else RemediationOperationsService()
         )
 
+        # Keep the legacy constructor argument for test/API
+        # compatibility, but scheduled remediation_operations now
+        # route through the fail-closed autonomous recommendation
+        # workflow.
         self.remediation_workflow = (
             remediation_workflow
-            if remediation_workflow is not None
-            else RemediationWorkflowService()
         )
+
+        if (
+            remediation_autonomous_workflow
+            is not None
+        ):
+            self.remediation_autonomous_workflow = (
+                remediation_autonomous_workflow
+            )
+
+        else:
+            autonomy = (
+                RemediationAutonomyPolicyService(
+                    automation=automation,
+                )
+            )
+
+            recommendations = (
+                RemediationRecommendationService(
+                    autonomy=autonomy,
+                )
+            )
+
+            policy = RemediationPolicyService(
+                automation=automation,
+            )
+
+            remediation_execution = (
+                RemediationExecutionService(
+                    policy=policy,
+                    automation=automation,
+                )
+            )
+
+            autonomous_execution = (
+                RemediationAutonomousExecutionService(
+                    autonomy=autonomy,
+                    execution=remediation_execution,
+                )
+            )
+
+            self.remediation_autonomous_workflow = (
+                RemediationAutonomousWorkflowService(
+                    recommendations=recommendations,
+                    execution=autonomous_execution,
+                )
+            )
 
     def dispatch(
         self,
@@ -81,12 +148,21 @@ class OperationalDispatcher:
                     },
                 }
 
-            result = self.remediation_workflow.run(
-                source_type=configuration["source_type"],
-                source_id=configuration["source_id"],
-                baseline=configuration["baseline"],
-                change_limit=configuration["change_limit"],
-                confirmed=False,
+            result = (
+                self.remediation_autonomous_workflow.run(
+                    source_type=configuration[
+                        "source_type"
+                    ],
+                    source_id=configuration[
+                        "source_id"
+                    ],
+                    baseline=configuration[
+                        "baseline"
+                    ],
+                    change_limit=configuration[
+                        "change_limit"
+                    ],
+                )
             )
 
             return {

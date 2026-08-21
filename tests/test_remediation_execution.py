@@ -62,11 +62,13 @@ class FakeAutomation:
     def run(
         self,
         task_id,
+        limit=None,
         confirmed=False,
     ):
         self.run_calls.append(
             (
                 task_id,
+                limit,
                 confirmed,
             )
         )
@@ -127,6 +129,7 @@ def test_allowed_remediation_executes_automation():
     assert automation.run_calls == [
         (
             "scheduled_updates",
+            None,
             False,
         )
     ]
@@ -179,6 +182,7 @@ def test_confirmed_allowed_remediation_passes_confirmation():
     assert automation.run_calls == [
         (
             "scheduled_updates",
+            None,
             True,
         )
     ]
@@ -213,6 +217,7 @@ def test_automation_execution_errors_propagate():
         def run(
             self,
             task_id,
+            limit=None,
             confirmed=False,
         ):
             raise RuntimeError(

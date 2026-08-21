@@ -71,6 +71,28 @@ class RemediationApprovalService:
                 "by deterministic evidence"
             )
 
+        autonomy = recommendation.get(
+            "autonomy"
+        )
+
+        if autonomy is not None:
+            decision = autonomy.get(
+                "decision"
+            )
+
+            if decision == "DENY":
+                raise ValueError(
+                    "recommendation is denied by "
+                    "autonomous remediation policy"
+                )
+
+            if decision == "ALLOW_AUTOMATIC":
+                raise ValueError(
+                    "recommendation is eligible for "
+                    "automatic execution and does not "
+                    "require operator approval"
+                )
+
         return self.repository.create(
             recommendation=recommendation,
             source_type=entity_type,

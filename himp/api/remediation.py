@@ -16,11 +16,17 @@ from himp.api.dependencies import require_admin
 from himp.database.remediation_audit import (
     RemediationAuditRepository,
 )
+from himp.services.automation import (
+    AutomationService,
+)
 from himp.services.remediation_approvals import (
     RemediationApprovalService,
 )
 from himp.services.remediation_proposals import (
     RemediationProposalService,
+)
+from himp.services.remediation_autonomy import (
+    RemediationAutonomyPolicyService,
 )
 from himp.services.remediation_recommendations import (
     RemediationRecommendationService,
@@ -42,8 +48,16 @@ remediation_proposal_service = (
     RemediationProposalService()
 )
 
+remediation_autonomy_service = (
+    RemediationAutonomyPolicyService(
+        automation=AutomationService(),
+    )
+)
+
 remediation_recommendation_service = (
-    RemediationRecommendationService()
+    RemediationRecommendationService(
+        autonomy=remediation_autonomy_service,
+    )
 )
 
 remediation_approval_service = (

@@ -27,6 +27,7 @@ class RemediationExecutionService:
         self,
         proposal,
         confirmed=False,
+        limit=None,
     ):
         policy = self.policy.evaluate(
             proposal,
@@ -53,6 +54,7 @@ class RemediationExecutionService:
 
         execution = self.automation.run(
             proposal["task_id"],
+            limit=limit,
             confirmed=confirmed,
         )
 

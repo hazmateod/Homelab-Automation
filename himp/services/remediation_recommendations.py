@@ -32,6 +32,7 @@ class RemediationRecommendationService:
         self,
         health=None,
         impact=None,
+        autonomy=None,
     ):
         self.health = (
             health
@@ -44,6 +45,8 @@ class RemediationRecommendationService:
             if impact is not None
             else DependencyImpactService()
         )
+
+        self.autonomy = autonomy
 
     @staticmethod
     def _validate_entity(
@@ -358,6 +361,14 @@ class RemediationRecommendationService:
                 item["condition"],
             )
         )
+
+        if self.autonomy is not None:
+            for recommendation in recommendations:
+                recommendation[
+                    "autonomy"
+                ] = self.autonomy.evaluate(
+                    recommendation
+                )
 
         return {
             "entity_type": entity_type,
