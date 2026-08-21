@@ -92,6 +92,8 @@ class RemediationWorkflowService:
         results = []
         audit_ids = []
         verification_count = 0
+        verified_count = 0
+        unverified_count = 0
 
         for proposal in proposals:
             remediation = self.execution.execute(
@@ -110,6 +112,13 @@ class RemediationWorkflowService:
                 )
 
                 verification_count += 1
+
+                if verification_result.get(
+                    "success"
+                ):
+                    verified_count += 1
+                else:
+                    unverified_count += 1
 
             audit_record = self.audit.record(
                 source_type=source_type,
@@ -149,6 +158,8 @@ class RemediationWorkflowService:
             "executed_count": executed_count,
             "blocked_count": blocked_count,
             "verification_count": verification_count,
+            "verified_count": verified_count,
+            "unverified_count": unverified_count,
             "audit_ids": audit_ids,
             "results": results,
         }

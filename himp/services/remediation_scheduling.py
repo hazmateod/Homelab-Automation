@@ -319,6 +319,27 @@ class RemediationSchedulingService:
                     error="remediation automation execution failed",
                 )
 
+            verification = remediation.get(
+                "verification"
+            ) or {}
+
+            if not verification.get(
+                "success",
+                False,
+            ):
+                return self.repository.fail(
+                    schedule_id=schedule_id,
+                    audit_id=audit_id,
+                    error=(
+                        "remediation verification did not "
+                        "confirm recovery: "
+                        f"{verification.get(
+                            'status',
+                            'UNKNOWN',
+                        )}"
+                    ),
+                )
+
             return self.repository.complete(
                 schedule_id=schedule_id,
                 audit_id=audit_id,
@@ -361,6 +382,7 @@ class RemediationSchedulingService:
 
         return {
             "task_id": approval["task_id"],
+            "condition": approval["condition"],
             "reason": approval["rationale"],
             "evidence": evidence,
         }

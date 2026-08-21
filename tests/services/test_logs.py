@@ -69,6 +69,9 @@ class FakeRemediationAudit:
                 "confirmed": False,
                 "execution_id": None,
                 "execution_success": None,
+                "verification_status": None,
+                "verification_success": None,
+                "verification_evidence": {},
                 "created_at": "2026-08-15 14:01:00",
             }
         ]
@@ -305,3 +308,76 @@ def test_log_service_handles_large_history_limit_with_mixed_timestamps():
     for limit in (100, 500, 1000, 5000):
         records = service.history(limit)
         assert len(records) == 2
+
+
+def test_log_service_marks_failed_verification_as_failed_remediation():
+    class VerificationFailureAudit:
+        def history(
+            self,
+            limit=100,
+        ):
+            return [
+                {
+                    "id": 44,
+                    "source_type": "host",
+                    "source_id": "pve01",
+                    "task_id":
+                        "scheduled_updates",
+                    "decision": "ALLOW",
+                    "reason":
+                        "Host unhealthy",
+                    "evidence": {},
+                    "risk_level": "medium",
+                    "confirmation_required":
+                        False,
+                    "confirmed": True,
+                    "execution_id": 99,
+                    "execution_success": True,
+                    "verification_status":
+                        "NOT_VERIFIED",
+                    "verification_success":
+                        False,
+                    "verification_evidence": {
+                        "reason":
+                            "Health still failed."
+                    },
+                    "created_at":
+                        "2026-08-21 14:30:00",
+                }
+            ]
+
+    class EmptyHistory:
+        def history(
+            self,
+            limit=100,
+        ):
+            return []
+
+    service = LogService(
+        automation_executions=EmptyHistory(),
+        workflow_executions=EmptyHistory(),
+        executions=EmptyHistory(),
+        remediation_audit=(
+            VerificationFailureAudit()
+        ),
+    )
+
+    records = service.history()
+
+    assert len(records) == 1
+
+    record = records[0]
+
+    assert record["status"] == "failed"
+
+    assert record["details"][
+        "execution_success"
+    ] is True
+
+    assert record["details"][
+        "verification_success"
+    ] is False
+
+    assert record["details"][
+        "verification_status"
+    ] == "NOT_VERIFIED"

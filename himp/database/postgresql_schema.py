@@ -220,6 +220,13 @@ POSTGRESQL_SCHEMA_STATEMENTS = (
                 execution_success IS NULL
                 OR execution_success IN (0, 1)
             ),
+        verification_status TEXT,
+        verification_success INTEGER
+            CHECK (
+                verification_success IS NULL
+                OR verification_success IN (0, 1)
+            ),
+        verification_evidence TEXT,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """,

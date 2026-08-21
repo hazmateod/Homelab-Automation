@@ -436,6 +436,10 @@ def test_approved_snapshot_reconstructs_exact_task():
         "scheduled_updates"
     )
 
+    assert proposal["condition"] == (
+        "HOST_UNHEALTHY"
+    )
+
     assert proposal["reason"] == (
         "Approved evidence."
     )
@@ -604,3 +608,106 @@ def test_second_execution_attempt_is_not_claimed():
 
     assert first["status"] == "COMPLETED"
     assert second is None
+
+
+def test_successful_execution_with_failed_verification_fails_schedule():
+    class FailedVerification:
+        def verify(
+            self,
+            proposal,
+            remediation,
+        ):
+            return {
+                "status": "NOT_VERIFIED",
+                "success": False,
+                "hostname": "pve01",
+            }
+
+    repository = FakeRepository()
+
+    service = RemediationSchedulingService(
+        repository=repository,
+        approvals=FakeApprovals(),
+        execution=FakeExecution(
+            success=True
+        ),
+        verification=FailedVerification(),
+        audit=FakeAudit(),
+    )
+
+    now = datetime.now()
+
+    record = repository.create(
+        approval_id=7,
+        scheduled_for=(
+            now - timedelta(minutes=1)
+        ),
+        scheduled_by="admin",
+    )
+
+    result = service.execute_due(
+        record["id"],
+        now=now,
+    )
+
+    assert result["status"] == "FAILED"
+
+    assert result["audit_id"] == 55
+
+    assert (
+        "verification did not confirm recovery"
+        in result["error"]
+    )
+
+    assert (
+        "NOT_VERIFIED"
+        in result["error"]
+    )
+
+
+def test_successful_execution_with_unsupported_verification_fails_schedule():
+    class UnsupportedVerification:
+        def verify(
+            self,
+            proposal,
+            remediation,
+        ):
+            return {
+                "status": "NOT_SUPPORTED",
+                "success": False,
+                "hostname": "pve01",
+            }
+
+    repository = FakeRepository()
+
+    service = RemediationSchedulingService(
+        repository=repository,
+        approvals=FakeApprovals(),
+        execution=FakeExecution(
+            success=True
+        ),
+        verification=UnsupportedVerification(),
+        audit=FakeAudit(),
+    )
+
+    now = datetime.now()
+
+    record = repository.create(
+        approval_id=7,
+        scheduled_for=(
+            now - timedelta(minutes=1)
+        ),
+        scheduled_by="admin",
+    )
+
+    result = service.execute_due(
+        record["id"],
+        now=now,
+    )
+
+    assert result["status"] == "FAILED"
+
+    assert (
+        "NOT_SUPPORTED"
+        in result["error"]
+    )

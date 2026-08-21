@@ -53,10 +53,39 @@ class RemediationAuditRepository:
 
                 execution_success INTEGER,
 
+                verification_status TEXT,
+
+                verification_success INTEGER,
+
+                verification_evidence TEXT,
+
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             )
             """
         )
+
+        columns = self.database.table_columns(
+            "remediation_audit"
+        )
+
+        additive_columns = {
+            "verification_status": "TEXT",
+            "verification_success": "INTEGER",
+            "verification_evidence": "TEXT",
+        }
+
+        for column, definition in (
+            additive_columns.items()
+        ):
+            if column in columns:
+                continue
+
+            self.database.execute(
+                f"""
+                ALTER TABLE remediation_audit
+                ADD COLUMN {column} {definition}
+                """
+            )
 
     def save(
         self,
@@ -71,6 +100,9 @@ class RemediationAuditRepository:
         confirmed,
         execution_id=None,
         execution_success=None,
+        verification_status=None,
+        verification_success=None,
+        verification_evidence=None,
     ):
         audit_id = self.database.execute_insert(
             """
@@ -86,10 +118,16 @@ class RemediationAuditRepository:
                 confirmation_required,
                 confirmed,
                 execution_id,
-                execution_success
+                execution_success,
+                verification_status,
+                verification_success,
+                verification_evidence
             )
             VALUES
             (
+                ?,
+                ?,
+                ?,
                 ?,
                 ?,
                 ?,
@@ -118,6 +156,19 @@ class RemediationAuditRepository:
                     None
                     if execution_success is None
                     else int(execution_success)
+                ),
+                verification_status,
+                (
+                    None
+                    if verification_success is None
+                    else int(verification_success)
+                ),
+                (
+                    None
+                    if verification_evidence is None
+                    else json.dumps(
+                        verification_evidence
+                    )
                 ),
             ),
         )
@@ -252,7 +303,28 @@ class RemediationAuditRepository:
                         THEN 1
                         ELSE 0
                     END
-                ) AS execution_failure_count
+                ) AS execution_failure_count,
+                SUM(
+                    CASE
+                        WHEN verification_success=1
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS verification_success_count,
+                SUM(
+                    CASE
+                        WHEN verification_success=0
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS verification_failure_count,
+                SUM(
+                    CASE
+                        WHEN verification_status='NOT_SUPPORTED'
+                        THEN 1
+                        ELSE 0
+                    END
+                ) AS verification_not_supported_count
             FROM remediation_audit
             """
         )
@@ -271,6 +343,17 @@ class RemediationAuditRepository:
             ),
             "execution_failure_count": (
                 row["execution_failure_count"] or 0
+            ),
+            "verification_success_count": (
+                row["verification_success_count"] or 0
+            ),
+            "verification_failure_count": (
+                row["verification_failure_count"] or 0
+            ),
+            "verification_not_supported_count": (
+                row[
+                    "verification_not_supported_count"
+                ] or 0
             ),
         }
 
@@ -305,6 +388,23 @@ class RemediationAuditRepository:
                 else bool(
                     row["execution_success"]
                 )
+            ),
+            "verification_status": (
+                row["verification_status"]
+            ),
+            "verification_success": (
+                None
+                if row["verification_success"] is None
+                else bool(
+                    row["verification_success"]
+                )
+            ),
+            "verification_evidence": (
+                json.loads(
+                    row["verification_evidence"]
+                )
+                if row["verification_evidence"] is not None
+                else {}
             ),
             "created_at": row["created_at"],
         }

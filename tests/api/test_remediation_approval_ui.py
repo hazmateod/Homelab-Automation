@@ -30,6 +30,9 @@ def audit_summary():
         "confirmation_required_count": 0,
         "execution_success_count": 0,
         "execution_failure_count": 0,
+        "verification_success_count": 0,
+        "verification_failure_count": 0,
+        "verification_not_supported_count": 0,
     }
 
 

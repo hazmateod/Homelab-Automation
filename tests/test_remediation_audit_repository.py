@@ -41,6 +41,19 @@ class TemporaryDatabase:
         self.connection.commit()
         return cursor.lastrowid
 
+    def table_columns(
+        self,
+        table,
+    ):
+        rows = self.query(
+            f"PRAGMA table_info({table})"
+        )
+
+        return {
+            row["name"]
+            for row in rows
+        }
+
 
 def make_repository():
     repository = object.__new__(
@@ -65,6 +78,9 @@ def audit(
     confirmed=False,
     execution_id=42,
     execution_success=True,
+    verification_status=None,
+    verification_success=None,
+    verification_evidence=None,
 ):
     return {
         "source_type": source_type,
@@ -84,6 +100,9 @@ def audit(
         "confirmed": confirmed,
         "execution_id": execution_id,
         "execution_success": execution_success,
+        "verification_status": verification_status,
+        "verification_success": verification_success,
+        "verification_evidence": verification_evidence,
     }
 
 
@@ -272,6 +291,9 @@ def test_repository_summary_is_zero_when_empty():
         "confirmation_required_count": 0,
         "execution_success_count": 0,
         "execution_failure_count": 0,
+        "verification_success_count": 0,
+        "verification_failure_count": 0,
+        "verification_not_supported_count": 0,
     }
 
 
@@ -310,6 +332,9 @@ def test_repository_summary_counts_decisions():
         "confirmation_required_count": 1,
         "execution_success_count": 1,
         "execution_failure_count": 0,
+        "verification_success_count": 0,
+        "verification_failure_count": 0,
+        "verification_not_supported_count": 0,
     }
 
 
@@ -347,4 +372,133 @@ def test_repository_summary_counts_execution_failures():
         "confirmation_required_count": 0,
         "execution_success_count": 1,
         "execution_failure_count": 1,
+        "verification_success_count": 0,
+        "verification_failure_count": 0,
+        "verification_not_supported_count": 0,
     }
+
+
+def test_repository_round_trips_verification_outcome():
+    repository = make_repository()
+
+    verification_evidence = {
+        "status": "VERIFIED",
+        "success": True,
+        "condition": "HOST_UNHEALTHY",
+        "reason": "Condition cleared.",
+        "evidence": {
+            "fresh_health": {
+                "hostname": "pve01",
+            },
+        },
+    }
+
+    created = repository.save(
+        **audit(
+            verification_status="VERIFIED",
+            verification_success=True,
+            verification_evidence=(
+                verification_evidence
+            ),
+        )
+    )
+
+    found = repository.find(
+        created["id"]
+    )
+
+    assert found[
+        "execution_success"
+    ] is True
+
+    assert found[
+        "verification_status"
+    ] == "VERIFIED"
+
+    assert found[
+        "verification_success"
+    ] is True
+
+    assert found[
+        "verification_evidence"
+    ] == verification_evidence
+
+
+def test_repository_preserves_execution_success_when_verification_fails():
+    repository = make_repository()
+
+    created = repository.save(
+        **audit(
+            execution_success=True,
+            verification_status=(
+                "NOT_VERIFIED"
+            ),
+            verification_success=False,
+            verification_evidence={
+                "reason":
+                    "Condition remains."
+            },
+        )
+    )
+
+    found = repository.find(
+        created["id"]
+    )
+
+    assert found[
+        "execution_success"
+    ] is True
+
+    assert found[
+        "verification_success"
+    ] is False
+
+    assert found[
+        "verification_status"
+    ] == "NOT_VERIFIED"
+
+
+def test_repository_summary_counts_verification_results():
+    repository = make_repository()
+
+    repository.save(
+        **audit(
+            source_id="pve01",
+            verification_status="VERIFIED",
+            verification_success=True,
+        )
+    )
+
+    repository.save(
+        **audit(
+            source_id="pve02",
+            verification_status=(
+                "NOT_VERIFIED"
+            ),
+            verification_success=False,
+        )
+    )
+
+    repository.save(
+        **audit(
+            source_id="pve03",
+            verification_status=(
+                "NOT_SUPPORTED"
+            ),
+            verification_success=False,
+        )
+    )
+
+    summary = repository.summary()
+
+    assert summary[
+        "verification_success_count"
+    ] == 1
+
+    assert summary[
+        "verification_failure_count"
+    ] == 2
+
+    assert summary[
+        "verification_not_supported_count"
+    ] == 1

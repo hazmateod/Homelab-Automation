@@ -285,10 +285,14 @@ class LogService:
         for audit in audits:
             if audit["execution_success"] is None:
                 status = audit["decision"].lower()
-            elif audit["execution_success"]:
-                status = "success"
-            else:
+            elif audit["execution_success"] is False:
                 status = "failed"
+            elif audit.get(
+                "verification_success"
+            ) is False:
+                status = "failed"
+            else:
+                status = "success"
 
             records.append(
                 self._record(
@@ -322,6 +326,22 @@ class LogService:
                             audit[
                                 "execution_success"
                             ]
+                        ),
+                        "verification_status": (
+                            audit.get(
+                                "verification_status"
+                            )
+                        ),
+                        "verification_success": (
+                            audit.get(
+                                "verification_success"
+                            )
+                        ),
+                        "verification_evidence": (
+                            audit.get(
+                                "verification_evidence",
+                                {},
+                            )
                         ),
                     },
                 )

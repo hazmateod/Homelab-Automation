@@ -116,6 +116,31 @@ class RemediationAuditService:
                 "success"
             )
 
+        verification = remediation.get(
+            "verification"
+        )
+
+        verification_status = None
+        verification_success = None
+        verification_evidence = None
+
+        if verification is not None:
+            verification_status = (
+                verification.get(
+                    "status"
+                )
+            )
+
+            verification_success = (
+                verification.get(
+                    "success"
+                )
+            )
+
+            verification_evidence = (
+                verification
+            )
+
         return self.repository.save(
             source_type=source_type,
             source_id=source_id,
@@ -128,4 +153,7 @@ class RemediationAuditService:
             confirmed=bool(confirmed),
             execution_id=execution_id,
             execution_success=execution_success,
+            verification_status=verification_status,
+            verification_success=verification_success,
+            verification_evidence=verification_evidence,
         )

@@ -87,6 +87,39 @@
                 </div>
             </div>
 
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Verified
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.verification_success_count }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Verification Failed
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.verification_failure_count }}
+                    </div>
+                </div>
+            </div>
+
+            <div class="col-md-2">
+                <div class="border border-secondary rounded p-3 h-100">
+                    <div class="small text-secondary">
+                        Verification Unsupported
+                    </div>
+                    <div class="fs-4 fw-bold">
+                        {{ remediation.verification_not_supported_count }}
+                    </div>
+                </div>
+            </div>
+
         </div>
 
     </div>

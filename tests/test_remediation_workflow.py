@@ -304,6 +304,8 @@ def test_remediation_workflow_returns_empty_result_when_no_proposals():
         "executed_count": 0,
         "blocked_count": 0,
         "verification_count": 0,
+        "verified_count": 0,
+        "unverified_count": 0,
         "audit_ids": [],
         "results": [],
     }
@@ -744,6 +746,8 @@ def test_allowed_remediation_is_verified():
     )
 
     assert result["verification_count"] == 1
+    assert result["verified_count"] == 1
+    assert result["unverified_count"] == 0
     assert result["results"][0]["verification"] == {
         "status": "VERIFIED",
         "success": True,
@@ -787,6 +791,8 @@ def test_denied_remediation_is_not_verified():
 
     assert result["blocked_count"] == 1
     assert result["verification_count"] == 0
+    assert result["verified_count"] == 0
+    assert result["unverified_count"] == 0
     assert verification.calls == []
     assert len(audit.calls) == 1
 
@@ -816,6 +822,8 @@ def test_failed_verification_is_returned():
     )
 
     assert result["verification_count"] == 1
+    assert result["verified_count"] == 0
+    assert result["unverified_count"] == 1
     assert result["results"][0]["verification"] == {
         "status": "FAILED",
         "success": False,

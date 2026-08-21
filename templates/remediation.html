@@ -869,6 +869,7 @@
                         <th>Policy</th>
                         <th>Risk</th>
                         <th>Execution</th>
+                        <th>Verification</th>
                         <th>Confirmation</th>
                         <th>Audit</th>
                     </tr>
@@ -939,6 +940,26 @@
                                 <div class="text-secondary small">
                                     ID {{ item.execution_id }}
                                 </div>
+                            {% endif %}
+                        </td>
+
+                        <td>
+                            {% if item.verification_success is true %}
+                                <span class="badge bg-success">
+                                    VERIFIED
+                                </span>
+                            {% elif item.verification_success is false %}
+                                <span class="badge bg-danger">
+                                    {{ item.verification_status or "NOT VERIFIED" }}
+                                </span>
+                            {% elif item.verification_status %}
+                                <span class="badge bg-secondary">
+                                    {{ item.verification_status }}
+                                </span>
+                            {% else %}
+                                <span class="text-secondary">
+                                    —
+                                </span>
                             {% endif %}
                         </td>
 
@@ -1148,6 +1169,32 @@
 
                     </div>
 
+                    <div class="col-md-3">
+
+                        <div class="text-secondary small">
+                            Verification
+                        </div>
+
+                        <div>
+                            {% if remediation_detail.verification_success is true %}
+                                <span class="badge bg-success">
+                                    VERIFIED
+                                </span>
+                            {% elif remediation_detail.verification_success is false %}
+                                <span class="badge bg-danger">
+                                    {{ remediation_detail.verification_status or "NOT VERIFIED" }}
+                                </span>
+                            {% elif remediation_detail.verification_status %}
+                                <span class="badge bg-secondary">
+                                    {{ remediation_detail.verification_status }}
+                                </span>
+                            {% else %}
+                                Not available
+                            {% endif %}
+                        </div>
+
+                    </div>
+
                     <div class="col-12">
 
                         <div class="text-secondary small">
@@ -1159,6 +1206,20 @@
                         </div>
 
                     </div>
+
+                    {% if remediation_detail.verification_evidence %}
+
+                    <div class="col-12">
+
+                        <div class="text-secondary small mb-2">
+                            Verification Evidence
+                        </div>
+
+                        <pre class="bg-black text-light border border-secondary rounded p-3 mb-0">{{ remediation_detail.verification_evidence | tojson(indent=2) }}</pre>
+
+                    </div>
+
+                    {% endif %}
 
                     <div class="col-12">
 

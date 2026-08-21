@@ -23,6 +23,9 @@ class FakeRepository:
         confirmed,
         execution_id=None,
         execution_success=None,
+        verification_status=None,
+        verification_success=None,
+        verification_evidence=None,
     ):
         record = {
             "id": self.next_id,
@@ -37,6 +40,9 @@ class FakeRepository:
             "confirmed": confirmed,
             "execution_id": execution_id,
             "execution_success": execution_success,
+            "verification_status": verification_status,
+            "verification_success": verification_success,
+            "verification_evidence": verification_evidence,
         }
 
         self.next_id += 1
@@ -257,3 +263,51 @@ def test_audit_requires_task_id():
             proposal=invalid,
             remediation=allowed_result(),
         )
+
+
+def test_audit_persists_verification_independently_from_execution():
+    service, repository = make_service()
+
+    remediation = allowed_result()
+
+    remediation["verification"] = {
+        "status": "NOT_VERIFIED",
+        "success": False,
+        "condition": "HOST_UNHEALTHY",
+        "reason": (
+            "Fresh health still failed."
+        ),
+        "evidence": {
+            "fresh_health": {
+                "hostname": "pve01",
+            }
+        },
+    }
+
+    result = service.record(
+        source_type="host",
+        source_id="pve01",
+        proposal=proposal(),
+        remediation=remediation,
+        confirmed=True,
+    )
+
+    assert result[
+        "execution_success"
+    ] is True
+
+    assert result[
+        "verification_status"
+    ] == "NOT_VERIFIED"
+
+    assert result[
+        "verification_success"
+    ] is False
+
+    assert result[
+        "verification_evidence"
+    ] == remediation["verification"]
+
+    assert repository.records == [
+        result
+    ]

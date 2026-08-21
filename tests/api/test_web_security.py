@@ -268,6 +268,14 @@ def test_authenticated_remediation_renders_audit_record(
                 "confirmed": False,
                 "execution_id": 123,
                 "execution_success": True,
+                "verification_status": "VERIFIED",
+                "verification_success": True,
+                "verification_evidence": {
+                    "status": "VERIFIED",
+                    "success": True,
+                    "reason":
+                        "Condition cleared.",
+                },
                 "created_at": "2026-08-15 08:00:00",
             }
         ],
@@ -289,6 +297,7 @@ def test_authenticated_remediation_renders_audit_record(
     assert "ALLOW" in response.text
     assert "LOW" in response.text
     assert "SUCCESS" in response.text
+    assert "VERIFIED" in response.text
     assert "ID 123" in response.text
     assert "No remediation audit records are available." not in response.text
     assert "Package drift detected" in response.text
@@ -322,6 +331,14 @@ def test_authenticated_remediation_renders_audit_detail(
             "confirmed": False,
             "execution_id": 123,
             "execution_success": True,
+            "verification_status": "VERIFIED",
+            "verification_success": True,
+            "verification_evidence": {
+                "status": "VERIFIED",
+                "success": True,
+                "reason":
+                    "Condition cleared.",
+            },
             "created_at": "2026-08-15 08:00:00",
         },
     )
@@ -347,6 +364,9 @@ def test_authenticated_remediation_renders_audit_detail(
     assert "production" in response.text
     assert "change_count" in response.text
     assert "3" in response.text
+    assert "VERIFIED" in response.text
+    assert "Verification Evidence" in response.text
+    assert "Condition cleared." in response.text
     assert "Close" in response.text
 
 

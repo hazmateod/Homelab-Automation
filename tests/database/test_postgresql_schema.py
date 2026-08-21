@@ -197,3 +197,29 @@ def test_schema_creation_order_precedes_workflow_dependents():
     assert workflow_position < names.index(
         "workflow_dependencies"
     )
+
+
+def test_remediation_audit_schema_contains_verification_outcome():
+    statements = {
+        table_name(statement): statement.upper()
+        for statement in schema_statements()
+    }
+
+    audit = statements[
+        "remediation_audit"
+    ]
+
+    assert (
+        "VERIFICATION_STATUS TEXT"
+        in audit
+    )
+
+    assert (
+        "VERIFICATION_SUCCESS INTEGER"
+        in audit
+    )
+
+    assert (
+        "VERIFICATION_EVIDENCE TEXT"
+        in audit
+    )
