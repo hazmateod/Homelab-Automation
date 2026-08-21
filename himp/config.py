@@ -13,6 +13,7 @@ class Config:
     maintenance_playbook: str
     report_playbook: str
     dashboard_playbook: str
+    infrastructure_relationships: str
 
     def validate(self):
 
@@ -22,6 +23,7 @@ class Config:
             self.maintenance_playbook,
             self.report_playbook,
             self.dashboard_playbook,
+            self.infrastructure_relationships,
         ]
 
         for filename in required:
@@ -37,6 +39,9 @@ def load():
         maintenance_playbook="playbooks/maintenance.yml",
         report_playbook="playbooks/generate_reports.yml",
         dashboard_playbook="playbooks/dashboard.yml",
+        infrastructure_relationships=(
+            "config/infrastructure_relationships.yml"
+        ),
     )
 
     config.validate()

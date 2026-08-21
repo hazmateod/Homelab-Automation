@@ -127,6 +127,32 @@ class AssetRelationshipRepository:
 
         return rows[0]
 
+    def remove(
+        self,
+        source_type,
+        source_id,
+        relationship_type,
+        target_type,
+        target_id,
+    ):
+        self.database.execute(
+            """
+            DELETE FROM asset_relationships
+            WHERE source_type=?
+              AND source_id=?
+              AND relationship_type=?
+              AND target_type=?
+              AND target_id=?
+            """,
+            (
+                source_type,
+                source_id,
+                relationship_type,
+                target_type,
+                target_id,
+            ),
+        )
+
     def list(self):
         return self.database.query(
             """

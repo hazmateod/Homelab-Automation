@@ -113,6 +113,29 @@ class PostgreSQLDatabase:
 
         return pool
 
+    def _active_pool(self):
+        """
+        Return a usable process-local pool.
+
+        A PostgreSQLDatabase facade may outlive an application lifespan.
+        Orderly shutdown closes and removes process-local shared pools,
+        but long-lived repositories can still retain their former
+        self.pool reference. If that cached pool is closed, reacquire the
+        current shared pool for this database configuration.
+
+        Normal active pools are returned unchanged.
+        """
+        if getattr(
+            self.pool,
+            "closed",
+            False,
+        ):
+            self.pool = self._get_pool(
+                self.config
+            )
+
+        return self.pool
+
     @staticmethod
     def _normalize_sql(sql):
         """
@@ -145,7 +168,7 @@ class PostgreSQLDatabase:
 
         The cursor never escapes the checkout boundary.
         """
-        with self.pool.connection() as connection:
+        with self._active_pool().connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     self._normalize_sql(sql),
@@ -165,7 +188,7 @@ class PostgreSQLDatabase:
         Row-count consumers receive a detached integer rather than
         a cursor tied to a connection that has returned to the pool.
         """
-        with self.pool.connection() as connection:
+        with self._active_pool().connection() as connection:
             with connection.cursor() as cursor:
                 cursor.execute(
                     self._normalize_sql(sql),
@@ -179,7 +202,7 @@ class PostgreSQLDatabase:
         sql,
         parameters=(),
     ):
-        with self.pool.connection() as connection:
+        with self._active_pool().connection() as connection:
             cursor = connection.cursor()
 
             cursor.execute(
@@ -194,7 +217,7 @@ class PostgreSQLDatabase:
         """
         Pin one pooled connection for an explicit repository transaction.
         """
-        with self.pool.connection() as connection:
+        with self._active_pool().connection() as connection:
             with connection.transaction():
                 yield connection
 
@@ -207,7 +230,7 @@ class PostgreSQLDatabase:
         migration that need direct cursor access while still ensuring the
         PostgreSQL session is returned to the shared pool.
         """
-        with self.pool.connection() as connection:
+        with self._active_pool().connection() as connection:
             yield connection
 
     def initialize_schema(self):
@@ -288,7 +311,7 @@ class PostgreSQLDatabase:
         if "returning" not in normalized_sql.lower():
             normalized_sql += " RETURNING id"
 
-        with self.pool.connection() as connection:
+        with self._active_pool().connection() as connection:
             cursor = connection.cursor()
 
             cursor.execute(

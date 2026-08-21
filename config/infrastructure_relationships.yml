@@ -1,0 +1,33 @@
+---
+# HIMP canonical infrastructure relationships.
+#
+# This file is the authoritative declaration of infrastructure topology
+# managed by HIMP. PostgreSQL asset_relationships is the synchronized
+# operational representation.
+#
+# Only relationships that are explicitly known and supportable should
+# be recorded here. Do not infer topology merely from inventory groups
+# or host naming conventions.
+
+relationships:
+
+  # HIMP application runtime.
+  - source_type: application
+    source_id: himp
+    relationship_type: runs_on
+    target_type: host
+    target_id: automation.server.arpa
+
+  # HIMP requires the production PostgreSQL database.
+  - source_type: application
+    source_id: himp
+    relationship_type: depends_on
+    target_type: database
+    target_id: himp
+
+  # Production HIMP PostgreSQL database runtime.
+  - source_type: database
+    source_id: himp
+    relationship_type: runs_on
+    target_type: host
+    target_id: himpdb01.server.arpa
