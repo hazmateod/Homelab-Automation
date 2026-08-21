@@ -117,21 +117,21 @@ def make_migrator(
 def test_migration_table_inventory_is_complete():
     assert len(
         MIGRATION_TABLES
-    ) == 20
+    ) == 21
 
     assert len(
         set(MIGRATION_TABLES)
-    ) == 20
+    ) == 21
 
 
 def test_identity_table_inventory_is_complete():
     assert len(
         IDENTITY_TABLES
-    ) == 17
+    ) == 18
 
     assert len(
         set(IDENTITY_TABLES)
-    ) == 17
+    ) == 18
 
     assert set(
         IDENTITY_TABLES

@@ -48,6 +48,7 @@ from himp.api.workflows import (
     workflow_execution_service,
 )
 from himp.api.remediation import (
+    remediation_approval_service,
     router as remediation_router,
 )
 from himp.api.relationships import router as relationships_router
@@ -814,6 +815,7 @@ def remediation(
     source_id: str | None = None,
     decision: str | None = None,
     audit_id: int | None = None,
+    approval_status: str | None = None,
 ):
 
     context = dashboard_context()
@@ -838,6 +840,34 @@ def remediation(
     )
     context["remediation_summary"] = (
         remediation_audit_repository.summary()
+    )
+
+    if approval_status == "":
+        approval_status = None
+
+    if approval_status not in {
+        None,
+        "PENDING",
+        "APPROVED",
+        "DENIED",
+    }:
+        approval_status = None
+
+    approval_result = (
+        remediation_approval_service.list(
+            limit=100,
+            status=approval_status,
+        )
+    )
+
+    context["remediation_approvals"] = (
+        approval_result["approvals"]
+    )
+    context["remediation_approval_summary"] = (
+        approval_result["summary"]
+    )
+    context["approval_status"] = (
+        approval_status
     )
 
     return templates.TemplateResponse(

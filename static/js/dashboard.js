@@ -2504,6 +2504,152 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
+function initializeRemediationApprovalQueue() {
+
+    const message = document.getElementById(
+        "remediationApprovalMessage"
+    );
+
+    const groups = document.querySelectorAll(
+        ".remediation-approval-actions"
+    );
+
+    if (
+        !message ||
+        groups.length === 0
+    ) {
+        return;
+    }
+
+    const showMessage = (
+        text,
+        success
+    ) => {
+
+        message.className = success
+            ? "alert alert-success mb-3"
+            : "alert alert-danger mb-3";
+
+        message.textContent = text;
+    };
+
+    const decide = async (
+        group,
+        decision
+    ) => {
+
+        const approvalId =
+            group.dataset.approvalId;
+
+        const note = group.querySelector(
+            ".remediation-approval-note"
+        );
+
+        const buttons =
+            group.querySelectorAll("button");
+
+        buttons.forEach(button => {
+            button.disabled = true;
+        });
+
+        try {
+
+            const response = await fetch(
+                `/api/remediation/approvals/${encodeURIComponent(
+                    approvalId
+                )}/${decision}`,
+                {
+                    method: "POST",
+                    headers: {
+                        "Content-Type":
+                            "application/json"
+                    },
+                    body: JSON.stringify({
+                        note:
+                            note.value.trim()
+                            || null
+                    })
+                }
+            );
+
+            const result =
+                await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.detail ||
+                    `HTTP ${response.status}`
+                );
+            }
+
+            showMessage(
+                `Approval #${approvalId} recorded as ${result.status}.`,
+                true
+            );
+
+            window.setTimeout(
+                () => {
+                    window.location.reload();
+                },
+                350
+            );
+
+        } catch (error) {
+
+            console.error(error);
+
+            showMessage(
+                error.message,
+                false
+            );
+
+            buttons.forEach(button => {
+                button.disabled = false;
+            });
+        }
+    };
+
+    groups.forEach(group => {
+
+        const approve =
+            group.querySelector(
+                ".remediation-approval-approve"
+            );
+
+        const deny =
+            group.querySelector(
+                ".remediation-approval-deny"
+            );
+
+        approve.addEventListener(
+            "click",
+            () => {
+                decide(
+                    group,
+                    "approve"
+                );
+            }
+        );
+
+        deny.addEventListener(
+            "click",
+            () => {
+                decide(
+                    group,
+                    "deny"
+                );
+            }
+        );
+    });
+}
+
+
+document.addEventListener(
+    "DOMContentLoaded",
+    initializeRemediationApprovalQueue
+);
+
+
 function initializeRemediationRun() {
 
     const form = document.getElementById(

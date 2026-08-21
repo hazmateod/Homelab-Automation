@@ -89,6 +89,449 @@
 </div>
 
 <div class="card bg-dark border-secondary shadow mb-4">
+
+    <div
+        class="card-header border-secondary d-flex justify-content-between align-items-center"
+    >
+
+        <div>
+
+            <strong>
+                Approval Queue
+            </strong>
+
+            <div class="text-secondary small">
+                Review evidence-backed remediation requests.
+                Approval records an operator decision only;
+                it does not execute remediation.
+            </div>
+
+        </div>
+
+        <span class="badge bg-secondary">
+            {{ remediation_approval_summary.total }} total
+        </span>
+
+    </div>
+
+    <div class="card-body">
+
+        <div class="row g-3 mb-4">
+
+            <div class="col-md-4">
+
+                <div class="card bg-black border-secondary h-100">
+
+                    <div class="card-body">
+
+                        <div class="text-secondary small">
+                            Pending
+                        </div>
+
+                        <div class="fs-3 fw-bold text-warning">
+                            {{ remediation_approval_summary.pending }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="card bg-black border-secondary h-100">
+
+                    <div class="card-body">
+
+                        <div class="text-secondary small">
+                            Approved
+                        </div>
+
+                        <div class="fs-3 fw-bold text-success">
+                            {{ remediation_approval_summary.approved }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+            <div class="col-md-4">
+
+                <div class="card bg-black border-secondary h-100">
+
+                    <div class="card-body">
+
+                        <div class="text-secondary small">
+                            Denied
+                        </div>
+
+                        <div class="fs-3 fw-bold text-danger">
+                            {{ remediation_approval_summary.denied }}
+                        </div>
+
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+        <form
+            method="get"
+            action="/remediation"
+            class="row g-3 align-items-end mb-4"
+        >
+
+            <div class="col-md-4">
+
+                <label
+                    for="remediationApprovalStatusFilter"
+                    class="form-label"
+                >
+                    Approval Status
+                </label>
+
+                <select
+                    id="remediationApprovalStatusFilter"
+                    name="approval_status"
+                    class="form-select"
+                >
+
+                    <option
+                        value=""
+                        {% if not approval_status %}
+                            selected
+                        {% endif %}
+                    >
+                        All Approval States
+                    </option>
+
+                    <option
+                        value="PENDING"
+                        {% if approval_status == "PENDING" %}
+                            selected
+                        {% endif %}
+                    >
+                        PENDING
+                    </option>
+
+                    <option
+                        value="APPROVED"
+                        {% if approval_status == "APPROVED" %}
+                            selected
+                        {% endif %}
+                    >
+                        APPROVED
+                    </option>
+
+                    <option
+                        value="DENIED"
+                        {% if approval_status == "DENIED" %}
+                            selected
+                        {% endif %}
+                    >
+                        DENIED
+                    </option>
+
+                </select>
+
+            </div>
+
+            <div class="col-md-4 d-flex gap-2">
+
+                <button
+                    type="submit"
+                    class="btn btn-primary"
+                >
+                    Filter Queue
+                </button>
+
+                <a
+                    href="/remediation"
+                    class="btn btn-outline-light"
+                >
+                    Clear
+                </a>
+
+            </div>
+
+        </form>
+
+        <div
+            id="remediationApprovalMessage"
+            class="d-none mb-3"
+        ></div>
+
+        {% if remediation_approvals %}
+
+        <div class="table-responsive">
+
+            <table
+                class="table table-dark table-hover table-striped align-middle mb-0"
+            >
+
+                <thead>
+
+                    <tr>
+                        <th>ID</th>
+                        <th>Target</th>
+                        <th>Condition</th>
+                        <th>Risk</th>
+                        <th>Recommendation</th>
+                        <th>Status</th>
+                        <th>Decision Audit</th>
+                        <th>Actions</th>
+                    </tr>
+
+                </thead>
+
+                <tbody>
+
+                {% for item in remediation_approvals %}
+
+                    <tr>
+
+                        <td>
+                            #{{ item.id }}
+                        </td>
+
+                        <td>
+
+                            <strong>
+                                {{ item.target_id }}
+                            </strong>
+
+                            <div class="text-secondary small">
+                                {{ item.target_type }}
+                            </div>
+
+                            <div class="text-secondary small mt-1">
+                                Source:
+                                {{ item.source_type }}:{{ item.source_id }}
+                            </div>
+
+                        </td>
+
+                        <td>
+
+                            {{ item.condition }}
+
+                            {% if item.dependency_depth is not none %}
+
+                            <div class="text-secondary small">
+                                Dependency depth:
+                                {{ item.dependency_depth }}
+                            </div>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {% if item.severity == "CRITICAL" %}
+
+                            <span class="badge bg-danger">
+                                CRITICAL
+                            </span>
+
+                            {% elif item.severity == "WARNING" %}
+
+                            <span class="badge bg-warning text-dark">
+                                WARNING
+                            </span>
+
+                            {% else %}
+
+                            <span class="badge bg-info text-dark">
+                                {{ item.severity }}
+                            </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td style="min-width: 300px;">
+
+                            <div>
+                                {{ item.recommended_action }}
+                            </div>
+
+                            <div class="text-secondary small mt-2">
+                                {{ item.rationale }}
+                            </div>
+
+                            <details class="mt-2">
+
+                                <summary class="small">
+                                    Evidence and affected assets
+                                </summary>
+
+                                <div class="mt-2">
+
+                                    <div class="text-secondary small">
+                                        Evidence
+                                    </div>
+
+                                    <pre
+                                        class="bg-black text-light border border-secondary rounded p-2 small"
+                                    >{{ item.evidence | tojson(indent=2) }}</pre>
+
+                                    <div class="text-secondary small">
+                                        Affected Assets
+                                    </div>
+
+                                    <pre
+                                        class="bg-black text-light border border-secondary rounded p-2 small mb-0"
+                                    >{{ item.affected_assets | tojson(indent=2) }}</pre>
+
+                                </div>
+
+                            </details>
+
+                        </td>
+
+                        <td>
+
+                            {% if item.status == "PENDING" %}
+
+                            <span class="badge bg-warning text-dark">
+                                PENDING
+                            </span>
+
+                            {% elif item.status == "APPROVED" %}
+
+                            <span class="badge bg-success">
+                                APPROVED
+                            </span>
+
+                            {% else %}
+
+                            <span class="badge bg-danger">
+                                DENIED
+                            </span>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            <div class="small">
+                                Requested by
+                                <strong>
+                                    {{ item.requested_by }}
+                                </strong>
+                            </div>
+
+                            <div class="text-secondary small">
+                                {{ item.created_at }}
+                            </div>
+
+                            {% if item.decided_by %}
+
+                            <div class="small mt-2">
+                                Decided by
+                                <strong>
+                                    {{ item.decided_by }}
+                                </strong>
+                            </div>
+
+                            <div class="text-secondary small">
+                                {{ item.decided_at }}
+                            </div>
+
+                            {% endif %}
+
+                            {% if item.decision_note %}
+
+                            <div class="text-secondary small mt-2">
+                                {{ item.decision_note }}
+                            </div>
+
+                            {% endif %}
+
+                        </td>
+
+                        <td>
+
+                            {% if item.status == "PENDING" %}
+
+                            <div
+                                class="remediation-approval-actions d-flex flex-column gap-2"
+                                data-approval-id="{{ item.id }}"
+                            >
+
+                                <input
+                                    type="text"
+                                    class="form-control form-control-sm remediation-approval-note"
+                                    maxlength="2000"
+                                    placeholder="Decision note (optional)"
+                                >
+
+                                <div class="d-flex gap-2">
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-success btn-sm remediation-approval-approve"
+                                    >
+                                        Approve
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        class="btn btn-danger btn-sm remediation-approval-deny"
+                                    >
+                                        Deny
+                                    </button>
+
+                                </div>
+
+                                <div class="text-secondary small">
+                                    Administrator authorization required.
+                                </div>
+
+                            </div>
+
+                            {% else %}
+
+                            <span class="text-secondary small">
+                                Decision recorded.
+                            </span>
+
+                            {% endif %}
+
+                        </td>
+
+                    </tr>
+
+                {% endfor %}
+
+                </tbody>
+
+            </table>
+
+        </div>
+
+        {% else %}
+
+        <div
+            class="p-4 text-secondary border border-secondary rounded"
+        >
+            No remediation approval records are available.
+        </div>
+
+        {% endif %}
+
+    </div>
+
+</div>
+
+<div class="card bg-dark border-secondary shadow mb-4">
     <div class="card-header border-secondary">
         <strong>
             Run Remediation

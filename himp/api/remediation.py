@@ -6,11 +6,16 @@ workflow execution, and remediation audit history through the existing
 authenticated HIMP API.
 """
 
-from fastapi import APIRouter, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
+
+from himp.api.dependencies import require_admin
 
 from himp.database.remediation_audit import (
     RemediationAuditRepository,
+)
+from himp.services.remediation_approvals import (
+    RemediationApprovalService,
 )
 from himp.services.remediation_proposals import (
     RemediationProposalService,
@@ -36,6 +41,13 @@ remediation_recommendation_service = (
     RemediationRecommendationService()
 )
 
+remediation_approval_service = (
+    RemediationApprovalService(
+        recommendations=remediation_recommendation_service,
+    )
+)
+
+
 remediation_workflow_service = (
     RemediationWorkflowService(
         proposals=remediation_proposal_service,
@@ -45,6 +57,32 @@ remediation_workflow_service = (
 remediation_audit_repository = (
     RemediationAuditRepository()
 )
+
+
+
+
+class RemediationApprovalCreateRequest(BaseModel):
+    entity_type: str = Field(
+        min_length=1,
+    )
+    entity_id: str = Field(
+        min_length=1,
+    )
+    recommendation_id: str = Field(
+        min_length=1,
+    )
+    limit: int = Field(
+        default=100,
+        ge=1,
+        le=500,
+    )
+
+
+class RemediationApprovalDecisionRequest(BaseModel):
+    note: str | None = Field(
+        default=None,
+        max_length=2000,
+    )
 
 
 class RemediationProposalRequest(BaseModel):
@@ -99,6 +137,124 @@ def remediation_recommendations(
         entity_id=entity_id,
         limit=limit,
     )
+
+
+
+
+@router.post(
+    "/remediation/approvals",
+)
+def create_remediation_approval(
+    request: RemediationApprovalCreateRequest,
+    admin=Depends(require_admin),
+):
+    try:
+        return remediation_approval_service.enqueue(
+            entity_type=request.entity_type,
+            entity_id=request.entity_id,
+            recommendation_id=request.recommendation_id,
+            requested_by=admin.username,
+            limit=request.limit,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/remediation/approvals",
+)
+def remediation_approval_queue(
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=500,
+    ),
+    status: str | None = Query(
+        default=None,
+    ),
+):
+    try:
+        return remediation_approval_service.list(
+            limit=limit,
+            status=status,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/remediation/approvals/{approval_id}",
+)
+def remediation_approval_detail(
+    approval_id: int,
+):
+    try:
+        return remediation_approval_service.get(
+            approval_id
+        )
+    except KeyError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+
+
+@router.post(
+    "/remediation/approvals/{approval_id}/approve",
+)
+def approve_remediation(
+    approval_id: int,
+    request: RemediationApprovalDecisionRequest,
+    admin=Depends(require_admin),
+):
+    try:
+        return remediation_approval_service.approve(
+            approval_id=approval_id,
+            decided_by=admin.username,
+            decision_note=request.note,
+        )
+    except KeyError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+    except ValueError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        ) from error
+
+
+@router.post(
+    "/remediation/approvals/{approval_id}/deny",
+)
+def deny_remediation(
+    approval_id: int,
+    request: RemediationApprovalDecisionRequest,
+    admin=Depends(require_admin),
+):
+    try:
+        return remediation_approval_service.deny(
+            approval_id=approval_id,
+            decided_by=admin.username,
+            decision_note=request.note,
+        )
+    except KeyError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+    except ValueError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        ) from error
 
 
 @router.post(
