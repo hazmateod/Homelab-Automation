@@ -1,3 +1,4 @@
+import pytest
 from himp.commands import scheduler_run
 from types import SimpleNamespace
 
@@ -40,6 +41,35 @@ class FakeScheduler:
 
 class Args:
     at = None
+
+
+class EmptyRemediationScheduling:
+    def due(
+        self,
+        now=None,
+        limit=100,
+    ):
+        return []
+
+    def execute_due(
+        self,
+        schedule_id,
+        now=None,
+    ):
+        raise AssertionError(
+            "No remediation schedule should execute"
+        )
+
+
+@pytest.fixture(autouse=True)
+def empty_remediation_queue(monkeypatch):
+    monkeypatch.setattr(
+        scheduler_run,
+        "RemediationSchedulingService",
+        EmptyRemediationScheduling,
+    )
+
+
 
 
 def test_scheduler_run_executes_due_task_and_records_run(

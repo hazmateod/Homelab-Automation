@@ -41,6 +41,7 @@ class RemediationApprovalRepository:
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
 
                 recommendation_id TEXT NOT NULL,
+                task_id TEXT NOT NULL DEFAULT 'scheduled_updates',
 
                 source_type TEXT NOT NULL,
 
@@ -89,6 +90,19 @@ class RemediationApprovalRepository:
             """
         )
 
+        columns = self.database.table_columns(
+            "remediation_approvals"
+        )
+
+        if "task_id" not in columns:
+            self.database.execute(
+                """
+                ALTER TABLE remediation_approvals
+                ADD COLUMN task_id TEXT
+                NOT NULL DEFAULT 'scheduled_updates'
+                """
+            )
+
     @staticmethod
     def _now():
         return datetime.now(
@@ -103,6 +117,7 @@ class RemediationApprovalRepository:
         source_type,
         source_id,
         requested_by,
+        task_id,
     ):
         if not isinstance(
             recommendation,
@@ -110,6 +125,14 @@ class RemediationApprovalRepository:
         ):
             raise TypeError(
                 "recommendation must be a mapping"
+            )
+
+        if (
+            not isinstance(task_id, str)
+            or not task_id.strip()
+        ):
+            raise ValueError(
+                "task_id is required"
             )
 
         target = recommendation.get(
@@ -145,6 +168,7 @@ class RemediationApprovalRepository:
                 INSERT INTO remediation_approvals
                 (
                     recommendation_id,
+                    task_id,
                     source_type,
                     source_id,
                     target_type,
@@ -176,6 +200,7 @@ class RemediationApprovalRepository:
                     ?,
                     ?,
                     ?,
+                    ?,
                     'PENDING',
                     ?,
                     ?
@@ -183,6 +208,7 @@ class RemediationApprovalRepository:
                 """,
                 (
                     recommendation_id,
+                    task_id,
                     source_type,
                     source_id,
                     target_type,
@@ -417,6 +443,7 @@ class RemediationApprovalRepository:
             "recommendation_id": (
                 row["recommendation_id"]
             ),
+            "task_id": row["task_id"],
             "source_type": row["source_type"],
             "source_id": row["source_id"],
             "target_type": row["target_type"],

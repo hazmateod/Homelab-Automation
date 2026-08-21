@@ -8,6 +8,9 @@ executing remediation.
 from himp.database.remediation_approvals import (
     RemediationApprovalRepository,
 )
+from himp.services.remediation_proposals import (
+    RemediationProposalService,
+)
 from himp.services.remediation_recommendations import (
     RemediationRecommendationService,
 )
@@ -73,6 +76,7 @@ class RemediationApprovalService:
             source_type=entity_type,
             source_id=entity_id,
             requested_by=requested_by,
+            task_id=RemediationProposalService.TASK_ID,
         )
 
     def list(

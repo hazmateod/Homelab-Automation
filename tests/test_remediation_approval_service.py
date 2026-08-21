@@ -41,6 +41,7 @@ class FakeRepository:
         source_type,
         source_id,
         requested_by,
+        task_id,
     ):
         self.created.append(
             {
@@ -48,6 +49,7 @@ class FakeRepository:
                 "source_type": source_type,
                 "source_id": source_id,
                 "requested_by": requested_by,
+                "task_id": task_id,
             }
         )
 
@@ -224,6 +226,10 @@ def test_enqueue_regenerates_current_evidence():
     assert repository.created[0][
         "requested_by"
     ] == "admin"
+
+    assert repository.created[0][
+        "task_id"
+    ] == "scheduled_updates"
 
 
 def test_list_returns_summary_and_records():

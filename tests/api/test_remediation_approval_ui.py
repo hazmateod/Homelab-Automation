@@ -148,6 +148,23 @@ def configure_page(
         fake_list,
     )
 
+    monkeypatch.setattr(
+        server.remediation_scheduling_service,
+        "list",
+        lambda limit=100, status=None: {
+            "count": 0,
+            "summary": {
+                "total": 0,
+                "scheduled": 0,
+                "running": 0,
+                "completed": 0,
+                "failed": 0,
+                "cancelled": 0,
+            },
+            "schedules": [],
+        },
+    )
+
 
 def test_remediation_page_renders_approval_queue(
     monkeypatch,
@@ -260,8 +277,18 @@ def test_decided_approval_does_not_render_action_group(
     assert "Decision recorded." in response.text
 
     assert (
-        'data-approval-id="7"'
+        "remediation-approval-actions"
         not in response.text
+    )
+
+    assert (
+        'data-approval-id="7"'
+        in response.text
+    )
+
+    assert (
+        "remediation-schedule-create"
+        in response.text
     )
 
 

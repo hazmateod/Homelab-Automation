@@ -76,6 +76,7 @@ def test_create_persists_pending_approval(tmp_path):
         source_type="application",
         source_id="himp",
         requested_by="admin",
+        task_id="scheduled_updates",
     )
 
     assert result["id"] == 1
@@ -116,6 +117,7 @@ def test_list_filters_by_status(tmp_path):
         source_type="application",
         source_id="himp",
         requested_by="admin",
+        task_id="scheduled_updates",
     )
 
     repository.decide(
@@ -129,6 +131,7 @@ def test_list_filters_by_status(tmp_path):
         source_type="application",
         source_id="himp",
         requested_by="admin",
+        task_id="scheduled_updates",
     )
 
     pending = repository.list(
@@ -158,6 +161,7 @@ def test_summary_counts_lifecycle_states(
         source_type="application",
         source_id="himp",
         requested_by="admin",
+        task_id="scheduled_updates",
     )
 
     two = repository.create(
@@ -165,6 +169,7 @@ def test_summary_counts_lifecycle_states(
         source_type="application",
         source_id="himp",
         requested_by="admin",
+        task_id="scheduled_updates",
     )
 
     repository.create(
@@ -172,6 +177,7 @@ def test_summary_counts_lifecycle_states(
         source_type="application",
         source_id="himp",
         requested_by="admin",
+        task_id="scheduled_updates",
     )
 
     repository.decide(
@@ -206,6 +212,7 @@ def test_approve_records_operator_and_note(
         source_type="application",
         source_id="himp",
         requested_by="requester",
+        task_id="scheduled_updates",
     )
 
     result = repository.decide(
@@ -235,6 +242,7 @@ def test_deny_records_operator_and_note(
         source_type="application",
         source_id="himp",
         requested_by="requester",
+        task_id="scheduled_updates",
     )
 
     result = repository.decide(
@@ -260,6 +268,7 @@ def test_decision_cannot_be_overwritten(
         source_type="application",
         source_id="himp",
         requested_by="admin",
+        task_id="scheduled_updates",
     )
 
     repository.decide(
@@ -329,6 +338,7 @@ def test_invalid_decision_fails(
         source_type="application",
         source_id="himp",
         requested_by="admin",
+        task_id="scheduled_updates",
     )
 
     with pytest.raises(

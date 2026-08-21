@@ -6,6 +6,8 @@ workflow execution, and remediation audit history through the existing
 authenticated HIMP API.
 """
 
+from datetime import datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
@@ -22,6 +24,9 @@ from himp.services.remediation_proposals import (
 )
 from himp.services.remediation_recommendations import (
     RemediationRecommendationService,
+)
+from himp.services.remediation_scheduling import (
+    RemediationSchedulingService,
 )
 from himp.services.remediation_workflow import (
     RemediationWorkflowService,
@@ -45,6 +50,11 @@ remediation_approval_service = (
     RemediationApprovalService(
         recommendations=remediation_recommendation_service,
     )
+)
+
+
+remediation_scheduling_service = (
+    RemediationSchedulingService()
 )
 
 
@@ -79,6 +89,17 @@ class RemediationApprovalCreateRequest(BaseModel):
 
 
 class RemediationApprovalDecisionRequest(BaseModel):
+    note: str | None = Field(
+        default=None,
+        max_length=2000,
+    )
+
+
+class RemediationScheduleCreateRequest(BaseModel):
+    scheduled_for: datetime
+
+
+class RemediationScheduleCancelRequest(BaseModel):
     note: str | None = Field(
         default=None,
         max_length=2000,
@@ -244,6 +265,101 @@ def deny_remediation(
             approval_id=approval_id,
             decided_by=admin.username,
             decision_note=request.note,
+        )
+    except KeyError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+    except ValueError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        ) from error
+
+
+
+@router.post(
+    "/remediation/schedules",
+)
+def create_remediation_schedule(
+    approval_id: int,
+    request: RemediationScheduleCreateRequest,
+    admin=Depends(require_admin),
+):
+    try:
+        return remediation_scheduling_service.schedule(
+            approval_id=approval_id,
+            scheduled_for=request.scheduled_for,
+            scheduled_by=admin.username,
+        )
+    except KeyError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+    except ValueError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/remediation/schedules",
+)
+def remediation_schedule_queue(
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=500,
+    ),
+    status: str | None = Query(
+        default=None,
+    ),
+):
+    try:
+        return remediation_scheduling_service.list(
+            limit=limit,
+            status=status,
+        )
+    except ValueError as error:
+        raise HTTPException(
+            status_code=400,
+            detail=str(error),
+        ) from error
+
+
+@router.get(
+    "/remediation/schedules/{schedule_id}",
+)
+def remediation_schedule_detail(
+    schedule_id: int,
+):
+    try:
+        return remediation_scheduling_service.get(
+            schedule_id
+        )
+    except KeyError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+
+
+@router.post(
+    "/remediation/schedules/{schedule_id}/cancel",
+)
+def cancel_remediation_schedule(
+    schedule_id: int,
+    request: RemediationScheduleCancelRequest,
+    admin=Depends(require_admin),
+):
+    try:
+        return remediation_scheduling_service.cancel(
+            schedule_id=schedule_id,
+            cancelled_by=admin.username,
+            cancellation_note=request.note,
         )
     except KeyError as error:
         raise HTTPException(

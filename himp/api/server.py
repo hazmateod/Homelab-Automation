@@ -49,6 +49,7 @@ from himp.api.workflows import (
 )
 from himp.api.remediation import (
     remediation_approval_service,
+    remediation_scheduling_service,
     router as remediation_router,
 )
 from himp.api.relationships import router as relationships_router
@@ -816,6 +817,7 @@ def remediation(
     decision: str | None = None,
     audit_id: int | None = None,
     approval_status: str | None = None,
+    schedule_status: str | None = None,
 ):
 
     context = dashboard_context()
@@ -869,6 +871,46 @@ def remediation(
     context["approval_status"] = (
         approval_status
     )
+
+
+    if schedule_status == "":
+        schedule_status = None
+
+    if schedule_status not in {
+        None,
+        "SCHEDULED",
+        "RUNNING",
+        "COMPLETED",
+        "FAILED",
+        "CANCELLED",
+    }:
+        schedule_status = None
+
+    remediation_schedule_result = (
+        remediation_scheduling_service.list(
+            limit=100,
+            status=schedule_status,
+        )
+    )
+
+    context["remediation_schedules"] = (
+        remediation_schedule_result["schedules"]
+    )
+
+    context["remediation_schedule_summary"] = (
+        remediation_schedule_result["summary"]
+    )
+
+    context["schedule_status"] = (
+        schedule_status
+    )
+
+    context["remediation_schedule_map"] = {
+        item["approval_id"]: item
+        for item in remediation_schedule_result[
+            "schedules"
+        ]
+    }
 
     return templates.TemplateResponse(
         request=request,

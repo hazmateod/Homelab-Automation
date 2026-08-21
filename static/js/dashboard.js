@@ -3523,3 +3523,184 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     );
 });
+
+
+/*
+ * Phase 13.3 — Remediation Scheduling
+ *
+ * Approved remediation may be scheduled for one-time future execution.
+ * Browser-local datetime input is explicitly converted to ISO UTC before
+ * it reaches the API.
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+
+    function remediationScheduleMessage(message, success) {
+        const element = document.getElementById(
+            "remediationScheduleMessage"
+        );
+
+        if (!element) {
+            return;
+        }
+
+        element.className = success
+            ? "alert alert-success mb-3"
+            : "alert alert-danger mb-3";
+
+        element.textContent = message;
+    }
+
+
+    document.querySelectorAll(
+        ".remediation-schedule-create"
+    ).forEach((button) => {
+
+        button.addEventListener("click", async () => {
+
+            const control = button.closest(
+                ".remediation-schedule-control"
+            );
+
+            if (!control) {
+                return;
+            }
+
+            const approvalId = control.dataset.approvalId;
+
+            const input = control.querySelector(
+                ".remediation-schedule-time"
+            );
+
+            if (!input || !input.value) {
+                remediationScheduleMessage(
+                    "Select a remediation execution date and time.",
+                    false
+                );
+                return;
+            }
+
+            const localDate = new Date(
+                input.value
+            );
+
+            if (Number.isNaN(localDate.getTime())) {
+                remediationScheduleMessage(
+                    "The remediation execution time is invalid.",
+                    false
+                );
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = "Scheduling...";
+
+            try {
+
+                const response = await fetch(
+                    `/api/remediation/schedules?approval_id=${encodeURIComponent(approvalId)}`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            scheduled_for: localDate.toISOString()
+                        })
+                    }
+                );
+
+                const payload = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        payload.detail
+                        || "Unable to schedule remediation."
+                    );
+                }
+
+                remediationScheduleMessage(
+                    "Remediation scheduled successfully.",
+                    true
+                );
+
+                window.location.reload();
+
+            } catch (error) {
+
+                remediationScheduleMessage(
+                    error.message,
+                    false
+                );
+
+                button.disabled = false;
+                button.textContent = "Schedule";
+            }
+        });
+    });
+
+
+    document.querySelectorAll(
+        ".remediation-schedule-cancel"
+    ).forEach((button) => {
+
+        button.addEventListener("click", async () => {
+
+            const scheduleId = button.dataset.scheduleId;
+
+            const note = window.prompt(
+                "Cancellation note (optional):",
+                ""
+            );
+
+            if (note === null) {
+                return;
+            }
+
+            button.disabled = true;
+            button.textContent = "Cancelling...";
+
+            try {
+
+                const response = await fetch(
+                    `/api/remediation/schedules/${encodeURIComponent(scheduleId)}/cancel`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            note: note || null
+                        })
+                    }
+                );
+
+                const payload = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(
+                        payload.detail
+                        || "Unable to cancel remediation schedule."
+                    );
+                }
+
+                remediationScheduleMessage(
+                    "Remediation schedule cancelled.",
+                    true
+                );
+
+                window.location.reload();
+
+            } catch (error) {
+
+                remediationScheduleMessage(
+                    error.message,
+                    false
+                );
+
+                button.disabled = false;
+                button.textContent = "Cancel";
+            }
+        });
+    });
+});

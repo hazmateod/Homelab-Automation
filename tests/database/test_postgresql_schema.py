@@ -20,6 +20,7 @@ EXPECTED_TABLES = {
     "inventory_hosts",
     "remediation_audit",
     "remediation_approvals",
+    "remediation_schedules",
     "remediation_operations",
     "sessions",
     "storage_alert_events",
@@ -52,7 +53,7 @@ def test_schema_defines_every_himp_table_once():
         for statement in statements
     ]
 
-    assert len(statements) == 23
+    assert len(statements) == 24
     assert len(names) == len(set(names))
     assert set(names) == EXPECTED_TABLES
 
