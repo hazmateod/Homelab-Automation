@@ -40,12 +40,14 @@ DEPLOY_DIRS=(
     himp
     plugins
     playbooks
-    inventory
     roles
     templates
     static
     config
 )
+
+SOURCE_INVENTORY="$PROJECT_ROOT/inventory/hosts.yml"
+RUNTIME_INVENTORY="$DEPLOY_ROOT/inventory/hosts.yml"
 
 DEPLOY_FILES=(
     ansible.cfg
@@ -91,10 +93,38 @@ for file in "${DEPLOY_FILES[@]}"; do
     fi
 done
 
+if [[ ! -f "$SOURCE_INVENTORY" ]]; then
+    echo "ERROR: Missing source inventory:"
+    echo "  $SOURCE_INVENTORY"
+    exit 1
+fi
+
+INVENTORY_SEEDED=false
+
+if [[ ! -f "$RUNTIME_INVENTORY" ]]; then
+    echo
+    echo "Seeding persistent runtime inventory..."
+
+    mkdir -p "$DEPLOY_ROOT/inventory"
+
+    cp -a         "$PROJECT_ROOT/inventory/."         "$DEPLOY_ROOT/inventory/"
+
+    INVENTORY_SEEDED=true
+
+    echo "Runtime inventory seeded from Git baseline."
+else
+    echo
+    echo "Preserving persistent runtime inventory."
+fi
+
 echo
 echo "Checking deployment changes..."
 
 APPLICATION_CHANGED=false
+
+if [[ "$INVENTORY_SEEDED" == "true" ]]; then
+    APPLICATION_CHANGED=true
+fi
 
 for dir in "${DEPLOY_DIRS[@]}"; do
     source="$PROJECT_ROOT/$dir"

@@ -12,7 +12,6 @@ DEPLOY_DIRS = [
     "himp",
     "plugins",
     "playbooks",
-    "inventory",
     "roles",
     "templates",
     "static",
@@ -80,6 +79,20 @@ def _make_project(tmp_path):
 
     for directory in DEPLOY_DIRS:
         (project / directory).mkdir(parents=True)
+
+    (project / "inventory").mkdir(
+        parents=True
+    )
+
+    (project / "inventory" / "hosts.yml").write_text(
+        "all:\n"
+        "  children:\n"
+        "    infrastructure:\n"
+        "      hosts:\n"
+        "        baseline.server.arpa:\n"
+        "          ansible_host: 10.10.37.1\n"
+        "          ansible_user: root\n"
+    )
 
     for filename in DEPLOY_FILES:
         (project / filename).write_text(f"fixture-{filename}\n")
@@ -369,6 +382,117 @@ def test_runtime_data_is_preserved(tmp_path):
 
     assert runtime_data.exists()
     assert runtime_data.read_text() == "runtime-state\n"
+
+
+def test_runtime_inventory_is_seeded_on_first_deployment(
+    tmp_path,
+):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    runtime_inventory = (
+        deploy_root
+        / "inventory"
+        / "hosts.yml"
+    )
+
+    assert runtime_inventory.exists()
+
+    assert runtime_inventory.read_text() == (
+        project
+        / "inventory"
+        / "hosts.yml"
+    ).read_text()
+
+
+def test_runtime_inventory_is_preserved_on_redeployment(
+    tmp_path,
+):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    runtime_inventory = (
+        deploy_root
+        / "inventory"
+        / "hosts.yml"
+    )
+
+    runtime_inventory.write_text(
+        runtime_inventory.read_text()
+        + "        web-added.server.arpa:\n"
+          "          ansible_host: 10.10.37.99\n"
+          "          ansible_user: root\n"
+    )
+
+    expected = runtime_inventory.read_text()
+
+    source_inventory = (
+        project
+        / "inventory"
+        / "hosts.yml"
+    )
+
+    source_inventory.write_text(
+        source_inventory.read_text()
+        + "# newer Git baseline\n"
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "add",
+            "inventory/hosts.yml",
+        ],
+        cwd=project,
+        check=True,
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-q",
+            "-m",
+            "update inventory baseline",
+        ],
+        cwd=project,
+        check=True,
+    )
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    assert (
+        "Preserving persistent runtime inventory."
+        in result.stdout
+    )
+
+    assert runtime_inventory.read_text() == expected
+
+    assert (
+        "newer Git baseline"
+        not in runtime_inventory.read_text()
+    )
 
 
 def test_reports_are_preserved(tmp_path):
