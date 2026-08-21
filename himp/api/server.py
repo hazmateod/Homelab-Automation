@@ -51,6 +51,7 @@ from himp.api.remediation import (
     router as remediation_router,
 )
 from himp.api.relationships import router as relationships_router
+from himp.api.dependency_impact import router as dependency_impact_router
 from himp.database.postgresql import PostgreSQLDatabase
 from himp.database.remediation_audit import (
     RemediationAuditRepository,
@@ -186,6 +187,12 @@ app.include_router(
 
 app.include_router(
     relationships_router,
+    prefix="/api",
+    dependencies=[Depends(require_session)],
+)
+
+app.include_router(
+    dependency_impact_router,
     prefix="/api",
     dependencies=[Depends(require_session)],
 )
