@@ -2,6 +2,7 @@ import subprocess
 
 import pytest
 
+from himp.config import config
 from himp.services.inventory import InventoryService
 
 
@@ -104,8 +105,17 @@ def test_validate_inventory_host_accepts_matching_inventory_and_ping(
     )
 
     assert result["ansible_host"] == "10.10.37.57"
-    assert calls[0][0] == "ansible-inventory"
-    assert calls[0][4] == "himpdb01.server.arpa"
+
+    assert calls[0] == [
+        "ansible-inventory",
+        "-i",
+        config.inventory,
+        "--host",
+        "himpdb01.server.arpa",
+    ]
+
+    assert "--json" not in calls[0]
+
     assert calls[1][0] == "ansible"
     assert calls[1][3] == "himpdb01.server.arpa"
 

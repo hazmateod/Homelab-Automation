@@ -71,7 +71,6 @@ class InventoryService:
                 config.inventory,
                 "--host",
                 hostname,
-                "--json",
             ],
             capture_output=True,
             text=True,
