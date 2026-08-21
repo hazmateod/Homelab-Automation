@@ -1,20 +1,22 @@
 """
 Remediation API.
 
-Exposes proposal generation, remediation workflow execution,
-and remediation audit history through the existing authenticated
-HIMP API.
+Exposes recommendation intelligence, proposal generation, remediation
+workflow execution, and remediation audit history through the existing
+authenticated HIMP API.
 """
 
+from fastapi import APIRouter, Query
 from pydantic import BaseModel, Field
-
-from fastapi import APIRouter
 
 from himp.database.remediation_audit import (
     RemediationAuditRepository,
 )
 from himp.services.remediation_proposals import (
     RemediationProposalService,
+)
+from himp.services.remediation_recommendations import (
+    RemediationRecommendationService,
 )
 from himp.services.remediation_workflow import (
     RemediationWorkflowService,
@@ -30,6 +32,10 @@ remediation_proposal_service = (
     RemediationProposalService()
 )
 
+remediation_recommendation_service = (
+    RemediationRecommendationService()
+)
+
 remediation_workflow_service = (
     RemediationWorkflowService(
         proposals=remediation_proposal_service,
@@ -39,6 +45,7 @@ remediation_workflow_service = (
 remediation_audit_repository = (
     RemediationAuditRepository()
 )
+
 
 class RemediationProposalRequest(BaseModel):
     source_type: str = Field(
@@ -67,6 +74,31 @@ class RemediationRunRequest(BaseModel):
         ge=1,
     )
     confirmed: bool = False
+
+
+@router.get(
+    "/remediation/recommendations/{entity_type}/{entity_id}",
+)
+def remediation_recommendations(
+    entity_type: str,
+    entity_id: str,
+    limit: int = Query(
+        default=100,
+        ge=1,
+        le=500,
+    ),
+):
+    """
+    Return read-only, evidence-backed operator recommendations.
+
+    This endpoint never executes remediation.
+    """
+
+    return remediation_recommendation_service.recommend(
+        entity_type=entity_type,
+        entity_id=entity_id,
+        limit=limit,
+    )
 
 
 @router.post(
