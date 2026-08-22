@@ -36,7 +36,7 @@ def test_workflow_history_page_uses_canonical_layout():
     assert "Workflow History" in source
     assert "Persisted Workflow Runs" in source
     assert "View Run" in source
-    assert "Back to Dashboard" in source
+    assert "Back to Workflows" in source
 
 
 def test_workflow_history_links_runs_to_timeline():
