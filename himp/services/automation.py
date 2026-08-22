@@ -212,7 +212,7 @@ class AutomationService:
                 "name": "Scheduled Updates",
                 "description": "Run maintenance updates across the homelab.",
                 "enabled": True,
-                "schedule": "daily 03:15",
+                "schedule": "weekly Sunday 03:15",
                 "timeout_seconds": 3600,
                 "retry_attempts": 1,
                 "retry_delay_seconds": 0,

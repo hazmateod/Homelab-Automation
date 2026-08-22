@@ -114,9 +114,9 @@ class SchedulerRepository:
             task_id="scheduled_updates",
             name="Scheduled Updates",
             description="Run maintenance updates across the homelab.",
-            frequency="daily",
+            frequency="weekly",
             schedule_time="03:15",
-            day_of_week=None,
+            day_of_week=0,
         )
 
     def _seed(

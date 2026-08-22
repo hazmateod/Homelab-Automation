@@ -36,9 +36,9 @@ def test_seed_reconciles_existing_schedule_without_losing_history():
     after = repository.find("scheduled_updates")
 
     assert after["id"] == before["id"]
-    assert after["frequency"] == "daily"
+    assert after["frequency"] == "weekly"
     assert after["schedule_time"] == "03:15"
-    assert after["day_of_week"] is None
+    assert after["day_of_week"] == 0
     assert after["last_run"] == before["last_run"]
 
 def test_health_check_seed_reconciles_daily_schedule_without_losing_history():
