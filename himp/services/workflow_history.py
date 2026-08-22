@@ -187,25 +187,45 @@ class WorkflowHistoryService:
                 }
             )
 
+        prior_successful_task = None
+
         for execution in executions:
 
             success = bool(
                 execution.get("success")
             )
 
-            timeline.append(
-                {
-                    "type": "task_execution",
+            event = {
+                "type": "task_execution",
+                "execution_id": execution.get(
+                    "id"
+                ),
+                "task_id": execution.get(
+                    "task_id"
+                ),
+                "status": (
+                    "SUCCESS"
+                    if success
+                    else "FAILED"
+                ),
+                "timestamp": execution.get(
+                    "executed_at"
+                ),
+                "duration_seconds": execution.get(
+                    "elapsed"
+                ),
+                "result": execution.get(
+                    "result"
+                ),
+            }
+
+            if success:
+                prior_successful_task = {
                     "execution_id": execution.get(
                         "id"
                     ),
                     "task_id": execution.get(
                         "task_id"
-                    ),
-                    "status": (
-                        "SUCCESS"
-                        if success
-                        else "FAILED"
                     ),
                     "timestamp": execution.get(
                         "executed_at"
@@ -213,11 +233,17 @@ class WorkflowHistoryService:
                     "duration_seconds": execution.get(
                         "elapsed"
                     ),
-                    "result": execution.get(
-                        "result"
-                    ),
                 }
-            )
+
+            else:
+                event["failure_analysis"] = (
+                    self._failure_analysis(
+                        execution,
+                        prior_successful_task,
+                    )
+                )
+
+            timeline.append(event)
 
         completed_at = workflow_run.get(
             "completed_at"
@@ -249,6 +275,187 @@ class WorkflowHistoryService:
             )
 
         return timeline
+
+    @classmethod
+    def _failure_analysis(
+        cls,
+        execution,
+        prior_successful_task=None,
+    ):
+        """
+        Compose operator-readable failure evidence exclusively from
+        persisted AutomationExecutionRepository data.
+
+        No target, error, or component information is synthesized when
+        it was not persisted by the underlying automation.
+        """
+
+        result = execution.get(
+            "result"
+        )
+
+        if not isinstance(result, dict):
+            result = {}
+
+        nested_result = result.get(
+            "result"
+        )
+
+        if isinstance(nested_result, dict):
+            payload = nested_result
+        else:
+            payload = result
+
+        component_rows = payload.get(
+            "executions"
+        )
+
+        if not isinstance(
+            component_rows,
+            list,
+        ):
+            component_rows = []
+
+        failed_components = []
+        successful_components_before_failure = []
+        failure_seen = False
+
+        for component in component_rows:
+
+            if not isinstance(
+                component,
+                dict,
+            ):
+                continue
+
+            component_name = (
+                component.get("plugin")
+                or component.get("task_id")
+                or component.get("task")
+                or component.get("name")
+            )
+
+            component_success = component.get(
+                "success"
+            )
+
+            if component_success is False:
+                failure_seen = True
+
+                failed_components.append(
+                    {
+                        "component": component_name,
+                        "return_code": component.get(
+                            "return_code"
+                        ),
+                        "error": component.get(
+                            "error"
+                        ),
+                        "stderr": component.get(
+                            "stderr"
+                        ),
+                        "elapsed": component.get(
+                            "elapsed"
+                        ),
+                        "warnings": component.get(
+                            "warnings"
+                        ),
+                        "artifacts": component.get(
+                            "artifacts"
+                        ),
+                    }
+                )
+
+            elif (
+                component_success is True
+                and not failure_seen
+                and component_name is not None
+            ):
+                successful_components_before_failure.append(
+                    {
+                        "component": component_name,
+                        "return_code": component.get(
+                            "return_code"
+                        ),
+                        "elapsed": component.get(
+                            "elapsed"
+                        ),
+                    }
+                )
+
+        target = cls._first_present(
+            payload.get("target"),
+            result.get("target"),
+            payload.get("host"),
+            result.get("host"),
+            payload.get("limit"),
+            result.get("limit"),
+        )
+
+        return_code = cls._first_present(
+            payload.get("return_code"),
+            result.get("return_code"),
+        )
+
+        stderr = cls._first_present(
+            payload.get("stderr"),
+            result.get("stderr"),
+        )
+
+        error = cls._first_present(
+            payload.get("error"),
+            result.get("error"),
+            stderr,
+        )
+
+        if error is None:
+            for component in failed_components:
+                error = cls._first_present(
+                    component.get("error"),
+                    component.get("stderr"),
+                )
+
+                if error is not None:
+                    break
+
+        return {
+            "failed_task": execution.get(
+                "task_id"
+            ),
+            "execution_id": execution.get(
+                "id"
+            ),
+            "target": target,
+            "return_code": return_code,
+            "stderr": stderr,
+            "error": error,
+            "failed_components": failed_components,
+            "prior_successful_task": prior_successful_task,
+            "prior_successful_components": (
+                successful_components_before_failure
+            ),
+        }
+
+    @staticmethod
+    def _first_present(
+        *values,
+    ):
+        for value in values:
+            if value is None:
+                continue
+
+            if isinstance(
+                value,
+                str,
+            ):
+                if value.strip():
+                    return value
+
+                continue
+
+            return value
+
+        return None
 
     @staticmethod
     def _workflow_status(

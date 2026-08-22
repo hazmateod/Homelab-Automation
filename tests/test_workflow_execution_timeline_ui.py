@@ -77,3 +77,20 @@ def test_server_exposes_authenticated_timeline_page():
     )
 
     assert "require_page_session" in source
+
+
+
+def test_workflow_timeline_exposes_operator_failure_analysis():
+    template = Path(
+        "templates/workflow_execution_timeline.html"
+    ).read_text()
+
+    assert "Failure Analysis" in template
+    assert "Failed components" in template
+    assert "Return code" in template
+    assert "event.failure_analysis.return_code" in template
+    assert "Prior successful workflow step" in template
+    assert "Successful components before failure" in template
+    assert "No persisted target evidence." in template
+    assert "No persisted error text." in template
+    assert "Raw persisted failure details" in template

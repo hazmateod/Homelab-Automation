@@ -623,3 +623,153 @@ def test_duration_returns_none_for_invalid_timestamp():
         "invalid",
         "2026-08-21T20:00:30+00:00",
     ) is None
+
+
+
+def test_failure_analysis_exposes_persisted_component_evidence():
+    service = object.__new__(
+        WorkflowHistoryService
+    )
+
+    analysis = service._failure_analysis(
+        {
+            "id": 723,
+            "task_id": "health_check",
+            "success": False,
+            "result": {
+                "task": "health_check",
+                "result": {
+                    "success": False,
+                    "executions": [
+                        {
+                            "plugin": "docker",
+                            "success": True,
+                            "return_code": 0,
+                            "elapsed": 4.278,
+                        },
+                        {
+                            "plugin": "genericplugin",
+                            "success": True,
+                            "return_code": 0,
+                            "elapsed": 0.415,
+                        },
+                        {
+                            "plugin": "infrastructure",
+                            "success": False,
+                            "return_code": 4,
+                            "stderr": "",
+                            "elapsed": 15.086,
+                            "warnings": [],
+                            "artifacts": [
+                                "reports/health/infrastructure.json",
+                            ],
+                        },
+                    ],
+                },
+            },
+        },
+        prior_successful_task=None,
+    )
+
+    assert analysis["failed_task"] == "health_check"
+    assert analysis["execution_id"] == 723
+    assert analysis["target"] is None
+    assert analysis["return_code"] is None
+    assert analysis["stderr"] is None
+    assert analysis["error"] is None
+
+    assert analysis["failed_components"] == [
+        {
+            "component": "infrastructure",
+            "return_code": 4,
+            "error": None,
+            "stderr": "",
+            "elapsed": 15.086,
+            "warnings": [],
+            "artifacts": [
+                "reports/health/infrastructure.json",
+            ],
+        }
+    ]
+
+    assert analysis[
+        "prior_successful_components"
+    ] == [
+        {
+            "component": "docker",
+            "return_code": 0,
+            "elapsed": 4.278,
+        },
+        {
+            "component": "genericplugin",
+            "return_code": 0,
+            "elapsed": 0.415,
+        },
+    ]
+
+
+def test_failure_analysis_preserves_target_error_and_prior_workflow_task():
+    service = object.__new__(
+        WorkflowHistoryService
+    )
+
+    prior = {
+        "execution_id": 50,
+        "task_id": "inventory_refresh",
+        "timestamp": "2026-08-22T00:00:00+00:00",
+        "duration_seconds": 2.5,
+    }
+
+    analysis = service._failure_analysis(
+        {
+            "id": 51,
+            "task_id": "update_host",
+            "success": False,
+            "result": {
+                "result": {
+                    "success": False,
+                    "target": "pve01",
+                    "return_code": 2,
+                    "stderr": "apt returned failure",
+                    "error": "Update failed.",
+                },
+            },
+        },
+        prior_successful_task=prior,
+    )
+
+    assert analysis["target"] == "pve01"
+    assert analysis["return_code"] == 2
+    assert analysis["stderr"] == "apt returned failure"
+    assert analysis["error"] == "Update failed."
+    assert analysis["prior_successful_task"] == prior
+
+
+def test_failure_analysis_does_not_invent_unpersisted_target_or_error():
+    service = object.__new__(
+        WorkflowHistoryService
+    )
+
+    analysis = service._failure_analysis(
+        {
+            "id": 723,
+            "task_id": "health_check",
+            "success": False,
+            "result": {
+                "result": {
+                    "success": False,
+                    "executions": [
+                        {
+                            "plugin": "infrastructure",
+                            "success": False,
+                            "return_code": 4,
+                            "stderr": "",
+                        }
+                    ],
+                },
+            },
+        },
+    )
+
+    assert analysis["target"] is None
+    assert analysis["error"] is None
