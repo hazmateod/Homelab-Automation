@@ -1,6 +1,22 @@
 from pathlib import Path
 
 
+def test_workflow_timeline_uses_canonical_base_template():
+    template = Path(
+        "templates/workflow_execution_timeline.html"
+    ).read_text()
+
+    assert (
+        '{% extends "base.html" %}'
+        in template
+    )
+
+    assert (
+        'layout/base.html'
+        not in template
+    )
+
+
 def test_workflow_timeline_template_exists():
     path = Path(
         "templates/workflow_execution_timeline.html"
