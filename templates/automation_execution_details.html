@@ -113,6 +113,73 @@
     </div>
 
 
+      {% if
+          workflow_navigation.origin_workflow_execution_id
+          or workflow_navigation.retry_source_workflow_execution_id
+          or workflow_navigation.retry_of_execution_id
+      %}
+      <div class="card bg-secondary text-light mb-4">
+
+          <div class="card-header border-secondary">
+              <strong>
+                  Execution Provenance
+              </strong>
+          </div>
+
+          <div class="card-body">
+
+              {% if
+                  workflow_navigation.origin_workflow_execution_id
+              %}
+              <div class="mb-3">
+                  <div class="text-secondary">
+                      Originating Workflow Run
+                  </div>
+
+                  <a
+                      href="/workflows/{{ workflow_navigation.origin_workflow_id }}/history/{{ workflow_navigation.origin_workflow_execution_id }}"
+                  >
+                      {{ workflow_navigation.origin_workflow_execution_id }}
+                  </a>
+              </div>
+              {% endif %}
+
+              {% if
+                  workflow_navigation.retry_source_workflow_execution_id
+              %}
+              <div class="mb-3">
+                  <div class="text-secondary">
+                      Retry Source Workflow Run
+                  </div>
+
+                  <a
+                      href="/workflows/{{ workflow_navigation.retry_source_workflow_id }}/history/{{ workflow_navigation.retry_source_workflow_execution_id }}"
+                  >
+                      {{ workflow_navigation.retry_source_workflow_execution_id }}
+                  </a>
+              </div>
+              {% endif %}
+
+              {% if workflow_navigation.retry_of_execution_id %}
+              <div>
+                  <div class="text-secondary">
+                      Retry Of Automation Execution
+                  </div>
+
+                  <a
+                      href="/automation/executions/{{ workflow_navigation.retry_of_execution_id }}"
+                  >
+                      Execution
+                      {{ workflow_navigation.retry_of_execution_id }}
+                  </a>
+              </div>
+              {% endif %}
+
+          </div>
+
+      </div>
+      {% endif %}
+
     <div class="card bg-secondary text-light mb-4">
 
         <div class="card-header border-secondary">

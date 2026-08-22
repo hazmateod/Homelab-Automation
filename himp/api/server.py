@@ -713,6 +713,53 @@ def plugin_details(
 
 
 @app.get(
+    "/workflows",
+    dependencies=[Depends(require_page_session)],
+)
+def workflows_page(
+    request: Request,
+):
+    """
+    Render the operator workflow landing page using the existing
+    workflow and workflow-history services.
+    """
+    from himp.api.workflows import (
+        workflow_history_service,
+        workflow_service,
+    )
+
+    workflow_rows = []
+
+    for workflow in workflow_service.list_workflows():
+        history = workflow_history_service.history(
+            workflow["id"],
+            limit=1,
+        )
+
+        latest = (
+            history[0]
+            if history
+            else None
+        )
+
+        workflow_rows.append(
+            {
+                **workflow,
+                "latest": latest,
+            }
+        )
+
+    context = dashboard_context()
+    context["workflow_rows"] = workflow_rows
+
+    return templates.TemplateResponse(
+        request=request,
+        name="workflows.html",
+        context=context,
+    )
+
+
+@app.get(
     "/workflows/{workflow_id}/history",
     dependencies=[Depends(require_page_session)],
 )
