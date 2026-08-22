@@ -12,6 +12,7 @@ from himp.services.health import HealthService
 from himp.services.health_history import HealthHistoryService
 from himp.services.health_trends import HealthTrendsService
 from himp.services.inventory import InventoryService
+from himp.services.notifications import NotificationService
 from himp.services.plugins import PluginService
 from himp.services.reports import ReportService
 from himp.services.settings import SettingsService
@@ -50,7 +51,11 @@ class HIMP:
 
         self.settings = SettingsService()
 
-        self.storage = StorageCapacityService()
+        self.notifications = NotificationService()
+
+        self.storage = StorageCapacityService(
+            notifications=self.notifications,
+        )
 
         self.updates = UpdateService()
         self.user_management = UserManagementService()

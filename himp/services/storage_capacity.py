@@ -76,6 +76,7 @@ class StorageCapacityService:
         repository=None,
         inventory=None,
         collector=None,
+        notifications=None,
     ):
         self.repository = (
             repository
@@ -89,6 +90,7 @@ class StorageCapacityService:
             collector
             or StorageCapacityCollector()
         )
+        self.notifications = notifications
 
     @classmethod
     def status_for(
@@ -227,12 +229,19 @@ class StorageCapacityService:
                 if transition[
                     "transition"
                 ]:
+                    transition_record = {
+                        **record,
+                        **transition,
+                    }
+
                     transitions.append(
-                        {
-                            **record,
-                            **transition,
-                        }
+                        transition_record
                     )
+
+                    if self.notifications is not None:
+                        self.notifications.storage_transition(
+                            transition_record
+                        )
 
         return {
             "success": True,
