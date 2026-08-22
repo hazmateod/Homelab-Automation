@@ -7,6 +7,7 @@ Provides CRUD and validation operations for workflow definitions.
 from pydantic import BaseModel
 
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from himp.services.workflow_execution import (
@@ -453,11 +454,13 @@ def retry_workflow_failed_step(
 
     try:
         return JSONResponse(
-            workflow_retry_replay_service.retry_failed_step(
+            jsonable_encoder(
+                workflow_retry_replay_service.retry_failed_step(
                 workflow_id,
                 workflow_execution_id,
                 execution_id,
-                confirmed=confirmed,
+                    confirmed=confirmed,
+                )
             )
         )
 
@@ -500,11 +503,13 @@ def replay_workflow_execution(
 
     try:
         return JSONResponse(
-            workflow_retry_replay_service.replay_workflow(
+            jsonable_encoder(
+                workflow_retry_replay_service.replay_workflow(
                 workflow_id,
                 workflow_execution_id,
                 limit=limit,
-                confirmed=confirmed,
+                    confirmed=confirmed,
+                )
             )
         )
 

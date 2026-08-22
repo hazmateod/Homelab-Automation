@@ -129,3 +129,34 @@ def test_workflow_retry_replay_api_is_admin_only():
     assert source.count(
         "dependencies=[Depends(require_admin)]"
     ) >= 2
+
+
+
+def test_workflow_retry_replay_responses_use_jsonable_encoder():
+    source = Path(
+        "himp/api/workflows.py"
+    ).read_text()
+
+    assert (
+        "from fastapi.encoders import jsonable_encoder"
+        in source
+    )
+
+    retry_start = source.index(
+        "def retry_workflow_failed_step("
+    )
+
+    replay_start = source.index(
+        "def replay_workflow_execution("
+    )
+
+    retry_block = source[
+        retry_start:replay_start
+    ]
+
+    replay_block = source[
+        replay_start:
+    ]
+
+    assert "jsonable_encoder(" in retry_block
+    assert "jsonable_encoder(" in replay_block
