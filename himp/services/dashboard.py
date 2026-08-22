@@ -4,6 +4,7 @@ Dashboard Service.
 
 import socket
 
+from himp.database.remediation_approvals import RemediationApprovalRepository
 from himp.database.remediation_audit import RemediationAuditRepository
 
 from himp.services.execution import ExecutionService
@@ -37,6 +38,7 @@ class DashboardService:
 
         self.scheduler = SchedulerService()
         self.remediation_audit = RemediationAuditRepository()
+        self.remediation_approvals = RemediationApprovalRepository()
 
         self.workflows = WorkflowService()
         self.workflow_history = WorkflowHistoryService(
@@ -142,7 +144,38 @@ class DashboardService:
 
 
     def remediation_summary(self):
-        return self.remediation_audit.summary()
+        audit = self.remediation_audit.summary()
+        approvals = self.remediation_approvals.summary()
+
+        return {
+            **audit,
+            "historical_confirmation_required_count": (
+                audit.get(
+                    "confirmation_required_count",
+                    0,
+                )
+            ),
+            "confirmation_required_count": approvals.get(
+                "pending",
+                0,
+            ),
+            "approval_total": approvals.get(
+                "total",
+                0,
+            ),
+            "approval_pending_count": approvals.get(
+                "pending",
+                0,
+            ),
+            "approval_approved_count": approvals.get(
+                "approved",
+                0,
+            ),
+            "approval_denied_count": approvals.get(
+                "denied",
+                0,
+            ),
+        }
 
 
     def operational_summary(self):

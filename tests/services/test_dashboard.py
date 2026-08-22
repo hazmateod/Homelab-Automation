@@ -71,6 +71,25 @@ class FakeHostHealthDashboardService:
         return {}
 
 
+class FakeRemediationApprovalRepository:
+    def __init__(
+        self,
+        total=0,
+        pending=0,
+        approved=0,
+        denied=0,
+    ):
+        self._summary = {
+            "total": total,
+            "pending": pending,
+            "approved": approved,
+            "denied": denied,
+        }
+
+    def summary(self):
+        return self._summary
+
+
 class FakeWorkflowService:
     def list_workflows(self):
         return [
@@ -127,6 +146,7 @@ def make_dashboard():
     dashboard.health_trends = FakeHealthTrendsService()
     dashboard.health_cards = FakeHealthCardsService()
     dashboard.host_health = FakeHostHealthDashboardService()
+    dashboard.remediation_approvals = FakeRemediationApprovalRepository()
     dashboard.workflows = FakeWorkflowService()
     dashboard.workflow_history = FakeWorkflowHistoryService()
 
@@ -244,18 +264,41 @@ class FakeSchedulerService:
         return statuses[task_id]
 
 
-def test_remediation_summary_exposes_audit_summary():
+def test_remediation_summary_exposes_audit_and_current_approval_summary():
     dashboard = make_dashboard()
     dashboard.remediation_audit = FakeRemediationAuditRepository()
+    dashboard.remediation_approvals = FakeRemediationApprovalRepository(
+        total=5,
+        pending=2,
+        approved=2,
+        denied=1,
+    )
 
     assert dashboard.remediation_summary() == {
         "total": 12,
         "allow_count": 7,
         "deny_count": 2,
-        "confirmation_required_count": 1,
+        "confirmation_required_count": 2,
         "execution_success_count": 6,
         "execution_failure_count": 1,
+        "historical_confirmation_required_count": 1,
+        "approval_total": 5,
+        "approval_pending_count": 2,
+        "approval_approved_count": 2,
+        "approval_denied_count": 1,
     }
+
+
+def test_remediation_summary_does_not_treat_historical_confirmation_as_pending():
+    dashboard = make_dashboard()
+    dashboard.remediation_audit = FakeRemediationAuditRepository()
+    dashboard.remediation_approvals = FakeRemediationApprovalRepository()
+
+    result = dashboard.remediation_summary()
+
+    assert result["historical_confirmation_required_count"] == 1
+    assert result["confirmation_required_count"] == 0
+    assert result["approval_pending_count"] == 0
 
 
 def test_automation_summary_exposes_schedule_and_execution_state():
@@ -544,11 +587,24 @@ def test_operational_summary_reports_warning_for_confirmation_required():
             confirmation_required_count=1,
         )
     )
+    dashboard.remediation_approvals = (
+        FakeRemediationApprovalRepository(
+            total=1,
+            pending=1,
+        )
+    )
 
     result = dashboard.operational_summary()
 
     assert result["status"] == "WARNING"
     assert result["remediation"]["confirmation_required_count"] == 1
+    assert (
+        result["remediation"][
+            "historical_confirmation_required_count"
+        ]
+        == 1
+    )
+    assert result["remediation"]["approval_pending_count"] == 1
 
 
 def test_recent_activity_exposes_plugin_execution_history():
@@ -644,6 +700,12 @@ def test_operational_summary_exposes_attention_items():
         FakeOperationalRemediationAuditRepository(
             confirmation_required_count=1,
             execution_failure_count=1,
+        )
+    )
+    dashboard.remediation_approvals = (
+        FakeRemediationApprovalRepository(
+            total=1,
+            pending=1,
         )
     )
 
