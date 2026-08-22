@@ -90,12 +90,17 @@ echo "Enabling scheduler timer..."
 systemctl enable himp-scheduler.timer
 
 echo
-if [[ "$TIMER_CHANGED" == "true" ]]; then
-    echo "Restarting scheduler timer..."
-    systemctl restart himp-scheduler.timer
+if [[ "${HIMP_START_SCHEDULER_TIMER:-0}" == "1" ]]; then
+    if systemctl is-active --quiet himp-scheduler.timer; then
+        echo "Scheduler timer is already active; leaving it running."
+    else
+        echo "Starting scheduler timer by explicit request..."
+        systemctl start himp-scheduler.timer
+    fi
 else
-    echo "Starting scheduler timer..."
-    systemctl start himp-scheduler.timer
+    echo "Scheduler timer runtime state left unchanged."
+    echo "To start it explicitly:"
+    echo "  HIMP_START_SCHEDULER_TIMER=1 $0"
 fi
 
 echo
