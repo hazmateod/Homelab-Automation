@@ -13,6 +13,9 @@ from himp.database.notifications import (
 from himp.models.notification import (
     NotificationEvent,
 )
+from himp.services.notification_delivery import (
+    NotificationDeliveryService,
+)
 
 
 class NotificationRoutingPolicy:
@@ -77,6 +80,7 @@ class NotificationService:
         self,
         repository=None,
         routing_policy=None,
+        delivery=None,
     ):
         self.repository = (
             repository
@@ -88,6 +92,12 @@ class NotificationService:
             routing_policy
             if routing_policy is not None
             else NotificationRoutingPolicy()
+        )
+
+        self.delivery = (
+            delivery
+            if delivery is not None
+            else NotificationDeliveryService()
         )
 
     @staticmethod
@@ -201,7 +211,7 @@ class NotificationService:
             )
         )
 
-        return self.repository.create(
+        notification = self.repository.create(
             event,
             lifecycle_status=lifecycle_status,
             routing_decision=route["decision"],
@@ -212,6 +222,13 @@ class NotificationService:
                 route["reason"]
             ),
         )
+
+        if route["decision"] == "ROUTE":
+            self.delivery.deliver(
+                notification
+            )
+
+        return notification
 
     def acknowledge(
         self,
