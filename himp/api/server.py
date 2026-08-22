@@ -656,6 +656,46 @@ def plugin_details(
     )
 
 
+@app.get(
+    "/workflows/{workflow_id}/history/{workflow_execution_id}",
+    dependencies=[Depends(require_page_session)],
+)
+def workflow_execution_timeline_page(
+    request: Request,
+    workflow_id: int,
+    workflow_execution_id: str,
+):
+    """
+    Render an operator-readable timeline for one persisted
+    workflow execution.
+    """
+
+    from himp.api.workflows import workflow_history_service
+
+    workflow_run = workflow_history_service.get(
+        workflow_id,
+        workflow_execution_id,
+    )
+
+    if workflow_run is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Workflow execution does not exist.",
+        )
+
+    context = dashboard_context()
+
+    context["workflow_run"] = jsonable_encoder(
+        workflow_run
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="workflow_execution_timeline.html",
+        context=context,
+    )
+
+
 @app.get("/history", dependencies=[Depends(require_page_session)])
 def history(request: Request):
 

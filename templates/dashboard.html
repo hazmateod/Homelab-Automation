@@ -273,7 +273,16 @@
 
                     <dt class="col-sm-5">Execution</dt>
                     <dd class="col-sm-7">
-                        {{ workflow.workflow_execution_id or "—" }}
+                        {% if workflow.workflow_execution_id %}
+                            <a
+                                href="/workflows/{{ workflow.id }}/history/{{ workflow.workflow_execution_id }}"
+                                class="text-decoration-none"
+                            >
+                                {{ workflow.workflow_execution_id }}
+                            </a>
+                        {% else %}
+                            —
+                        {% endif %}
                     </dd>
 
                     <dt class="col-sm-5">Started</dt>

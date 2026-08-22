@@ -1,0 +1,274 @@
+{% extends "layout/base.html" %}
+
+{% block content %}
+<div class="container-fluid py-4">
+
+    <div class="d-flex flex-wrap justify-content-between align-items-start gap-3 mb-4">
+        <div>
+            <h1 class="h3 mb-1">
+                Workflow Execution Timeline
+            </h1>
+
+            <div class="text-muted">
+                {{ workflow_run.workflow.name }}
+            </div>
+        </div>
+
+        <div>
+            <a
+                href="/history"
+                class="btn btn-outline-secondary"
+            >
+                Back to History
+            </a>
+        </div>
+    </div>
+
+    <div class="card mb-4">
+        <div class="card-body">
+
+            <div class="row g-4">
+
+                <div class="col-md-4">
+                    <div class="text-muted small">
+                        Execution ID
+                    </div>
+
+                    <div class="font-monospace text-break">
+                        {{ workflow_run.workflow_execution_id }}
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="text-muted small">
+                        Status
+                    </div>
+
+                    {% if workflow_run.status == "SUCCESS" %}
+                        <span class="badge bg-success">
+                            SUCCESS
+                        </span>
+
+                    {% elif workflow_run.status == "FAILED" %}
+                        <span class="badge bg-danger">
+                            FAILED
+                        </span>
+
+                    {% elif workflow_run.status == "RUNNING" %}
+                        <span class="badge bg-primary">
+                            RUNNING
+                        </span>
+
+                    {% else %}
+                        <span class="badge bg-secondary">
+                            {{ workflow_run.status }}
+                        </span>
+                    {% endif %}
+                </div>
+
+                <div class="col-md-2">
+                    <div class="text-muted small">
+                        Started
+                    </div>
+
+                    <div>
+                        {{ workflow_run.started_at or "—" }}
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="text-muted small">
+                        Completed
+                    </div>
+
+                    <div>
+                        {{ workflow_run.completed_at or "—" }}
+                    </div>
+                </div>
+
+                <div class="col-md-2">
+                    <div class="text-muted small">
+                        Duration
+                    </div>
+
+                    <div>
+                        {% if workflow_run.duration_seconds is not none %}
+                            {{ "%.3f"|format(workflow_run.duration_seconds) }}s
+                        {% else %}
+                            —
+                        {% endif %}
+                    </div>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card">
+
+        <div class="card-header">
+            <strong>Execution Timeline</strong>
+        </div>
+
+        <div class="card-body">
+
+            {% if workflow_run.timeline %}
+
+                <div class="d-flex flex-column gap-3">
+
+                    {% for event in workflow_run.timeline %}
+
+                        <div class="border-start border-3 ps-3 py-2">
+
+                            {% if event.type == "workflow_started" %}
+
+                                <div class="d-flex justify-content-between gap-3">
+                                    <strong>
+                                        Workflow started
+                                    </strong>
+
+                                    <span class="text-muted small">
+                                        {{ event.timestamp or "—" }}
+                                    </span>
+                                </div>
+
+                                <div class="text-muted small mt-1">
+                                    Execution entered RUNNING state.
+                                </div>
+
+                            {% elif event.type == "task_execution" %}
+
+                                <div class="d-flex flex-wrap justify-content-between gap-3">
+
+                                    <div>
+                                        <strong>
+                                            {{ event.task_id }}
+                                        </strong>
+
+                                        {% if event.status == "SUCCESS" %}
+                                            <span class="badge bg-success ms-2">
+                                                SUCCESS
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-danger ms-2">
+                                                FAILED
+                                            </span>
+                                        {% endif %}
+                                    </div>
+
+                                    <span class="text-muted small">
+                                        {{ event.timestamp or "—" }}
+                                    </span>
+
+                                </div>
+
+                                <div class="small mt-2">
+
+                                    {% if event.duration_seconds is not none %}
+                                        Duration:
+                                        {{ "%.3f"|format(event.duration_seconds) }}s
+                                    {% endif %}
+
+                                    {% if event.execution_id is not none %}
+                                        <span class="ms-3">
+                                            Execution:
+                                            <a
+                                                href="/automation/executions/{{ event.execution_id }}"
+                                            >
+                                                {{ event.execution_id }}
+                                            </a>
+                                        </span>
+                                    {% endif %}
+
+                                </div>
+
+                                {% if event.status == "FAILED" and event.result %}
+
+                                    <details class="mt-3">
+                                        <summary>
+                                            Failure details
+                                        </summary>
+
+                                        <pre class="mt-2 mb-0 p-3 bg-light border rounded text-break"
+                                        >{{ event.result | tojson(indent=2) }}</pre>
+                                    </details>
+
+                                {% endif %}
+
+                            {% elif event.type == "current_task" %}
+
+                                <div class="d-flex justify-content-between gap-3">
+                                    <div>
+                                        <strong>
+                                            {{ event.task_id }}
+                                        </strong>
+
+                                        <span class="badge bg-primary ms-2">
+                                            RUNNING
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div class="text-muted small mt-1">
+                                    Current workflow task.
+                                </div>
+
+                            {% elif event.type == "workflow_completed" %}
+
+                                <div class="d-flex justify-content-between gap-3">
+
+                                    <div>
+                                        <strong>
+                                            Workflow completed
+                                        </strong>
+
+                                        {% if event.status == "SUCCESS" %}
+                                            <span class="badge bg-success ms-2">
+                                                SUCCESS
+                                            </span>
+                                        {% elif event.status == "FAILED" %}
+                                            <span class="badge bg-danger ms-2">
+                                                FAILED
+                                            </span>
+                                        {% else %}
+                                            <span class="badge bg-secondary ms-2">
+                                                {{ event.status }}
+                                            </span>
+                                        {% endif %}
+                                    </div>
+
+                                    <span class="text-muted small">
+                                        {{ event.timestamp or "—" }}
+                                    </span>
+
+                                </div>
+
+                            {% endif %}
+
+                        </div>
+
+                    {% endfor %}
+
+                </div>
+
+            {% else %}
+
+                <div class="text-muted">
+                    No persisted workflow execution events are available.
+                </div>
+
+            {% endif %}
+
+        </div>
+
+    </div>
+
+    <div class="alert alert-secondary mt-4 mb-0">
+        Timeline events are composed from persisted workflow and
+        automation execution history. Tasks skipped because of dependency
+        failure are not shown unless a persisted execution record exists.
+    </div>
+
+</div>
+{% endblock %}
