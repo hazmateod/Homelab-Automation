@@ -566,3 +566,77 @@ def test_existing_execution_table_is_upgraded_with_workflow_execution_id():
     assert execution["workflow_execution_id"] == (
         "workflow-run-migration"
     )
+
+
+
+def test_save_persists_retry_provenance():
+    repository = make_repository()
+
+    execution_id = repository.save(
+        task_id="health_check",
+        success=True,
+        elapsed=1.0,
+        result={
+            "success": True,
+        },
+        retry_of_execution_id=723,
+        retry_source_workflow_execution_id=(
+            "workflow-source-001"
+        ),
+    )
+
+    execution = repository.find(
+        execution_id
+    )
+
+    assert execution[
+        "workflow_execution_id"
+    ] is None
+
+    assert execution[
+        "retry_of_execution_id"
+    ] == 723
+
+    assert execution[
+        "retry_source_workflow_execution_id"
+    ] == "workflow-source-001"
+
+
+def test_existing_execution_table_is_upgraded_with_retry_provenance():
+    database = TemporaryDatabase()
+
+    database.execute(
+        """
+        CREATE TABLE automation_executions
+        (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            task_id TEXT NOT NULL,
+            success INTEGER NOT NULL,
+            elapsed REAL NOT NULL,
+            result TEXT,
+            executed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        )
+        """
+    )
+
+    repository = object.__new__(
+        AutomationExecutionRepository
+    )
+
+    repository.database = database
+
+    repository._ensure_table()
+
+    columns = {
+        row[1]
+        for row in database.query(
+            "PRAGMA table_info(automation_executions)"
+        )
+    }
+
+    assert "workflow_execution_id" in columns
+    assert "retry_of_execution_id" in columns
+    assert (
+        "retry_source_workflow_execution_id"
+        in columns
+    )

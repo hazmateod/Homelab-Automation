@@ -922,6 +922,8 @@ class AutomationService:
         limit=None,
         confirmed=False,
         workflow_execution_id=None,
+        retry_of_execution_id=None,
+        retry_source_workflow_execution_id=None,
     ):
 
         policy = self.validate_execution_policy(
@@ -1030,6 +1032,12 @@ class AutomationService:
                         result=execution,
                         executed_at=attempt_executed_at,
                         workflow_execution_id=workflow_execution_id,
+                        retry_of_execution_id=(
+                            retry_of_execution_id
+                        ),
+                        retry_source_workflow_execution_id=(
+                            retry_source_workflow_execution_id
+                        ),
                     )
 
                     execution["id"] = execution_id
@@ -1106,6 +1114,12 @@ class AutomationService:
                         result=failure,
                         executed_at=attempt_executed_at,
                         workflow_execution_id=workflow_execution_id,
+                        retry_of_execution_id=(
+                            retry_of_execution_id
+                        ),
+                        retry_source_workflow_execution_id=(
+                            retry_source_workflow_execution_id
+                        ),
                     )
 
                     failure["id"] = execution_id

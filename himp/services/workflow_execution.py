@@ -52,6 +52,7 @@ class WorkflowExecutionService:
         workflow_id,
         limit=None,
         confirmed=False,
+        replay_of_workflow_execution_id=None,
     ):
         workflow = self.workflow_service.get_workflow(
             workflow_id
@@ -85,6 +86,9 @@ class WorkflowExecutionService:
                 workflow_execution_id
             ),
             started_at=started_at,
+            replay_of_workflow_execution_id=(
+                replay_of_workflow_execution_id
+            ),
         )
 
         try:

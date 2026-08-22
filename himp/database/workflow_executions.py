@@ -31,7 +31,9 @@ class WorkflowExecutionRepository:
 
                 success INTEGER,
 
-                current_task_id TEXT
+                current_task_id TEXT,
+
+                replay_of_workflow_execution_id TEXT
             )
             """
         )
@@ -48,11 +50,23 @@ class WorkflowExecutionRepository:
                 """
             )
 
+        if (
+            "replay_of_workflow_execution_id"
+            not in column_names
+        ):
+            self.database.execute(
+                """
+                ALTER TABLE workflow_executions
+                ADD COLUMN replay_of_workflow_execution_id TEXT
+                """
+            )
+
     def create(
         self,
         workflow_id,
         workflow_execution_id,
         started_at=None,
+        replay_of_workflow_execution_id=None,
     ):
         self.database.execute(
             """
@@ -60,19 +74,22 @@ class WorkflowExecutionRepository:
             (
                 workflow_id,
                 workflow_execution_id,
-                started_at
+                started_at,
+                replay_of_workflow_execution_id
             )
             VALUES
             (
                 ?,
                 ?,
-                COALESCE(?, CURRENT_TIMESTAMP)
+                COALESCE(?, CURRENT_TIMESTAMP),
+                ?
             )
             """,
             (
                 workflow_id,
                 workflow_execution_id,
                 started_at,
+                replay_of_workflow_execution_id,
             ),
         )
 

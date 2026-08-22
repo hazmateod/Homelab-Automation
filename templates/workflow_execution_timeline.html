@@ -14,7 +14,19 @@
             </div>
         </div>
 
-        <div>
+        <div class="d-flex flex-wrap gap-2">
+
+            {% if workflow_actions_admin and workflow_run.completed_at %}
+                <button
+                    type="button"
+                    class="btn btn-outline-primary"
+                    id="workflow-replay-button"
+                    onclick="replayWorkflow(false)"
+                >
+                    Replay Workflow
+                </button>
+            {% endif %}
+
             <a
                 href="/history"
                 class="btn btn-outline-secondary"
@@ -105,6 +117,22 @@
         </div>
     </div>
 
+    <div class="alert alert-secondary mb-4">
+        <strong>Retry / replay semantics:</strong>
+        retrying a failed step creates a new standalone automation
+        execution and leaves this historical workflow execution
+        unchanged. Replay Workflow runs the
+        <strong>current workflow definition</strong> as a new workflow
+        execution. Resume is unavailable because HIMP does not persist
+        a deterministic workflow resume checkpoint.
+    </div>
+
+    <div
+        id="workflow-action-result"
+        class="alert d-none mb-4"
+        role="alert"
+    ></div>
+
     <div class="card">
 
         <div class="card-header">
@@ -179,6 +207,23 @@
                                                 {{ event.execution_id }}
                                             </a>
                                         </span>
+
+                                        {% if
+                                            event.status == "FAILED"
+                                            and workflow_actions_admin
+                                            and workflow_run.completed_at
+                                        %}
+                                            <button
+                                                type="button"
+                                                class="btn btn-sm btn-outline-danger ms-2"
+                                                onclick="retryFailedStep(
+                                                    {{ event.execution_id }},
+                                                    false
+                                                )"
+                                            >
+                                                Retry Failed Step
+                                            </button>
+                                        {% endif %}
                                     {% endif %}
 
                                 </div>
@@ -456,4 +501,191 @@
     </div>
 
 </div>
+
+<script>
+const workflowId = {{ workflow_run.workflow.id }};
+const workflowExecutionId =
+    "{{ workflow_run.workflow_execution_id }}";
+
+function workflowActionMessage(
+    message,
+    success = false
+) {
+    const element = document.getElementById(
+        "workflow-action-result"
+    );
+
+    if (!element) {
+        return;
+    }
+
+    element.classList.remove(
+        "d-none",
+        "alert-success",
+        "alert-danger"
+    );
+
+    element.classList.add(
+        success
+            ? "alert-success"
+            : "alert-danger"
+    );
+
+    element.textContent = message;
+}
+
+
+async function workflowActionRequest(
+    url,
+    confirmed = false
+) {
+    const response = await fetch(
+        url,
+        {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({
+                confirmed: confirmed,
+            }),
+        }
+    );
+
+    let payload = {};
+
+    try {
+        payload = await response.json();
+    } catch (_error) {
+        payload = {};
+    }
+
+    if (
+        response.status === 409
+        && !confirmed
+        && typeof payload.detail === "string"
+        && payload.detail.toLowerCase().includes(
+            "confirmation"
+        )
+    ) {
+        const accepted = window.confirm(
+            payload.detail
+            + "\n\nContinue with explicit confirmation?"
+        );
+
+        if (accepted) {
+            return workflowActionRequest(
+                url,
+                true
+            );
+        }
+    }
+
+    if (!response.ok) {
+        throw new Error(
+            payload.detail
+            || "Workflow action failed."
+        );
+    }
+
+    return payload;
+}
+
+
+async function retryFailedStep(
+    executionId,
+    confirmed
+) {
+    const accepted = window.confirm(
+        "Retry this failed step as a new standalone "
+        + "automation execution? The historical workflow "
+        + "execution will not be modified."
+    );
+
+    if (!accepted) {
+        return;
+    }
+
+    try {
+        workflowActionMessage(
+            "Retrying failed step..."
+        );
+
+        const result = await workflowActionRequest(
+            `/api/workflows/${workflowId}/history/`
+            + `${workflowExecutionId}/retry/${executionId}`,
+            confirmed
+        );
+
+        const newExecutionId =
+            result.execution
+            && result.execution.id;
+
+        workflowActionMessage(
+            "Failed-step retry created a new automation "
+            + `execution${newExecutionId ? " " + newExecutionId : ""}.`,
+            true
+        );
+
+        if (newExecutionId) {
+            window.location.href =
+                `/automation/executions/${newExecutionId}`;
+        }
+
+    } catch (error) {
+        workflowActionMessage(
+            error.message
+        );
+    }
+}
+
+
+async function replayWorkflow(
+    confirmed
+) {
+    const accepted = window.confirm(
+        "Replay the CURRENT workflow definition as a new "
+        + "workflow execution? The historical execution "
+        + "shown on this page will not be modified."
+    );
+
+    if (!accepted) {
+        return;
+    }
+
+    try {
+        workflowActionMessage(
+            "Replaying current workflow definition..."
+        );
+
+        const result = await workflowActionRequest(
+            `/api/workflows/${workflowId}/history/`
+            + `${workflowExecutionId}/replay`,
+            confirmed
+        );
+
+        const newWorkflowExecutionId =
+            result.workflow_execution_id;
+
+        workflowActionMessage(
+            "Replay created workflow execution "
+            + newWorkflowExecutionId
+            + ".",
+            true
+        );
+
+        if (newWorkflowExecutionId) {
+            window.location.href =
+                `/workflows/${workflowId}/history/`
+                + newWorkflowExecutionId;
+        }
+
+    } catch (error) {
+        workflowActionMessage(
+            error.message
+        );
+    }
+}
+</script>
+
 {% endblock %}

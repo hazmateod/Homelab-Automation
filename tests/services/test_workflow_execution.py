@@ -124,12 +124,16 @@ class FakeWorkflowExecutionRepository:
         workflow_id,
         workflow_execution_id,
         started_at=None,
+        replay_of_workflow_execution_id=None,
     ):
         execution = {
             "id": len(self.created) + 1,
             "workflow_id": workflow_id,
             "workflow_execution_id": workflow_execution_id,
             "started_at": started_at,
+            "replay_of_workflow_execution_id": (
+                replay_of_workflow_execution_id
+            ),
             "completed_at": None,
             "success": None,
         }
@@ -1152,3 +1156,29 @@ def test_execution_success_preserves_direct_success_contract():
         )
         is True
     )
+
+
+
+def test_workflow_execution_persists_replay_provenance():
+    repository = FakeWorkflowExecutionRepository()
+
+    service, _, _ = make_service(
+        workflow_execution_repository=repository,
+    )
+
+    result = service.execute(
+        1,
+        replay_of_workflow_execution_id=(
+            "source-workflow-run"
+        ),
+    )
+
+    assert result[
+        "workflow_execution_id"
+    ] is not None
+
+    created = repository.created[-1]
+
+    assert created[
+        "replay_of_workflow_execution_id"
+    ] == "source-workflow-run"

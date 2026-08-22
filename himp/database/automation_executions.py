@@ -27,6 +27,10 @@ class AutomationExecutionRepository:
 
                 workflow_execution_id TEXT,
 
+                retry_of_execution_id INTEGER,
+
+                retry_source_workflow_execution_id TEXT,
+
                 success INTEGER NOT NULL,
 
                 elapsed REAL NOT NULL,
@@ -50,6 +54,22 @@ class AutomationExecutionRepository:
                 """
             )
 
+        if "retry_of_execution_id" not in columns:
+            self.database.execute(
+                """
+                ALTER TABLE automation_executions
+                ADD COLUMN retry_of_execution_id INTEGER
+                """
+            )
+
+        if "retry_source_workflow_execution_id" not in columns:
+            self.database.execute(
+                """
+                ALTER TABLE automation_executions
+                ADD COLUMN retry_source_workflow_execution_id TEXT
+                """
+            )
+
     def save(
         self,
         task_id,
@@ -58,6 +78,8 @@ class AutomationExecutionRepository:
         result,
         executed_at=None,
         workflow_execution_id=None,
+        retry_of_execution_id=None,
+        retry_source_workflow_execution_id=None,
     ):
         execution_id = self.database.execute_insert(
             """
@@ -65,6 +87,8 @@ class AutomationExecutionRepository:
             (
                 task_id,
                 workflow_execution_id,
+                retry_of_execution_id,
+                retry_source_workflow_execution_id,
                 success,
                 elapsed,
                 result,
@@ -77,12 +101,16 @@ class AutomationExecutionRepository:
                 ?,
                 ?,
                 ?,
+                ?,
+                ?,
                 COALESCE(?, CURRENT_TIMESTAMP)
             )
             """,
             (
                 task_id,
                 workflow_execution_id,
+                retry_of_execution_id,
+                retry_source_workflow_execution_id,
                 int(success),
                 elapsed,
                 json.dumps(result),

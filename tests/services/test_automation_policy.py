@@ -341,6 +341,8 @@ class RecordingExecutionRepository:
         result,
         executed_at=None,
         workflow_execution_id=None,
+        retry_of_execution_id=None,
+        retry_source_workflow_execution_id=None,
     ):
         self.saved.append(
             {
@@ -349,6 +351,15 @@ class RecordingExecutionRepository:
                 "elapsed": elapsed,
                 "result": result,
                 "executed_at": executed_at,
+                "workflow_execution_id": (
+                    workflow_execution_id
+                ),
+                "retry_of_execution_id": (
+                    retry_of_execution_id
+                ),
+                "retry_source_workflow_execution_id": (
+                    retry_source_workflow_execution_id
+                ),
             }
         )
 

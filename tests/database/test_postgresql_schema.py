@@ -149,6 +149,21 @@ def test_historical_additive_columns_are_in_base_schema():
     )
 
     assert (
+        "RETRY_OF_EXECUTION_ID BIGINT"
+        in statements["automation_executions"]
+    )
+
+    assert (
+        "RETRY_SOURCE_WORKFLOW_EXECUTION_ID TEXT"
+        in statements["automation_executions"]
+    )
+
+    assert (
+        "REPLAY_OF_WORKFLOW_EXECUTION_ID TEXT"
+        in statements["workflow_executions"]
+    )
+
+    assert (
         "DAY_OF_MONTH INTEGER"
         in statements["automation_schedules"]
     )

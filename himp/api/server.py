@@ -658,12 +658,12 @@ def plugin_details(
 
 @app.get(
     "/workflows/{workflow_id}/history/{workflow_execution_id}",
-    dependencies=[Depends(require_page_session)],
 )
 def workflow_execution_timeline_page(
     request: Request,
     workflow_id: int,
     workflow_execution_id: str,
+    session=Depends(require_page_session),
 ):
     """
     Render an operator-readable timeline for one persisted
@@ -687,6 +687,9 @@ def workflow_execution_timeline_page(
 
     context["workflow_run"] = jsonable_encoder(
         workflow_run
+    )
+    context["workflow_actions_admin"] = (
+        session.role == "admin"
     )
 
     return templates.TemplateResponse(

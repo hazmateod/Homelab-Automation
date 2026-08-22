@@ -100,6 +100,8 @@ def test_non_retryable_failure_is_not_retried():
             result,
             executed_at=None,
             workflow_execution_id=None,
+            retry_of_execution_id=None,
+            retry_source_workflow_execution_id=None,
         ):
             self.saved.append(result)
             return len(self.saved)

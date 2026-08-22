@@ -6,7 +6,7 @@ Provides CRUD and validation operations for workflow definitions.
 
 from pydantic import BaseModel
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
 from himp.services.workflow_execution import (
@@ -15,6 +15,17 @@ from himp.services.workflow_execution import (
 from himp.services.workflow_history import (
     WorkflowHistoryService,
 )
+from himp.services.workflow_retry_replay import (
+    WorkflowRetryReplayError,
+    WorkflowRetryReplayService,
+)
+from himp.services.automation import (
+    AutomationAlreadyRunningError,
+    AutomationConfirmationRequiredError,
+    AutomationDependencyNotSatisfiedError,
+    AutomationDisabledError,
+)
+from himp.api.dependencies import require_admin
 from himp.services.workflows import (
     WorkflowDependencyCycleError,
     WorkflowDependencyNotFoundError,
@@ -38,6 +49,11 @@ workflow_execution_service = WorkflowExecutionService(
 
 workflow_history_service = WorkflowHistoryService(
     workflow_service=workflow_service,
+)
+
+workflow_retry_replay_service = WorkflowRetryReplayService(
+    workflow_service=workflow_service,
+    workflow_execution_service=workflow_execution_service,
 )
 
 
@@ -64,6 +80,15 @@ class WorkflowDependencyRequest(BaseModel):
 
 
 class WorkflowExecuteRequest(BaseModel):
+    limit: int | None = None
+    confirmed: bool = False
+
+
+class WorkflowRetryRequest(BaseModel):
+    confirmed: bool = False
+
+
+class WorkflowReplayRequest(BaseModel):
     limit: int | None = None
     confirmed: bool = False
 
@@ -386,3 +411,113 @@ def execute_workflow(
 
     except ValueError as error:
         _invalid(error)
+
+
+
+@router.get(
+    "/workflows/{workflow_id}/history/"
+    "{workflow_execution_id}/actions"
+)
+def workflow_execution_actions(
+    workflow_id: int,
+    workflow_execution_id: str,
+):
+    try:
+        return JSONResponse(
+            workflow_retry_replay_service.capabilities(
+                workflow_id,
+                workflow_execution_id,
+            )
+        )
+
+    except WorkflowRetryReplayError as error:
+        _invalid(error)
+
+
+@router.post(
+    "/workflows/{workflow_id}/history/"
+    "{workflow_execution_id}/retry/{execution_id}",
+    dependencies=[Depends(require_admin)],
+)
+def retry_workflow_failed_step(
+    workflow_id: int,
+    workflow_execution_id: str,
+    execution_id: int,
+    request: WorkflowRetryRequest | None = None,
+):
+    confirmed = (
+        request.confirmed
+        if request is not None
+        else False
+    )
+
+    try:
+        return JSONResponse(
+            workflow_retry_replay_service.retry_failed_step(
+                workflow_id,
+                workflow_execution_id,
+                execution_id,
+                confirmed=confirmed,
+            )
+        )
+
+    except WorkflowRetryReplayError as error:
+        _invalid(error)
+
+    except (
+        AutomationAlreadyRunningError,
+        AutomationDisabledError,
+        AutomationConfirmationRequiredError,
+        AutomationDependencyNotSatisfiedError,
+    ) as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        )
+
+
+@router.post(
+    "/workflows/{workflow_id}/history/"
+    "{workflow_execution_id}/replay",
+    dependencies=[Depends(require_admin)],
+)
+def replay_workflow_execution(
+    workflow_id: int,
+    workflow_execution_id: str,
+    request: WorkflowReplayRequest | None = None,
+):
+    confirmed = (
+        request.confirmed
+        if request is not None
+        else False
+    )
+
+    limit = (
+        request.limit
+        if request is not None
+        else None
+    )
+
+    try:
+        return JSONResponse(
+            workflow_retry_replay_service.replay_workflow(
+                workflow_id,
+                workflow_execution_id,
+                limit=limit,
+                confirmed=confirmed,
+            )
+        )
+
+    except WorkflowRetryReplayError as error:
+        _invalid(error)
+
+    except (
+        AutomationAlreadyRunningError,
+        AutomationDisabledError,
+        AutomationConfirmationRequiredError,
+        AutomationDependencyNotSatisfiedError,
+    ) as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        )

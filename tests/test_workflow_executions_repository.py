@@ -379,3 +379,59 @@ def test_complete_clears_current_task_on_failure():
 
     assert completed["success"] is False
     assert completed["current_task_id"] is None
+
+
+
+def test_create_persists_replay_provenance():
+    repository = make_repository()
+
+    execution = repository.create(
+        workflow_id=1,
+        workflow_execution_id=(
+            "workflow-replay-002"
+        ),
+        replay_of_workflow_execution_id=(
+            "workflow-source-001"
+        ),
+    )
+
+    assert execution[
+        "replay_of_workflow_execution_id"
+    ] == "workflow-source-001"
+
+
+def test_existing_workflow_table_is_upgraded_with_replay_provenance():
+    database = TemporaryDatabase()
+
+    database.execute(
+        """
+        CREATE TABLE workflow_executions
+        (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            workflow_id INTEGER NOT NULL,
+            workflow_execution_id TEXT NOT NULL UNIQUE,
+            started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            completed_at TIMESTAMP,
+            success INTEGER
+        )
+        """
+    )
+
+    repository = object.__new__(
+        WorkflowExecutionRepository
+    )
+
+    repository.database = database
+    repository._ensure_table()
+
+    columns = set(
+        database.table_columns(
+            "workflow_executions"
+        )
+    )
+
+    assert "current_task_id" in columns
+    assert (
+        "replay_of_workflow_execution_id"
+        in columns
+    )

@@ -32,6 +32,8 @@ class FakeExecutionRepository:
         result,
         executed_at=None,
         workflow_execution_id=None,
+        retry_of_execution_id=None,
+        retry_source_workflow_execution_id=None,
     ):
         execution_id = self.next_id
         self.next_id += 1
@@ -46,6 +48,12 @@ class FakeExecutionRepository:
                 "executed_at": executed_at,
                 "workflow_execution_id": (
                     workflow_execution_id
+                ),
+                "retry_of_execution_id": (
+                    retry_of_execution_id
+                ),
+                "retry_source_workflow_execution_id": (
+                    retry_source_workflow_execution_id
                 ),
             }
         )
@@ -286,3 +294,34 @@ def test_retry_attempts_preserve_workflow_execution_id():
     )
 
     assert execution["id"] == saved[1]["id"]
+
+
+
+def test_run_passes_retry_provenance_to_execution_repository():
+    service = make_service()
+
+    execution = service.run(
+        "health_check",
+        retry_of_execution_id=723,
+        retry_source_workflow_execution_id=(
+            "source-workflow-run"
+        ),
+    )
+
+    assert execution["id"] == 42
+
+    persisted = (
+        service.execution_repository.saved[-1]
+    )
+
+    assert persisted[
+        "workflow_execution_id"
+    ] is None
+
+    assert persisted[
+        "retry_of_execution_id"
+    ] == 723
+
+    assert persisted[
+        "retry_source_workflow_execution_id"
+    ] == "source-workflow-run"

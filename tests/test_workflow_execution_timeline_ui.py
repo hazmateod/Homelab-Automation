@@ -94,3 +94,38 @@ def test_workflow_timeline_exposes_operator_failure_analysis():
     assert "No persisted target evidence." in template
     assert "No persisted error text." in template
     assert "Raw persisted failure details" in template
+
+
+
+def test_workflow_timeline_exposes_safe_retry_replay_controls():
+    template = Path(
+        "templates/workflow_execution_timeline.html"
+    ).read_text()
+
+    assert "Retry Failed Step" in template
+    assert "Replay Workflow" in template
+    assert "current workflow definition" in template
+    assert "Resume is unavailable" in template
+    assert "workflow_actions_admin" in template
+    assert "retryFailedStep" in template
+    assert "replayWorkflow" in template
+
+
+def test_workflow_retry_replay_api_is_admin_only():
+    source = Path(
+        "himp/api/workflows.py"
+    ).read_text()
+
+    assert (
+        "retry_workflow_failed_step"
+        in source
+    )
+
+    assert (
+        "replay_workflow_execution"
+        in source
+    )
+
+    assert source.count(
+        "dependencies=[Depends(require_admin)]"
+    ) >= 2
