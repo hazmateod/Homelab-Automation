@@ -8,7 +8,7 @@ import logging
 import subprocess
 import time
 
-from fastapi import Depends, FastAPI
+from fastapi import Depends, FastAPI, HTTPException
 from fastapi.encoders import jsonable_encoder
 from fastapi.requests import Request
 from fastapi.responses import JSONResponse, Response
@@ -521,6 +521,99 @@ def application_health(request: Request):
         name="application_health.html",
         context=context,
     )
+
+
+@app.get("/notifications")
+def notifications(
+    request: Request,
+    lifecycle_status: str | None = None,
+    severity: str | None = None,
+    session=Depends(require_page_session),
+):
+    if (
+        lifecycle_status is not None
+        and lifecycle_status
+        not in himp.notifications.repository.LIFECYCLE_STATUSES
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid notification lifecycle status",
+        )
+
+    if (
+        severity is not None
+        and severity
+        not in himp.notifications.repository.SEVERITIES
+    ):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid notification severity",
+        )
+
+    context = dashboard_context()
+
+    context["notification_summary"] = (
+        himp.notifications.summary(
+            limit=100,
+            lifecycle_status=lifecycle_status,
+            severity=severity,
+        )
+    )
+
+    context["notification_filters"] = {
+        "lifecycle_status": lifecycle_status,
+        "severity": severity,
+    }
+
+    context["notification_lifecycle_statuses"] = (
+        sorted(
+            himp.notifications.repository
+            .LIFECYCLE_STATUSES
+        )
+    )
+
+    context["notification_severities"] = (
+        sorted(
+            himp.notifications.repository
+            .SEVERITIES
+        )
+    )
+
+    context["can_acknowledge_notifications"] = (
+        session.role == "admin"
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="notifications.html",
+        context=context,
+    )
+
+
+@app.post(
+    "/api/notifications/{notification_id}/acknowledge"
+)
+def acknowledge_notification(
+    notification_id: int,
+    admin=Depends(require_admin),
+):
+    try:
+        return himp.notifications.acknowledge(
+            notification_id,
+            admin.username,
+        )
+
+    except KeyError as error:
+        raise HTTPException(
+            status_code=404,
+            detail=str(error),
+        ) from error
+
+    except ValueError as error:
+        raise HTTPException(
+            status_code=409,
+            detail=str(error),
+        ) from error
 
 
 @app.get("/settings", dependencies=[Depends(require_page_session)])

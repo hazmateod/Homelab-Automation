@@ -1,0 +1,386 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+
+    <div class="mb-4">
+        <h1>Notifications</h1>
+        <p class="text-secondary">
+            HIMP operational notification history and delivery state.
+        </p>
+    </div>
+
+
+    <div
+        id="notificationAlert"
+        class="mb-3"
+    ></div>
+
+
+    <div class="row mb-4">
+
+        <div class="col-md-3">
+            <div class="card bg-primary text-white">
+                <div class="card-body">
+                    <h6>Visible Notifications</h6>
+                    <h2>
+                        {{ notification_summary.count }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-warning text-dark">
+                <div class="card-body">
+                    <h6>Pending</h6>
+                    <h2>
+                        {{ notification_summary.pending }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-danger text-white">
+                <div class="card-body">
+                    <h6>Critical</h6>
+                    <h2>
+                        {{ notification_summary.critical }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-3">
+            <div class="card bg-secondary text-light">
+                <div class="card-body">
+                    <h6>Delivery Failures</h6>
+                    <h2>
+                        {{ notification_summary.delivery_failures }}
+                    </h2>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+
+    <div class="card bg-secondary text-light mb-4">
+
+        <div class="card-header border-secondary">
+            <strong>Filters</strong>
+        </div>
+
+        <div class="card-body">
+
+            <form
+                method="get"
+                action="/notifications"
+                class="row g-3 align-items-end"
+            >
+
+                <div class="col-md-4">
+                    <label
+                        class="form-label"
+                        for="lifecycleStatus"
+                    >
+                        Lifecycle Status
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="lifecycleStatus"
+                        name="lifecycle_status"
+                    >
+                        <option value="">
+                            All
+                        </option>
+
+                        {% for status in notification_lifecycle_statuses %}
+                        <option
+                            value="{{ status }}"
+                            {% if notification_filters.lifecycle_status == status %}selected{% endif %}
+                        >
+                            {{ status }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+
+                <div class="col-md-4">
+                    <label
+                        class="form-label"
+                        for="severity"
+                    >
+                        Severity
+                    </label>
+
+                    <select
+                        class="form-select"
+                        id="severity"
+                        name="severity"
+                    >
+                        <option value="">
+                            All
+                        </option>
+
+                        {% for item in notification_severities %}
+                        <option
+                            value="{{ item }}"
+                            {% if notification_filters.severity == item %}selected{% endif %}
+                        >
+                            {{ item }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+
+                <div class="col-md-4">
+                    <button
+                        class="btn btn-primary"
+                        type="submit"
+                    >
+                        Apply Filters
+                    </button>
+
+                    <a
+                        class="btn btn-outline-light"
+                        href="/notifications"
+                    >
+                        Clear
+                    </a>
+                </div>
+
+            </form>
+
+        </div>
+    </div>
+
+
+    <div class="card bg-secondary text-light">
+
+        <div class="card-header border-secondary">
+            <strong>Notification History</strong>
+        </div>
+
+        <div class="card-body p-0">
+
+            {% if notification_summary.rows %}
+
+            <div class="table-responsive">
+                <table
+                    class="table table-dark table-hover align-middle mb-0"
+                >
+
+                    <thead>
+                        <tr>
+                            <th>Severity</th>
+                            <th>Event</th>
+                            <th>Source</th>
+                            <th>Message</th>
+                            <th>Lifecycle</th>
+                            <th>Delivery</th>
+                            <th>Occurred</th>
+                            <th>Acknowledgement</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+
+                        {% for notification in notification_summary.rows %}
+                        <tr>
+
+                            <td>
+                                {% if notification.severity == "CRITICAL" %}
+                                <span class="badge bg-danger">
+                                    CRITICAL
+                                </span>
+                                {% elif notification.severity == "WARNING" %}
+                                <span class="badge bg-warning text-dark">
+                                    WARNING
+                                </span>
+                                {% elif notification.severity == "RECOVERY" %}
+                                <span class="badge bg-success">
+                                    RECOVERY
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">
+                                    {{ notification.severity }}
+                                </span>
+                                {% endif %}
+                            </td>
+
+
+                            <td>
+                                <strong>
+                                    {{ notification.title }}
+                                </strong>
+                                <div class="small text-secondary">
+                                    {{ notification.event_type }}
+                                </div>
+                            </td>
+
+
+                            <td>
+                                {{ notification.source_id }}
+                            </td>
+
+
+                            <td style="min-width:260px;">
+                                {{ notification.message }}
+                            </td>
+
+
+                            <td>
+                                {% if notification.lifecycle_status == "PENDING" %}
+                                <span class="badge bg-warning text-dark">
+                                    PENDING
+                                </span>
+                                {% elif notification.lifecycle_status == "ACKNOWLEDGED" %}
+                                <span class="badge bg-primary">
+                                    ACKNOWLEDGED
+                                </span>
+                                {% elif notification.lifecycle_status == "RECOVERED" %}
+                                <span class="badge bg-success">
+                                    RECOVERED
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">
+                                    {{ notification.lifecycle_status }}
+                                </span>
+                                {% endif %}
+                            </td>
+
+
+                            <td>
+                                {% if notification.latest_delivery %}
+
+                                    {% if notification.latest_delivery.status == "SUCCESS" %}
+                                    <span class="badge bg-success">
+                                        SUCCESS
+                                    </span>
+                                    {% elif notification.latest_delivery.status == "FAILED" %}
+                                    <span class="badge bg-danger">
+                                        FAILED
+                                    </span>
+                                    {% else %}
+                                    <span class="badge bg-secondary">
+                                        {{ notification.latest_delivery.status }}
+                                    </span>
+                                    {% endif %}
+
+                                    <div class="small text-secondary mt-1">
+                                        {{ notification.latest_delivery.destination_type }}
+                                        {% if notification.latest_delivery.status_code %}
+                                            · HTTP {{ notification.latest_delivery.status_code }}
+                                        {% endif %}
+                                    </div>
+
+                                    {% if notification.latest_delivery.error %}
+                                    <div class="small text-danger mt-1">
+                                        {{ notification.latest_delivery.error }}
+                                    </div>
+                                    {% endif %}
+
+                                {% else %}
+                                <span class="text-secondary">
+                                    No delivery
+                                </span>
+                                {% endif %}
+                            </td>
+
+
+                            <td>
+                                {{ notification.occurred_at }}
+                            </td>
+
+
+                            <td>
+                                {% if notification.acknowledged_by %}
+                                <div>
+                                    {{ notification.acknowledged_by }}
+                                </div>
+                                <div class="small text-secondary">
+                                    {{ notification.acknowledged_at }}
+                                </div>
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+
+
+                            <td>
+                                {% if
+                                    notification.lifecycle_status == "PENDING"
+                                    and can_acknowledge_notifications
+                                %}
+                                <button
+                                    type="button"
+                                    class="btn btn-sm btn-outline-primary"
+                                    onclick="acknowledgeNotification({{ notification.id }})"
+                                >
+                                    Acknowledge
+                                </button>
+                                {% elif
+                                    notification.lifecycle_status == "PENDING"
+                                %}
+                                <span class="small text-secondary">
+                                    Admin required
+                                </span>
+                                {% else %}
+                                —
+                                {% endif %}
+                            </td>
+
+                        </tr>
+                        {% endfor %}
+
+                    </tbody>
+                </table>
+            </div>
+
+            {% else %}
+
+            <div class="p-4 text-secondary">
+                No notifications match the selected filters.
+            </div>
+
+            {% endif %}
+
+        </div>
+    </div>
+
+</div>
+
+
+<script>
+async function acknowledgeNotification(notificationId) {
+    const response = await fetch(
+        `/api/notifications/${notificationId}/acknowledge`,
+        {
+            method: "POST"
+        }
+    );
+
+    let payload = {};
+
+    try {
+        payload = await response.json();
+    } catch (_) {}
+
+    if (!response.ok) {
+        window.alert(
+            payload.detail
+            || "Notification acknowledgement failed."
+        );
+        return;
+    }
+
+    window.location.reload();
+}
+</script>
+{% endblock %}

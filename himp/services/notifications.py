@@ -230,6 +230,68 @@ class NotificationService:
 
         return notification
 
+    def history(
+        self,
+        limit=100,
+        lifecycle_status=None,
+        severity=None,
+    ):
+        notifications = self.repository.list(
+            limit=limit,
+            lifecycle_status=lifecycle_status,
+            severity=severity,
+        )
+
+        return [
+            {
+                **notification,
+                "latest_delivery": (
+                    self.delivery.repository
+                    .latest_for_notification(
+                        notification["id"]
+                    )
+                ),
+            }
+            for notification in notifications
+        ]
+
+    def summary(
+        self,
+        limit=100,
+        lifecycle_status=None,
+        severity=None,
+    ):
+        rows = self.history(
+            limit=limit,
+            lifecycle_status=lifecycle_status,
+            severity=severity,
+        )
+
+        return {
+            "rows": rows,
+            "count": len(rows),
+            "pending": sum(
+                1
+                for row in rows
+                if row["lifecycle_status"]
+                == "PENDING"
+            ),
+            "critical": sum(
+                1
+                for row in rows
+                if row["severity"]
+                == "CRITICAL"
+            ),
+            "delivery_failures": sum(
+                1
+                for row in rows
+                if row["latest_delivery"]
+                is not None
+                and row["latest_delivery"]["status"]
+                == "FAILED"
+            ),
+        }
+
     def acknowledge(
         self,
         notification_id,

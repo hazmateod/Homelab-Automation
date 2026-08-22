@@ -19,6 +19,13 @@ class NotificationRepository:
         "RECOVERED",
     }
 
+    SEVERITIES = {
+        "INFO",
+        "WARNING",
+        "CRITICAL",
+        "RECOVERY",
+    }
+
     def __init__(
         self,
         database=None,
@@ -211,6 +218,7 @@ class NotificationRepository:
         self,
         limit=100,
         lifecycle_status=None,
+        severity=None,
     ):
         if (
             not isinstance(limit, int)
@@ -221,21 +229,48 @@ class NotificationRepository:
                 "limit must be a positive integer"
             )
 
+        if lifecycle_status is not None:
+            self._validate_lifecycle_status(
+                lifecycle_status
+            )
+
+        if (
+            severity is not None
+            and severity not in self.SEVERITIES
+        ):
+            raise ValueError(
+                "invalid notification severity: "
+                f"{severity}"
+            )
+
+        clauses = []
         parameters = []
+
+        if lifecycle_status is not None:
+            clauses.append(
+                "lifecycle_status=?"
+            )
+            parameters.append(
+                lifecycle_status
+            )
+
+        if severity is not None:
+            clauses.append(
+                "severity=?"
+            )
+            parameters.append(
+                severity
+            )
+
         query = """
             SELECT *
             FROM notifications
         """
 
-        if lifecycle_status is not None:
-            self._validate_lifecycle_status(
-                lifecycle_status
-            )
-            query += """
-                WHERE lifecycle_status=?
-            """
-            parameters.append(
-                lifecycle_status
+        if clauses:
+            query += (
+                "\nWHERE "
+                + " AND ".join(clauses)
             )
 
         query += """

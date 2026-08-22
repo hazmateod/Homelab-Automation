@@ -136,6 +136,28 @@ class NotificationDeliveryRepository:
 
         return dict(rows[0])
 
+    def latest_for_notification(
+        self,
+        notification_id,
+    ):
+        rows = self.database.query(
+            """
+            SELECT *
+            FROM notification_deliveries
+            WHERE notification_id=?
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (
+                notification_id,
+            ),
+        )
+
+        if not rows:
+            return None
+
+        return dict(rows[0])
+
     def for_notification(
         self,
         notification_id,
