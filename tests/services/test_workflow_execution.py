@@ -1031,3 +1031,124 @@ def test_workflow_execution_uses_one_correlation_id_for_all_tasks():
     assert workflow_execution_ids[0] == (
         result["workflow_execution_id"]
     )
+
+
+def test_workflow_marks_nested_automation_result_failure_as_failed():
+    """
+    AutomationService.run returns its task outcome inside the persisted
+    execution envelope's result field. Workflow orchestration must use
+    that nested success value rather than defaulting the task to success.
+    """
+
+    class NestedFailureAutomationService:
+        def run(
+            self,
+            task_id,
+            limit=None,
+            confirmed=False,
+            workflow_execution_id=None,
+        ):
+            return {
+                "id": 707,
+                "task": task_id,
+                "executed_at": (
+                    "2026-08-22T00:07:52+00:00"
+                ),
+                "attempt": 1,
+                "attempts": 1,
+                "result": {
+                    "success": False,
+                    "executions": [],
+                },
+            }
+
+    workflow_service = FakeWorkflowService(
+        validation={
+            "workflow_id": 1,
+            "valid": True,
+            "errors": [],
+            "task_count": 1,
+            "dependency_count": 0,
+        },
+        tasks=[
+            {
+                "id": 1,
+                "workflow_id": 1,
+                "task_id": "health_check",
+                "position": 1,
+            },
+        ],
+        dependencies=[],
+    )
+
+    execution_repository = (
+        FakeWorkflowExecutionRepository()
+    )
+
+    service = WorkflowExecutionService(
+        workflow_service=workflow_service,
+        automation_service=(
+            NestedFailureAutomationService()
+        ),
+        workflow_execution_repository=(
+            execution_repository
+        ),
+    )
+
+    result = service.execute(1)
+
+    assert result["success"] is False
+    assert result["failed_tasks"] == [
+        "health_check",
+    ]
+
+    assert (
+        execution_repository.completed[-1][
+            "success"
+        ]
+        is False
+    )
+
+
+def test_execution_success_supports_automation_envelope():
+    assert (
+        WorkflowExecutionService._execution_success(
+            {
+                "result": {
+                    "success": False,
+                }
+            }
+        )
+        is False
+    )
+
+    assert (
+        WorkflowExecutionService._execution_success(
+            {
+                "result": {
+                    "success": True,
+                }
+            }
+        )
+        is True
+    )
+
+
+def test_execution_success_preserves_direct_success_contract():
+    assert (
+        WorkflowExecutionService._execution_success(
+            {
+                "success": False,
+            }
+        )
+        is False
+    )
+
+    assert (
+        WorkflowExecutionService._execution_success(
+            {
+                "success": True,
+            }
+        )
+        is True
+    )

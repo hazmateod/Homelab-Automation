@@ -155,13 +155,9 @@ class WorkflowExecutionService:
                 executions.append(execution)
                 task_results[task_id] = execution
 
-                success = True
-
-                if isinstance(execution, dict):
-                    if "success" in execution:
-                        success = bool(
-                            execution["success"]
-                        )
+                success = self._execution_success(
+                    execution
+                )
 
                 if not success:
                     failed_tasks.append(task_id)
@@ -211,6 +207,41 @@ class WorkflowExecutionService:
             "skipped_tasks": skipped_tasks,
             "executions": executions,
         }
+
+    @staticmethod
+    def _execution_success(
+        execution,
+    ):
+        """
+        Interpret the existing AutomationService execution envelope.
+
+        AutomationService persists task success separately and returns
+        an execution envelope whose normalized task result is stored
+        under ``result``. Some callers/tests may also provide a direct
+        top-level ``success`` field, so preserve support for both forms.
+        """
+
+        if not isinstance(execution, dict):
+            return True
+
+        if "success" in execution:
+            return bool(
+                execution["success"]
+            )
+
+        result = execution.get(
+            "result"
+        )
+
+        if (
+            isinstance(result, dict)
+            and "success" in result
+        ):
+            return bool(
+                result["success"]
+            )
+
+        return True
 
     def _execution_order(
         self,
