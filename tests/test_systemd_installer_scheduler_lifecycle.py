@@ -68,3 +68,14 @@ def test_normal_deployment_documents_unchanged_runtime_state():
         "Scheduler timer runtime state left unchanged."
         in text
     )
+
+
+def test_inactive_scheduler_status_is_nonfatal():
+    text = source()
+
+    assert (
+        "systemctl status \\\n"
+        "    himp-scheduler.timer \\\n"
+        "    --no-pager || true"
+        in text
+    )

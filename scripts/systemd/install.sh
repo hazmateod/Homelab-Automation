@@ -109,9 +109,13 @@ echo " HIMP Systemd Installation Complete"
 echo "========================================="
 echo
 
+# Timer state is informational here. Normal application deployment
+# deliberately preserves the existing scheduler runtime state, which may
+# legitimately be inactive. systemctl status returns nonzero for an inactive
+# unit, so reporting timer state must not fail the installer.
 systemctl status \
     himp-scheduler.timer \
-    --no-pager
+    --no-pager || true
 
 echo
 echo "Scheduled timers:"
