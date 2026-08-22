@@ -623,6 +623,62 @@ def automation_execution_details(
     context = dashboard_context()
     context["execution"] = execution
 
+    workflow_navigation = {
+        "origin_workflow_id": None,
+        "origin_workflow_execution_id": None,
+        "retry_source_workflow_id": None,
+        "retry_source_workflow_execution_id": None,
+        "retry_of_execution_id": None,
+    }
+
+    if execution is not None:
+        from himp.api.workflows import workflow_history_service
+
+        origin_execution_id = execution.get(
+            "workflow_execution_id"
+        )
+        retry_source_execution_id = execution.get(
+            "retry_source_workflow_execution_id"
+        )
+
+        if origin_execution_id:
+            origin_run = (
+                workflow_history_service
+                .workflow_execution_repository
+                .find(origin_execution_id)
+            )
+
+            if origin_run is not None:
+                workflow_navigation[
+                    "origin_workflow_id"
+                ] = origin_run.get("workflow_id")
+                workflow_navigation[
+                    "origin_workflow_execution_id"
+                ] = origin_execution_id
+
+        if retry_source_execution_id:
+            retry_source_run = (
+                workflow_history_service
+                .workflow_execution_repository
+                .find(retry_source_execution_id)
+            )
+
+            if retry_source_run is not None:
+                workflow_navigation[
+                    "retry_source_workflow_id"
+                ] = retry_source_run.get("workflow_id")
+                workflow_navigation[
+                    "retry_source_workflow_execution_id"
+                ] = retry_source_execution_id
+
+        workflow_navigation[
+            "retry_of_execution_id"
+        ] = execution.get(
+            "retry_of_execution_id"
+        )
+
+    context["workflow_navigation"] = workflow_navigation
+
     return templates.TemplateResponse(
         request=request,
         name="automation_execution_details.html",
@@ -652,6 +708,49 @@ def plugin_details(
     return templates.TemplateResponse(
         request=request,
         name="plugin_details.html",
+        context=context,
+    )
+
+
+@app.get(
+    "/workflows/{workflow_id}/history",
+    dependencies=[Depends(require_page_session)],
+)
+def workflow_history_page(
+    request: Request,
+    workflow_id: int,
+):
+    """
+    Render persisted execution history for one workflow.
+
+    WorkflowHistoryService remains authoritative. This page creates
+    navigation only and does not persist a second history model.
+    """
+    from himp.api.workflows import workflow_history_service
+
+    try:
+        workflow_runs = workflow_history_service.history(
+            workflow_id,
+            limit=100,
+        )
+        workflow = (
+            workflow_history_service.workflow_service.get_workflow(
+                workflow_id
+            )
+        )
+    except KeyError:
+        raise HTTPException(
+            status_code=404,
+            detail="Workflow not found",
+        )
+
+    context = dashboard_context()
+    context["workflow"] = workflow
+    context["workflow_runs"] = workflow_runs
+
+    return templates.TemplateResponse(
+        request=request,
+        name="workflow_history.html",
         context=context,
     )
 

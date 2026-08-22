@@ -28,10 +28,17 @@
             {% endif %}
 
             <a
-                href="/history"
+                href="/workflows/{{ workflow_run.workflow.id }}/history"
                 class="btn btn-outline-secondary"
             >
-                Back to History
+                Workflow History
+            </a>
+
+            <a
+                class="btn btn-outline-secondary"
+                href="/"
+            >
+                Dashboard
             </a>
         </div>
     </div>
@@ -48,6 +55,19 @@
 
                     <div class="font-monospace text-break">
                         {{ workflow_run.workflow_execution_id }}
+
+                        {% if
+                            workflow_run.replay_of_workflow_execution_id
+                        %}
+                        <div class="text-muted">
+                            Replay of
+                            <a
+                                href="/workflows/{{ workflow_run.workflow.id }}/history/{{ workflow_run.replay_of_workflow_execution_id }}"
+                            >
+                                {{ workflow_run.replay_of_workflow_execution_id }}
+                            </a>
+                        </div>
+                        {% endif %}
                     </div>
                 </div>
 

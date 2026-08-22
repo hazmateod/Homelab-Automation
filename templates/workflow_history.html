@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+
+{% block content %}
+<div class="container-fluid">
+    <div
+        style="
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        "
+    >
+        <div>
+            <h1>Workflow History</h1>
+            <p class="text-muted">
+                {{ workflow.name }}
+            </p>
+        </div>
+
+        <div
+            style="
+                display: flex;
+                gap: 0.5rem;
+                flex-wrap: wrap;
+            "
+        >
+            <a
+                class="btn btn-outline-secondary"
+                href="/"
+            >
+                Back to Dashboard
+            </a>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <strong>Persisted Workflow Runs</strong>
+        </div>
+
+        <div class="card-body">
+            {% if workflow_runs %}
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Execution ID</th>
+                            <th>Status</th>
+                            <th>Started</th>
+                            <th>Completed</th>
+                            <th>Duration</th>
+                            <th>Lineage</th>
+                            <th>Details</th>
+                        </tr>
+                    </thead>
+
+                    <tbody>
+                        {% for run in workflow_runs %}
+                        <tr>
+                            <td>
+                                <code>
+                                    {{ run.workflow_execution_id }}
+                                </code>
+                            </td>
+
+                            <td>
+                                {% if run.status == "SUCCESS" %}
+                                <span class="badge bg-success">
+                                    SUCCESS
+                                </span>
+                                {% elif run.status == "FAILED" %}
+                                <span class="badge bg-danger">
+                                    FAILED
+                                </span>
+                                {% elif run.status == "RUNNING" %}
+                                <span class="badge bg-primary">
+                                    RUNNING
+                                </span>
+                                {% else %}
+                                <span class="badge bg-secondary">
+                                    {{ run.status }}
+                                </span>
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {{ run.started_at or "—" }}
+                            </td>
+
+                            <td>
+                                {{ run.completed_at or "—" }}
+                            </td>
+
+                            <td>
+                                {% if run.duration_seconds is not none %}
+                                    {{ "%.3f"|format(
+                                        run.duration_seconds
+                                    ) }}s
+                                {% else %}
+                                    —
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                {% if
+                                    run.replay_of_workflow_execution_id
+                                %}
+                                Replay of
+                                <a
+                                    href="/workflows/{{ workflow.id }}/history/{{ run.replay_of_workflow_execution_id }}"
+                                >
+                                    {{ run.replay_of_workflow_execution_id }}
+                                </a>
+                                {% else %}
+                                Original run
+                                {% endif %}
+                            </td>
+
+                            <td>
+                                <a
+                                    class="btn btn-sm btn-outline-primary"
+                                    href="/workflows/{{ workflow.id }}/history/{{ run.workflow_execution_id }}"
+                                >
+                                    View Run
+                                </a>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+            <p class="text-muted mb-0">
+                No persisted workflow executions are available.
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <p
+        class="text-muted"
+        style="margin-top: 1rem;"
+    >
+        Workflow history is composed from the existing persisted
+        workflow and automation execution records. No separate history
+        store is maintained by this page.
+    </p>
+</div>
+{% endblock %}
