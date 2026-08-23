@@ -44,6 +44,20 @@ def _write_fake_systemctl(bin_dir, log_file):
     systemctl.chmod(0o755)
 
 
+def _write_fake_curl(bin_dir, log_file):
+    curl = bin_dir / "curl"
+    curl.write_text(
+        "#!/usr/bin/env bash\n"
+        "set -u\n"
+        f'printf "curl %s\\n" "$*" >> "{log_file}"\n'
+        'if [[ "${HIMP_TEST_READINESS_FAIL:-0}" == "1" ]]; then\n'
+        "    exit 7\n"
+        "fi\n"
+        "exit 0\n"
+    )
+    curl.chmod(0o755)
+
+
 def _write_fake_runtime_python(
     deploy_root,
     log_file,
@@ -186,6 +200,7 @@ def _prepare_environment(tmp_path):
     bin_dir.mkdir()
 
     _write_fake_systemctl(bin_dir, log_file)
+    _write_fake_curl(bin_dir, log_file)
     _write_fake_runtime_python(
         deploy_root,
         log_file,
@@ -1119,3 +1134,49 @@ def test_cli_launcher_uses_project_virtual_environment():
     assert 'exec "$PYTHON" -m himp.cli "$@"' in launcher
     assert 'exec python3 -m himp.cli "$@"' not in launcher
     assert '/usr/bin/python3' not in launcher
+
+def test_successful_deployment_waits_for_application_readiness(tmp_path):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    assert "Waiting for HIMP application readiness..." in result.stdout
+    assert "HIMP application is ready." in result.stdout
+    assert any(
+        line.startswith("curl ")
+        and "http://127.0.0.1:9347/" in line
+        for line in _log_lines(log_file)
+    )
+
+
+def test_failed_application_readiness_rejects_release_marker(tmp_path):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+        check=False,
+        extra_env={
+            "HIMP_TEST_READINESS_FAIL": "1",
+            "HIMP_READINESS_ATTEMPTS": "2",
+            "HIMP_READINESS_SLEEP_SECONDS": "0",
+        },
+    )
+
+    assert result.returncode != 0
+    assert (
+        "HIMP service is active but application readiness failed."
+        in result.stdout
+    )
+    assert not (deploy_root / ".himp-release").exists()

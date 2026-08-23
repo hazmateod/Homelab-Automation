@@ -269,21 +269,57 @@ else
 fi
 
 echo
-echo "Waiting for HIMP..."
+echo "Waiting for HIMP service..."
 
-for attempt in {1..10}; do
+HIMP_READINESS_URL="${HIMP_READINESS_URL:-http://127.0.0.1:9347/}"
+HIMP_READINESS_ATTEMPTS="${HIMP_READINESS_ATTEMPTS:-15}"
+HIMP_READINESS_SLEEP_SECONDS="${HIMP_READINESS_SLEEP_SECONDS:-1}"
+
+for ((attempt = 1; attempt <= HIMP_READINESS_ATTEMPTS; attempt++)); do
     if systemctl is-active --quiet himp; then
         break
     fi
 
-    sleep 1
+    sleep "$HIMP_READINESS_SLEEP_SECONDS"
 done
 
 if ! systemctl is-active --quiet himp; then
     echo "ERROR: HIMP service failed to start."
-    systemctl status himp --no-pager
+    systemctl status himp --no-pager || true
+    journalctl -u himp -n 100 --no-pager || true
     exit 1
 fi
+
+echo
+echo "Waiting for HIMP application readiness..."
+
+HIMP_READY=false
+
+for ((attempt = 1; attempt <= HIMP_READINESS_ATTEMPTS; attempt++)); do
+    if curl \
+        --fail \
+        --silent \
+        --show-error \
+        --output /dev/null \
+        --max-time 2 \
+        "$HIMP_READINESS_URL"; then
+
+        HIMP_READY=true
+        break
+    fi
+
+    sleep "$HIMP_READINESS_SLEEP_SECONDS"
+done
+
+if [[ "$HIMP_READY" != "true" ]]; then
+    echo "ERROR: HIMP service is active but application readiness failed."
+    echo "  readiness URL: $HIMP_READINESS_URL"
+    systemctl status himp --no-pager || true
+    journalctl -u himp -n 100 --no-pager || true
+    exit 1
+fi
+
+echo "HIMP application is ready."
 
 printf '%s\n' "$SOURCE_REVISION" > "$RELEASE_MARKER"
 chown himp:himp "$RELEASE_MARKER"
