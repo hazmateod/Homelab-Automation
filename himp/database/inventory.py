@@ -296,6 +296,23 @@ class InventoryRepository:
         new_value,
     ):
 
+        def normalize_change_value(value):
+            if value is None:
+                return None
+
+            if isinstance(value, bool):
+                return str(int(value))
+
+            return str(value)
+
+        old_value = normalize_change_value(
+            old_value
+        )
+
+        new_value = normalize_change_value(
+            new_value
+        )
+
         existing = self.database.query(
             """
             SELECT *
