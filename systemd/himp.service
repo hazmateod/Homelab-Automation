@@ -18,7 +18,7 @@ Environment=PYTHONUNBUFFERED=1
 EnvironmentFile=-/etc/himp/database.env
 EnvironmentFile=-/etc/himp/notifications.env
 
-ExecStart=/opt/himp/.venv/bin/uvicorn himp.api.server:app --host 0.0.0.0 --port 9347
+ExecStart=/opt/himp/.venv/bin/uvicorn himp.api.server:app --host 127.0.0.1 --port 9347 --proxy-headers --forwarded-allow-ips 127.0.0.1
 
 Restart=always
 RestartSec=5

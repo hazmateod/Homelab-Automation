@@ -1,0 +1,17 @@
+automation.server.arpa {
+	tls /etc/himp/tls/himp.crt /etc/himp/tls/himp.key
+
+	encode zstd gzip
+
+	header {
+		-Server
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+	}
+
+	reverse_proxy 127.0.0.1:9347 {
+		header_down -Server
+	}
+}
