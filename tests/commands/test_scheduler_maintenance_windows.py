@@ -284,3 +284,65 @@ def test_blocked_remediation_is_not_claimed_or_executed(
     assert maintenance.calls[0][
         "task_id"
     ] == "scheduled_updates"
+
+
+
+def test_offset_aware_scheduler_at_is_normalized_to_naive_local_time(
+    monkeypatch,
+):
+    captured = {}
+
+    class CapturingScheduler:
+        def due_tasks(
+            self,
+            now,
+        ):
+            captured["now"] = now
+            return []
+
+    class EmptyRemediation:
+        def due(
+            self,
+            now=None,
+            limit=100,
+        ):
+            return []
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "HIMP",
+        FakeHIMP,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "SchedulerService",
+        CapturingScheduler,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "RemediationSchedulingService",
+        EmptyRemediation,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "MaintenanceWindowService",
+        BlockingMaintenanceWindows,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run.PostgreSQLDatabase,
+        "close_pools",
+        lambda: None,
+    )
+
+    result = scheduler_run.run(
+        SimpleNamespace(
+            at="2026-08-23T16:28:29-04:00"
+        )
+    )
+
+    assert result == 0
+    assert captured["now"].tzinfo is None

@@ -365,3 +365,41 @@ def test_disabled_window_does_not_block():
         "health_check",
         now=now,
     )
+
+
+
+def test_naive_maintenance_datetime_is_preserved():
+    repository = FakeMaintenanceWindowRepository()
+
+    service = MaintenanceWindowService(
+        repository=repository
+    )
+
+    starts_at = datetime(
+        2026,
+        8,
+        24,
+        0,
+        30,
+        0,
+    )
+
+    ends_at = datetime(
+        2026,
+        8,
+        24,
+        1,
+        30,
+        0,
+    )
+
+    window = service.create(
+        name="UTC Naive Window",
+        reason="Internal UTC-naive regression",
+        starts_at=starts_at,
+        ends_at=ends_at,
+        created_by="test",
+    )
+
+    assert window["starts_at"] == starts_at
+    assert window["ends_at"] == ends_at

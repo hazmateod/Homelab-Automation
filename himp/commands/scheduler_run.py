@@ -22,13 +22,27 @@ from himp.services.remediation_scheduling import (
 from himp.services.scheduler import SchedulerService
 
 
+def _local_naive(value):
+    """
+    Normalize a scheduler evaluation datetime to the recurring
+    scheduler's established local-time, timezone-naive contract.
+    """
+
+    if value.tzinfo is None:
+        return value
+
+    return value.astimezone().replace(
+        tzinfo=None
+    )
+
+
 def _utc_naive(value):
     """
     Convert a scheduler evaluation datetime to UTC-naive form for
-    remediation schedule persistence comparisons.
+    remediation and maintenance persistence comparisons.
 
-    Existing recurring automation schedules intentionally continue to
-    use the scheduler's established local-time contract.
+    A naive input represents local scheduler time. An aware input is
+    converted from its declared offset to UTC.
     """
 
     if value.tzinfo is None:
@@ -75,12 +89,16 @@ def run(args):
         else:
             now = datetime.now()
 
+        scheduler_now = _local_naive(
+            now
+        )
+
         remediation_now = _utc_naive(
             now
         )
 
         due_tasks = scheduler.due_tasks(
-            now
+            scheduler_now
         )
 
         due_remediations = (

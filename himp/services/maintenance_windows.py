@@ -61,7 +61,7 @@ class MaintenanceWindowService:
             )
 
         if value.tzinfo is None:
-            value = value.astimezone()
+            return value
 
         return value.astimezone(
             timezone.utc
