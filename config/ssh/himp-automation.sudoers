@@ -1,0 +1,8 @@
+# HIMP unattended Ansible execution identity.
+#
+# Password authentication is locked for this account.
+# Authentication uses the dedicated HIMP service SSH key.
+#
+# Ansible dynamically stages and executes modules through sudo,
+# therefore command-level sudo whitelisting is not reliable here.
+himp-automation ALL=(ALL:ALL) NOPASSWD: ALL
