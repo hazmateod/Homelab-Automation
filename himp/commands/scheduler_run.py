@@ -13,6 +13,9 @@ from himp.database.postgresql import PostgreSQLDatabase
 from himp.services.operational_dispatcher import (
     OperationalDispatcher,
 )
+from himp.services.maintenance_windows import (
+    MaintenanceWindowService,
+)
 from himp.services.remediation_scheduling import (
     RemediationSchedulingService,
 )
@@ -46,6 +49,10 @@ def run(args):
 
         remediation_scheduling = (
             RemediationSchedulingService()
+        )
+
+        maintenance_windows = (
+            MaintenanceWindowService()
         )
 
         dispatcher = OperationalDispatcher(
@@ -121,6 +128,35 @@ def run(args):
             print(
                 f"=== RUNNING {task_id} ==="
             )
+
+            maintenance_window = (
+                maintenance_windows.blocking_window(
+                    task_id=task_id,
+                    now=remediation_now,
+                )
+            )
+
+            if maintenance_window is not None:
+                print(
+                    "BLOCKED_BY_MAINTENANCE_WINDOW"
+                )
+
+                print(
+                    "Window     : "
+                    f"{maintenance_window['name']}"
+                )
+
+                print(
+                    "Reason     : "
+                    f"{maintenance_window['reason']}"
+                )
+
+                print(
+                    "Ends       : "
+                    f"{maintenance_window['ends_at']}"
+                )
+
+                continue
 
             try:
                 result = dispatcher.dispatch(
@@ -225,6 +261,52 @@ def run(args):
                 "Scheduled  : "
                 f"{schedule['scheduled_for']}"
             )
+
+            approval = (
+                remediation_scheduling.approvals.find(
+                    approval_id
+                )
+            )
+
+            remediation_task_id = (
+                approval["task_id"]
+                if approval is not None
+                else None
+            )
+
+            maintenance_window = (
+                maintenance_windows.blocking_window(
+                    task_id=remediation_task_id,
+                    now=remediation_now,
+                )
+            )
+
+            if maintenance_window is not None:
+                print(
+                    "BLOCKED_BY_MAINTENANCE_WINDOW"
+                )
+
+                print(
+                    "Task       : "
+                    f"{remediation_task_id or 'GLOBAL'}"
+                )
+
+                print(
+                    "Window     : "
+                    f"{maintenance_window['name']}"
+                )
+
+                print(
+                    "Reason     : "
+                    f"{maintenance_window['reason']}"
+                )
+
+                print(
+                    "Ends       : "
+                    f"{maintenance_window['ends_at']}"
+                )
+
+                continue
 
             try:
                 result = (

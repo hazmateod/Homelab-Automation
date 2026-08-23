@@ -24,6 +24,29 @@ class EmptyScheduler:
         )
 
 
+class NoMaintenanceWindows:
+    def blocking_window(
+        self,
+        task_id,
+        now=None,
+    ):
+        return None
+
+
+class FakeApprovalRepository:
+    def find(
+        self,
+        approval_id,
+    ):
+        if approval_id == 7:
+            return {
+                "id": 7,
+                "task_id": "scheduled_updates",
+            }
+
+        return None
+
+
 class DueRemediationScheduling:
     def __init__(
         self,
@@ -32,6 +55,7 @@ class DueRemediationScheduling:
         self.result_status = result_status
         self.due_calls = []
         self.execute_calls = []
+        self.approvals = FakeApprovalRepository()
 
     def due(
         self,
@@ -100,6 +124,12 @@ def test_scheduler_executes_remediation_when_no_recurring_tasks_due(
 
     monkeypatch.setattr(
         scheduler_run,
+        "MaintenanceWindowService",
+        NoMaintenanceWindows,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
         "RemediationSchedulingService",
         lambda: remediation,
     )
@@ -154,6 +184,12 @@ def test_failed_remediation_causes_scheduler_failure(
 
     monkeypatch.setattr(
         scheduler_run,
+        "MaintenanceWindowService",
+        NoMaintenanceWindows,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
         "RemediationSchedulingService",
         lambda: remediation,
     )
@@ -194,6 +230,12 @@ def test_scheduler_with_no_work_returns_zero(
         scheduler_run,
         "SchedulerService",
         EmptyScheduler,
+    )
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "MaintenanceWindowService",
+        NoMaintenanceWindows,
     )
 
     monkeypatch.setattr(

@@ -3704,3 +3704,210 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
+
+/* -------------------------------------------------------------------------
+ * Phase 16.2 Maintenance Window Controls
+ * ------------------------------------------------------------------------- */
+
+document.addEventListener(
+    "DOMContentLoaded",
+    () => {
+        const createButton = document.getElementById(
+            "createMaintenanceWindowButton"
+        );
+
+        const errorElement = document.getElementById(
+            "maintenanceWindowError"
+        );
+
+        const showMaintenanceError = (message) => {
+            if (!errorElement) {
+                return;
+            }
+
+            errorElement.textContent = message;
+            errorElement.classList.remove("d-none");
+        };
+
+        const clearMaintenanceError = () => {
+            if (!errorElement) {
+                return;
+            }
+
+            errorElement.textContent = "";
+            errorElement.classList.add("d-none");
+        };
+
+        const parseApiError = async (response) => {
+            try {
+                const body = await response.json();
+
+                if (typeof body.detail === "string") {
+                    return body.detail;
+                }
+
+                if (
+                    body.detail &&
+                    typeof body.detail.error === "string"
+                ) {
+                    return body.detail.error;
+                }
+
+                if (typeof body.message === "string") {
+                    return body.message;
+                }
+            } catch (error) {
+                // Use generic HTTP error below.
+            }
+
+            return `Request failed with HTTP ${response.status}.`;
+        };
+
+        if (createButton) {
+            createButton.addEventListener(
+                "click",
+                async () => {
+                    clearMaintenanceError();
+
+                    const name = document.getElementById(
+                        "maintenanceWindowName"
+                    ).value.trim();
+
+                    const reason = document.getElementById(
+                        "maintenanceWindowReason"
+                    ).value.trim();
+
+                    const taskId = document.getElementById(
+                        "maintenanceWindowTaskId"
+                    ).value.trim();
+
+                    const startsValue = document.getElementById(
+                        "maintenanceWindowStartsAt"
+                    ).value;
+
+                    const endsValue = document.getElementById(
+                        "maintenanceWindowEndsAt"
+                    ).value;
+
+                    if (
+                        !name ||
+                        !reason ||
+                        !startsValue ||
+                        !endsValue
+                    ) {
+                        showMaintenanceError(
+                            "Name, reason, start, and end are required."
+                        );
+                        return;
+                    }
+
+                    const startsAt = new Date(startsValue);
+                    const endsAt = new Date(endsValue);
+
+                    if (
+                        Number.isNaN(startsAt.getTime()) ||
+                        Number.isNaN(endsAt.getTime())
+                    ) {
+                        showMaintenanceError(
+                            "Start and end must be valid dates."
+                        );
+                        return;
+                    }
+
+                    if (endsAt <= startsAt) {
+                        showMaintenanceError(
+                            "End must be later than start."
+                        );
+                        return;
+                    }
+
+                    createButton.disabled = true;
+
+                    try {
+                        const response = await fetch(
+                            "/api/maintenance-windows",
+                            {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({
+                                    name,
+                                    reason,
+                                    task_id: taskId || null,
+                                    starts_at: startsAt.toISOString(),
+                                    ends_at: endsAt.toISOString(),
+                                    enabled: true,
+                                }),
+                            }
+                        );
+
+                        if (!response.ok) {
+                            throw new Error(
+                                await parseApiError(response)
+                            );
+                        }
+
+                        window.location.reload();
+                    } catch (error) {
+                        showMaintenanceError(
+                            error.message ||
+                            "Unable to create maintenance window."
+                        );
+                    } finally {
+                        createButton.disabled = false;
+                    }
+                }
+            );
+        }
+
+        document.querySelectorAll(
+            ".maintenance-window-toggle"
+        ).forEach(
+            (button) => {
+                button.addEventListener(
+                    "click",
+                    async () => {
+                        const windowId = button.dataset.windowId;
+
+                        const currentlyEnabled = (
+                            button.dataset.enabled === "true"
+                        );
+
+                        button.disabled = true;
+
+                        try {
+                            const response = await fetch(
+                                `/api/maintenance-windows/${windowId}/enabled`,
+                                {
+                                    method: "PUT",
+                                    headers: {
+                                        "Content-Type": "application/json",
+                                    },
+                                    body: JSON.stringify({
+                                        enabled: !currentlyEnabled,
+                                    }),
+                                }
+                            );
+
+                            if (!response.ok) {
+                                throw new Error(
+                                    await parseApiError(response)
+                                );
+                            }
+
+                            window.location.reload();
+                        } catch (error) {
+                            window.alert(
+                                error.message ||
+                                "Unable to update maintenance window."
+                            );
+
+                            button.disabled = false;
+                        }
+                    }
+                );
+            }
+        );
+    }
+);

@@ -43,6 +43,7 @@ from himp.api.health_history import router as health_history_router
 from himp.api.health_trends import router as health_trends_router
 from himp.api.automation import router as automation_router
 from himp.api.scheduler import router as scheduler_router
+from himp.api.maintenance_windows import router as maintenance_windows_router
 from himp.api.workflows import (
     router as workflows_router,
     workflow_execution_service,
@@ -60,6 +61,7 @@ from himp.database.remediation_audit import (
     RemediationAuditRepository,
 )
 from himp.services.scheduler import SchedulerService
+from himp.services.maintenance_windows import MaintenanceWindowService
 from himp.services.logs import LogService
 from himp.app import HIMP
 
@@ -172,6 +174,12 @@ app.include_router(
 
 app.include_router(
     scheduler_router,
+    prefix="/api",
+    dependencies=[Depends(require_session)],
+)
+
+app.include_router(
+    maintenance_windows_router,
     prefix="/api",
     dependencies=[Depends(require_session)],
 )
@@ -669,6 +677,24 @@ def automation(
         schedule["task_id"]: schedule
         for schedule in schedules
     }
+
+    maintenance_windows = MaintenanceWindowService()
+
+    context["maintenance_windows"] = (
+        maintenance_windows.list(
+            limit=100,
+        )["windows"]
+    )
+
+    context["active_maintenance_windows"] = (
+        maintenance_windows.active_all()
+    )
+
+    context["upcoming_maintenance_windows"] = (
+        maintenance_windows.upcoming(
+            limit=25,
+        )
+    )
 
     context["automation_executions"] = (
         himp.automation.execution_repository.history(
