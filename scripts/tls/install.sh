@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 ###############################################################################
-# HIMP HTTPS / Caddy Installation
+# HIMP HTTPS / Caddy / Firewall Installation
 ###############################################################################
 
 set -euo pipefail
@@ -13,6 +13,10 @@ PROJECT_ROOT="$(
 
 CADDYFILE_SOURCE="$PROJECT_ROOT/caddy/Caddyfile"
 CADDYFILE_TARGET="/etc/caddy/Caddyfile"
+
+FIREWALL_SOURCE="$PROJECT_ROOT/config/firewall/nftables.conf"
+FIREWALL_TARGET="/etc/nftables.conf"
+
 TLS_DIRECTORY="/etc/himp/tls"
 
 CERTIFICATE="$TLS_DIRECTORY/himp.crt"
@@ -25,11 +29,16 @@ if [[ "${EUID}" -ne 0 ]]; then
     exit 1
 fi
 
-if [[ ! -f "$CADDYFILE_SOURCE" ]]; then
-    echo "ERROR: Missing Git-managed Caddyfile:"
-    echo "  $CADDYFILE_SOURCE"
-    exit 1
-fi
+for required_file in \
+    "$CADDYFILE_SOURCE" \
+    "$FIREWALL_SOURCE"; do
+
+    if [[ ! -f "$required_file" ]]; then
+        echo "ERROR: Missing Git-managed deployment file:"
+        echo "  $required_file"
+        exit 1
+    fi
+done
 
 if [[ ! -x "$MKCERT" ]]; then
     echo "ERROR: mkcert not found:"
@@ -92,6 +101,18 @@ else
 fi
 
 echo
+echo "Validating Git-managed Caddy configuration..."
+
+caddy validate \
+    --config "$CADDYFILE_SOURCE" \
+    --adapter caddyfile
+
+echo
+echo "Validating Git-managed firewall configuration..."
+
+nft -c -f "$FIREWALL_SOURCE"
+
+echo
 echo "Installing Git-managed Caddy configuration..."
 
 install \
@@ -102,17 +123,31 @@ install \
     "$CADDYFILE_TARGET"
 
 echo
-echo "Validating Caddy configuration..."
+echo "Installing Git-managed firewall configuration..."
 
-caddy validate \
-    --config "$CADDYFILE_TARGET" \
-    --adapter caddyfile
+if [[ -f "$FIREWALL_TARGET" ]]; then
+    cp -a \
+        "$FIREWALL_TARGET" \
+        "${FIREWALL_TARGET}.pre-himp-tls-install"
+fi
+
+install \
+    -o root \
+    -g root \
+    -m 0644 \
+    "$FIREWALL_SOURCE" \
+    "$FIREWALL_TARGET"
 
 echo
-echo "Enabling and restarting Caddy..."
+echo "Applying firewall configuration..."
+
+nft -f "$FIREWALL_TARGET"
+
+echo
+echo "Enabling and reloading Caddy..."
 
 systemctl enable caddy
-systemctl restart caddy
+systemctl reload-or-restart caddy
 
 echo
 echo "Waiting for HTTPS listener..."
@@ -140,4 +175,4 @@ if ! ss -lnt |
 fi
 
 echo
-echo "HTTPS installation complete."
+echo "HTTPS and firewall installation complete."
