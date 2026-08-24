@@ -35,6 +35,13 @@ class GreenboneClient:
         "report",
     )
 
+    COMPLETED_REPORTS_COMMAND = (
+        "/usr/bin/sudo",
+        "-n",
+        "/usr/local/sbin/himp-greenbone",
+        "completed-reports",
+    )
+
     def __init__(
         self,
         host=None,
@@ -72,6 +79,168 @@ class GreenboneClient:
             f"{self.user}@{self.host}",
             *remote_command,
         ]
+
+    def completed_reports(
+        self,
+        timeout=None,
+    ):
+        """
+        Discover completed HIMP-owned Greenbone reports.
+
+        This uses the constrained remote metadata command and does not
+        retrieve finding XML.
+        """
+        command = self._ssh_command(
+            self.COMPLETED_REPORTS_COMMAND
+        )
+
+        try:
+            process = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=(
+                    timeout
+                    if timeout is not None
+                    else self.COMMAND_TIMEOUT
+                ),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError(
+                "Greenbone completed-report discovery timed out"
+            ) from exc
+
+        if process.returncode != 0:
+            message = (
+                process.stderr.strip()
+                or process.stdout.strip()
+                or (
+                    "Greenbone completed-report discovery "
+                    f"failed with rc={process.returncode}"
+                )
+            )
+
+            raise RuntimeError(
+                message
+            )
+
+        lines = [
+            line.rstrip("\n")
+            for line in process.stdout.splitlines()
+            if line.strip()
+        ]
+
+        count_lines = [
+            line
+            for line in lines
+            if line.startswith(
+                "COMPLETED_REPORT_COUNT="
+            )
+        ]
+
+        if len(count_lines) != 1:
+            raise ValueError(
+                "Greenbone completed-report count "
+                "contract is invalid"
+            )
+
+        try:
+            expected_count = int(
+                count_lines[0].split(
+                    "=",
+                    1,
+                )[1]
+            )
+        except (
+            IndexError,
+            ValueError,
+        ) as exc:
+            raise ValueError(
+                "Greenbone completed-report count "
+                "is invalid"
+            ) from exc
+
+        reports = []
+
+        for line in lines:
+            if not line.startswith(
+                "COMPLETED_REPORT\t"
+            ):
+                continue
+
+            fields = line.split("\t")
+
+            if len(fields) != 7:
+                raise ValueError(
+                    "Greenbone completed-report record "
+                    "is malformed"
+                )
+
+            (
+                marker,
+                report_id,
+                task_id,
+                task_name,
+                status,
+                scan_started_at,
+                scan_finished_at,
+            ) = fields
+
+            if marker != "COMPLETED_REPORT":
+                raise ValueError(
+                    "Unexpected Greenbone report marker"
+                )
+
+            if not report_id:
+                raise ValueError(
+                    "Completed Greenbone report "
+                    "is missing an id"
+                )
+
+            if status != "Done":
+                raise ValueError(
+                    "Completed Greenbone discovery "
+                    "returned a non-completed report"
+                )
+
+            reports.append(
+                {
+                    "report_id": report_id,
+                    "task_id": task_id,
+                    "task_name": task_name,
+                    "status": status,
+                    "scan_started_at": (
+                        scan_started_at
+                        or None
+                    ),
+                    "scan_finished_at": (
+                        scan_finished_at
+                        or None
+                    ),
+                }
+            )
+
+        if len(reports) != expected_count:
+            raise ValueError(
+                "Greenbone completed-report count mismatch: "
+                f"expected {expected_count}, "
+                f"parsed {len(reports)}"
+            )
+
+        ids = [
+            report["report_id"]
+            for report in reports
+        ]
+
+        if len(ids) != len(set(ids)):
+            raise ValueError(
+                "Greenbone completed-report discovery "
+                "contains duplicate report IDs"
+            )
+
+        return reports
+
 
     def report_xml(
         self,

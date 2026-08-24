@@ -204,3 +204,107 @@ def test_report_xml_rejects_remote_failure(
         client.report_xml(
             REPORT_ID
         )
+
+
+def completed_reports_output():
+    return "\n".join(
+        [
+            "COMPLETED_REPORT_COUNT=2",
+            (
+                "COMPLETED_REPORT\t"
+                "report-1\t"
+                "task-1\t"
+                "HIMP - host1 - Full and Fast\t"
+                "Done\t"
+                "2026-08-24T20:00:00Z\t"
+                "2026-08-24T20:10:00Z"
+            ),
+            (
+                "COMPLETED_REPORT\t"
+                "report-2\t"
+                "task-2\t"
+                "HIMP - host2 - Full and Fast\t"
+                "Done\t"
+                "2026-08-24T20:20:00Z\t"
+                "2026-08-24T20:30:00Z"
+            ),
+        ]
+    )
+
+
+def test_completed_reports_uses_constrained_remote_command(
+    monkeypatch,
+):
+    captured = {}
+
+    def fake_run(
+        command,
+        **kwargs,
+    ):
+        captured["command"] = command
+
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=completed_reports_output(),
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    client = GreenboneClient()
+
+    reports = client.completed_reports()
+
+    assert [
+        report["report_id"]
+        for report in reports
+    ] == [
+        "report-1",
+        "report-2",
+    ]
+
+    assert reports[0]["status"] == "Done"
+
+    assert captured["command"][-4:] == [
+        "/usr/bin/sudo",
+        "-n",
+        "/usr/local/sbin/himp-greenbone",
+        "completed-reports",
+    ]
+
+
+def test_completed_reports_rejects_count_mismatch(
+    monkeypatch,
+):
+    def fake_run(
+        command,
+        **kwargs,
+    ):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=completed_reports_output().replace(
+                "COMPLETED_REPORT_COUNT=2",
+                "COMPLETED_REPORT_COUNT=3",
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    client = GreenboneClient()
+
+    with pytest.raises(
+        ValueError,
+        match="count mismatch",
+    ):
+        client.completed_reports()

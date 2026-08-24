@@ -346,6 +346,20 @@ class VulnerabilityRepository:
             finding["result_id"]
         )
 
+    def has_report(
+        self,
+        report_id,
+    ):
+        """
+        Return whether a Greenbone report UUID is already persisted.
+        """
+        return (
+            self.report(
+                report_id
+            )
+            is not None
+        )
+
     def report(
         self,
         report_id,

@@ -20,6 +20,9 @@ from himp.services.remediation_scheduling import (
     RemediationSchedulingService,
 )
 from himp.services.scheduler import SchedulerService
+from himp.services.vulnerability_import import (
+    VulnerabilityImportService,
+)
 
 
 def _local_naive(value):
@@ -53,6 +56,54 @@ def _utc_naive(value):
     ).replace(
         tzinfo=None
     )
+
+
+def _run_vulnerability_ingest():
+    """
+    Import a bounded number of completed vulnerability reports.
+
+    Greenbone is an external integration. Its temporary unavailability
+    must not prevent unrelated HIMP scheduler work.
+    """
+    try:
+        result = (
+            VulnerabilityImportService()
+            .import_new_completed(
+                limit=2,
+                timeout=60,
+            )
+        )
+    except Exception as exc:
+        print(
+            "Vulnerability report ingestion warning: "
+            f"{type(exc).__name__}: {exc}"
+        )
+
+        return {
+            "success": False,
+            "discovered": 0,
+            "imported": 0,
+            "remaining": 0,
+            "error": str(exc),
+        }
+
+    print(
+        "Vulnerability reports discovered: "
+        f"{result['discovered']}"
+    )
+    print(
+        "Vulnerability reports imported: "
+        f"{result['imported']}"
+    )
+    print(
+        "Vulnerability reports remaining: "
+        f"{result['remaining']}"
+    )
+
+    return {
+        "success": True,
+        **result,
+    }
 
 
 def run(args):
@@ -95,6 +146,10 @@ def run(args):
 
         remediation_now = _utc_naive(
             now
+        )
+
+        vulnerability_result = (
+            _run_vulnerability_ingest()
         )
 
         due_tasks = scheduler.due_tasks(
