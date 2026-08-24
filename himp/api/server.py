@@ -63,6 +63,9 @@ from himp.database.remediation_audit import (
 from himp.services.scheduler import SchedulerService
 from himp.services.maintenance_windows import MaintenanceWindowService
 from himp.services.logs import LogService
+from himp.services.vulnerability_intelligence import (
+    VulnerabilityIntelligenceService,
+)
 from himp.app import HIMP
 
 
@@ -225,6 +228,10 @@ remediation_audit_repository = (
 )
 
 log_service = LogService()
+
+vulnerability_intelligence_service = (
+    VulnerabilityIntelligenceService()
+)
 
 workflow_execution_service.automation_service = (
     himp.automation
@@ -484,6 +491,96 @@ def health(request: Request):
     return templates.TemplateResponse(
         request=request,
         name="health.html",
+        context=context,
+    )
+
+
+@app.get(
+    "/vulnerabilities",
+    dependencies=[Depends(require_page_session)],
+)
+def vulnerabilities(request: Request):
+
+    context = dashboard_context()
+
+    context["vulnerability"] = (
+        vulnerability_intelligence_service
+        .overview()
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="vulnerabilities.html",
+        context=context,
+    )
+
+
+@app.get(
+    "/vulnerabilities/reports/{report_id}",
+    dependencies=[Depends(require_page_session)],
+)
+def vulnerability_report(
+    request: Request,
+    report_id: str,
+):
+
+    detail = (
+        vulnerability_intelligence_service
+        .report_detail(
+            report_id
+        )
+    )
+
+    if detail is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Vulnerability report not found",
+        )
+
+    context = dashboard_context()
+
+    context["vulnerability_report"] = (
+        detail
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="vulnerability_report.html",
+        context=context,
+    )
+
+
+@app.get(
+    "/vulnerabilities/findings/{result_id}",
+    dependencies=[Depends(require_page_session)],
+)
+def vulnerability_finding(
+    request: Request,
+    result_id: str,
+):
+
+    detail = (
+        vulnerability_intelligence_service
+        .finding_detail(
+            result_id
+        )
+    )
+
+    if detail is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Vulnerability finding not found",
+        )
+
+    context = dashboard_context()
+
+    context["vulnerability_finding"] = (
+        detail
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="vulnerability_finding.html",
         context=context,
     )
 
