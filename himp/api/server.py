@@ -516,6 +516,43 @@ def vulnerabilities(request: Request):
 
 
 @app.get(
+    "/vulnerabilities/hosts/{hostname}",
+    dependencies=[Depends(require_page_session)],
+)
+def vulnerability_host(
+    request: Request,
+    hostname: str,
+):
+
+    host = himp.inventory.find_host(
+        hostname
+    )
+
+    if host is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Inventory host not found",
+        )
+
+    context = dashboard_context()
+
+    context["vulnerability_host"] = (
+        vulnerability_intelligence_service
+        .host_detail(
+            hostname
+        )
+    )
+
+    context["inventory_host"] = host
+
+    return templates.TemplateResponse(
+        request=request,
+        name="vulnerability_host.html",
+        context=context,
+    )
+
+
+@app.get(
     "/vulnerabilities/reports/{report_id}",
     dependencies=[Depends(require_page_session)],
 )

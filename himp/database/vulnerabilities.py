@@ -346,6 +346,31 @@ class VulnerabilityRepository:
             finding["result_id"]
         )
 
+    def reports_for_host(
+        self,
+        hostname,
+        limit=50,
+    ):
+        """
+        Return vulnerability reports correlated to an inventory host.
+        """
+        return self.database.query(
+            """
+            SELECT *
+            FROM vulnerability_reports
+            WHERE inventory_hostname=?
+            ORDER BY
+                scan_finished_at DESC,
+                imported_at DESC,
+                id DESC
+            LIMIT ?
+            """,
+            (
+                hostname,
+                limit,
+            ),
+        )
+
     def has_report(
         self,
         report_id,

@@ -146,3 +146,99 @@ def test_findings_for_host():
         findings[0]["result_id"]
         == RESULT_ID
     )
+
+
+def test_reports_for_host_filters_and_orders_reports():
+    repository = VulnerabilityRepository()
+
+    older = sample_report()
+    older["report_id"] = "report-host-older"
+    older["scan_started_at"] = (
+        "2026-08-24 10:00:00"
+    )
+    older["scan_finished_at"] = (
+        "2026-08-24 10:10:00"
+    )
+
+    newer = sample_report()
+    newer["report_id"] = "report-host-newer"
+    newer["scan_started_at"] = (
+        "2026-08-24 12:00:00"
+    )
+    newer["scan_finished_at"] = (
+        "2026-08-24 12:10:00"
+    )
+
+    other = sample_report()
+    other["report_id"] = "report-other-host"
+    other["scan_started_at"] = (
+        "2026-08-24 13:00:00"
+    )
+    other["scan_finished_at"] = (
+        "2026-08-24 13:10:00"
+    )
+
+    repository.save_report(
+        older,
+        inventory_hostname="host-report-filter-test",
+    )
+
+    repository.save_report(
+        newer,
+        inventory_hostname="host-report-filter-test",
+    )
+
+    repository.save_report(
+        other,
+        inventory_hostname="host-report-other-test",
+    )
+
+    rows = repository.reports_for_host(
+        "host-report-filter-test",
+        limit=10,
+    )
+
+    assert [
+        row["report_id"]
+        for row in rows
+    ] == [
+        "report-host-newer",
+        "report-host-older",
+    ]
+
+    assert all(
+        row["inventory_hostname"]
+        == "host-report-filter-test"
+        for row in rows
+    )
+
+
+def test_reports_for_host_honors_limit():
+    repository = VulnerabilityRepository()
+
+    for index in range(3):
+        report = sample_report()
+
+        report["report_id"] = (
+            f"report-limited-{index}"
+        )
+
+        report["scan_started_at"] = (
+            f"2026-08-24 0{index + 1}:00:00"
+        )
+
+        report["scan_finished_at"] = (
+            f"2026-08-24 0{index + 1}:10:00"
+        )
+
+        repository.save_report(
+            report,
+            inventory_hostname="host-report-limit-test",
+        )
+
+    rows = repository.reports_for_host(
+        "host-report-limit-test",
+        limit=2,
+    )
+
+    assert len(rows) == 2
