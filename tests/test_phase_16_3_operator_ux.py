@@ -87,3 +87,17 @@ def test_vulnerability_scanner_is_safe_external_launcher():
     assert 'target="_blank"' in sidebar
     assert 'rel="noopener noreferrer"' in sidebar
     assert "Vulnerability Scanner" in sidebar
+
+def test_inventory_group_selector_is_preserved():
+    javascript = (
+        ROOT / "static/js/dashboard.js"
+    ).read_text()
+
+    assert "HIMP Inventory Group Selector" in javascript
+    assert '"/api/inventory/groups"' in javascript
+    assert '"addHostGroup"' in javascript
+    assert '"editHostGroup"' in javascript
+    assert "async function loadGroups()" in javascript
+    assert 'addModal.addEventListener(' in javascript
+    assert 'editModal.addEventListener(' in javascript
+    assert "loadGroups();" in javascript

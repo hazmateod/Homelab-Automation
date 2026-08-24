@@ -746,6 +746,132 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 /*
+ * HIMP Inventory Group Selector
+ */
+
+document.addEventListener("DOMContentLoaded", () => {
+    const addGroup = document.getElementById(
+        "addHostGroup"
+    );
+
+    const editGroup = document.getElementById(
+        "editHostGroup"
+    );
+
+    if (!addGroup && !editGroup) {
+        return;
+    }
+
+    async function loadGroups() {
+        const selects = [
+            addGroup,
+            editGroup,
+        ].filter(Boolean);
+
+        try {
+            const response = await fetch(
+                "/api/inventory/groups"
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.detail ||
+                    `HTTP ${response.status}`
+                );
+            }
+
+            const groups = result.groups || [];
+
+            selects.forEach((select) => {
+                const currentValue = select.value;
+
+                select.replaceChildren();
+
+                const placeholder =
+                    document.createElement("option");
+
+                placeholder.value = "";
+                placeholder.textContent =
+                    "Select a group";
+
+                select.appendChild(placeholder);
+
+                groups.forEach((group) => {
+                    const option =
+                        document.createElement("option");
+
+                    option.value = group.name;
+                    option.textContent =
+                        `${group.name} (${group.hosts})`;
+
+                    select.appendChild(option);
+                });
+
+                if (
+                    currentValue &&
+                    groups.some(
+                        (group) =>
+                            group.name === currentValue
+                    )
+                ) {
+                    select.value = currentValue;
+                }
+            });
+        } catch (err) {
+            console.error(
+                "Unable to load inventory groups:",
+                err
+            );
+
+            selects.forEach((select) => {
+                select.replaceChildren();
+
+                const option =
+                    document.createElement("option");
+
+                option.value = "";
+                option.textContent =
+                    "Unable to load groups";
+
+                select.appendChild(option);
+            });
+        }
+    }
+
+    if (addGroup) {
+        const addModal =
+            document.getElementById(
+                "addHostModal"
+            );
+
+        if (addModal) {
+            addModal.addEventListener(
+                "show.bs.modal",
+                loadGroups
+            );
+        }
+    }
+
+    if (editGroup) {
+        const editModal =
+            document.getElementById(
+                "editHostModal"
+            );
+
+        if (editModal) {
+            editModal.addEventListener(
+                "show.bs.modal",
+                loadGroups
+            );
+        }
+    }
+
+    loadGroups();
+});
+
+/*
  * HIMP Inventory Host Add UI
  */
 
