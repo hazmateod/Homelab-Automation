@@ -1015,7 +1015,17 @@ document.addEventListener(
                         id="addHostUser"
                         class="form-control"
                         required
+                        placeholder="existing admin user or himp-automation"
                     >
+
+                    <div class="form-text text-secondary">
+                        Existing hosts may use their current
+                        administrative or Ansible account.
+                        For new Linux hosts, use
+                        <strong>SSH Setup</strong> to create the
+                        recommended
+                        <code>himp-automation</code> identity.
+                    </div>
                 </div>
 
                 <div class="form-check">
@@ -1226,16 +1236,15 @@ document.addEventListener(
     aria-labelledby="sshSetupModalLabel"
     aria-hidden="true"
 >
-    <div class="modal-dialog modal-lg">
+    <div class="modal-dialog modal-xl modal-dialog-scrollable">
         <div class="modal-content bg-dark text-light border-secondary">
 
             <div class="modal-header border-secondary">
-
                 <h5
                     class="modal-title"
                     id="sshSetupModalLabel"
                 >
-                    SSH Setup Instructions
+                    Secure SSH Host Onboarding
                 </h5>
 
                 <button
@@ -1244,127 +1253,398 @@ document.addEventListener(
                     data-bs-dismiss="modal"
                     aria-label="Close"
                 ></button>
-
             </div>
 
             <div class="modal-body">
 
-                <div
-                    class="alert alert-info"
-                    role="alert"
-                >
-                    HIMP uses SSH key authentication to manage
-                    inventory hosts. Run the commands below from
-                    the HIMP server. Your host password is only used
-                    by <code>ssh-copy-id</code> and is not stored by HIMP.
-                </div>
-
-                <div class="mb-3">
-
-                    <strong>Host</strong>
-
-                    <div
-                        id="sshSetupHost"
-                        class="mt-1"
-                    >
-                    </div>
-
-                </div>
-
-                <div class="mb-4">
-
-                    <h6>1. Copy the HIMP SSH key to the host</h6>
-
-                    <p class="text-secondary">
-                        This command will prompt for the host password.
-                    </p>
-
-                    <div class="input-group">
-
-                        <input
-                            id="sshSetupCopyCommand"
-                            class="form-control bg-dark text-light border-secondary font-monospace"
-                            readonly
-                        >
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary"
-                            id="copySshSetupCopyCommand"
-                        >
-                            Copy
-                        </button>
-
-                    </div>
-
-                </div>
-
-                <div class="mb-4">
-
-                    <h6>2. Verify passwordless SSH</h6>
-
-                    <p class="text-secondary">
-                        This should connect without asking for a password.
-                    </p>
-
-                    <div class="input-group">
-
-                        <input
-                            id="sshSetupTestCommand"
-                            class="form-control bg-dark text-light border-secondary font-monospace"
-                            readonly
-                        >
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary"
-                            id="copySshSetupTestCommand"
-                        >
-                            Copy
-                        </button>
-
-                    </div>
-
-                </div>
-
-                <div class="mb-3">
-
-                    <h6>3. Verify Ansible connectivity</h6>
-
-                    <p class="text-secondary">
-                        A successful test should return <code>pong</code>.
-                    </p>
-
-                    <div class="input-group">
-
-                        <input
-                            id="sshSetupAnsibleCommand"
-                            class="form-control bg-dark text-light border-secondary font-monospace"
-                            readonly
-                        >
-
-                        <button
-                            type="button"
-                            class="btn btn-outline-primary"
-                            id="copySshSetupAnsibleCommand"
-                        >
-                            Copy
-                        </button>
-
-                    </div>
-
+                <div class="alert alert-info">
+                    HIMP runs SSH as the
+                    <strong>himp service account</strong>
+                    using
+                    <code>/var/lib/himp/.ssh/id_ed25519</code>.
+                    Do not validate HIMP access with the root
+                    account SSH key or an operator SSH key.
                 </div>
 
                 <div
                     id="sshSetupCopyStatus"
-                    class="alert alert-success d-none mt-3"
-                    role="alert"
+                    class="alert alert-secondary d-none"
+                    role="status"
                 ></div>
+
+                <div class="mb-3">
+                    <strong>Target</strong>
+                    <div
+                        id="sshSetupHost"
+                        class="font-monospace mt-1"
+                    ></div>
+                </div>
+
+                <div class="card bg-black border-secondary mb-4">
+                    <div class="card-body">
+
+                        <h6>Choose onboarding method</h6>
+
+                        <div class="form-check mt-3">
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="sshSetupMode"
+                                id="sshSetupModeExisting"
+                                checked
+                            >
+
+                            <label
+                                class="form-check-label"
+                                for="sshSetupModeExisting"
+                            >
+                                <strong>
+                                    Existing / legacy account
+                                </strong>
+                                — use an administrative or Ansible
+                                account already present on the host.
+                            </label>
+                        </div>
+
+                        <div class="form-check mt-3">
+                            <input
+                                class="form-check-input"
+                                type="radio"
+                                name="sshSetupMode"
+                                id="sshSetupModeDedicated"
+                            >
+
+                            <label
+                                class="form-check-label"
+                                for="sshSetupModeDedicated"
+                            >
+                                <strong>
+                                    Dedicated HIMP automation account
+                                </strong>
+                                — recommended for new Linux hosts.
+                            </label>
+                        </div>
+
+                    </div>
+                </div>
+
+                <div id="sshSetupExistingPanel">
+
+                    <h5>Existing / Legacy Account</h5>
+
+                    <div class="alert alert-warning">
+                        Use this path for older hosts that already
+                        have a usable account such as
+                        <code>root</code>, <code>lou</code>, or
+                        another Ansible administrator.
+                        HIMP uses the username entered in the
+                        Add/Edit Host form exactly as entered.
+                    </div>
+
+                    <h6>
+                        1. Run on the HIMP server — install the HIMP key
+                    </h6>
+
+                    <p class="text-secondary">
+                        You may be prompted for the target account
+                        password. The password is not stored by HIMP.
+                        This command also enrolls the target host key
+                        into HIMP's known_hosts file.
+                    </p>
+
+                    <div class="input-group mb-4">
+                        <textarea
+                            id="sshExistingInstallKey"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            rows="3"
+                            readonly
+                        ></textarea>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            data-ssh-copy-target="sshExistingInstallKey"
+                            data-ssh-copy-label="HIMP key installation command"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                    <h6>
+                        2. Run on the HIMP server — verify SSH
+                    </h6>
+
+                    <div class="input-group mb-4">
+                        <textarea
+                            id="sshExistingTest"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            rows="3"
+                            readonly
+                        ></textarea>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            data-ssh-copy-target="sshExistingTest"
+                            data-ssh-copy-label="SSH verification command"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                    <div
+                        id="sshExistingBecomeStep"
+                        class="mb-4"
+                    >
+                        <h6>
+                            3. Run on the HIMP server — verify Become
+                        </h6>
+
+                        <p class="text-secondary">
+                            Required because Become is enabled.
+                            The result must show
+                            <code>uid=0(root)</code> without asking
+                            for a sudo password.
+                        </p>
+
+                        <div class="input-group">
+                            <textarea
+                                id="sshExistingBecomeTest"
+                                class="form-control bg-dark text-light border-secondary font-monospace"
+                                rows="3"
+                                readonly
+                            ></textarea>
+
+                            <button
+                                type="button"
+                                class="btn btn-outline-primary"
+                                data-ssh-copy-target="sshExistingBecomeTest"
+                                data-ssh-copy-label="Become verification command"
+                            >
+                                Copy
+                            </button>
+                        </div>
+                    </div>
+
+                    <h6>
+                        Final check — run Ansible as HIMP
+                    </h6>
+
+                    <p class="text-secondary">
+                        A non-Become host should return
+                        <code>pong</code>. A Become-enabled host
+                        should return <code>0</code>.
+                    </p>
+
+                    <div class="input-group mb-4">
+                        <textarea
+                            id="sshExistingAnsibleTest"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            rows="4"
+                            readonly
+                        ></textarea>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            data-ssh-copy-target="sshExistingAnsibleTest"
+                            data-ssh-copy-label="Ansible verification command"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                </div>
+
+
+                <div
+                    id="sshSetupDedicatedPanel"
+                    class="d-none"
+                >
+
+                    <h5>Dedicated HIMP Automation Account</h5>
+
+                    <div class="alert alert-success">
+                        Recommended final settings:
+                        <strong>
+                            Ansible User = himp-automation
+                        </strong>
+                        and
+                        <strong>Become = enabled</strong>.
+                    </div>
+
+                    <h6>
+                        1. Run on the HIMP server — transfer the HIMP public key
+                    </h6>
+
+                    <p class="text-secondary">
+                        The username currently entered in Add/Edit Host
+                        is treated as the bootstrap account only.
+                        This step may prompt for that account's password.
+                    </p>
+
+                    <div class="input-group mb-4">
+                        <textarea
+                            id="sshDedicatedStageKey"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            rows="4"
+                            readonly
+                        ></textarea>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            data-ssh-copy-target="sshDedicatedStageKey"
+                            data-ssh-copy-label="HIMP public key transfer command"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                    <h6>
+                        2. Run on the TARGET HOST as root
+                    </h6>
+
+                    <p class="text-secondary">
+                        This creates the locked
+                        <code>himp-automation</code> account,
+                        installs the HIMP public key, creates the
+                        Ansible sudo policy, and validates sudoers.
+                    </p>
+
+                    <div class="input-group mb-4">
+                        <textarea
+                            id="sshDedicatedTargetSetup"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            rows="9"
+                            readonly
+                        ></textarea>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            data-ssh-copy-target="sshDedicatedTargetSetup"
+                            data-ssh-copy-label="Target host setup command"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                    <h6>
+                        3. Run on the HIMP server — verify SSH
+                    </h6>
+
+                    <div class="input-group mb-4">
+                        <textarea
+                            id="sshDedicatedTest"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            rows="4"
+                            readonly
+                        ></textarea>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            data-ssh-copy-target="sshDedicatedTest"
+                            data-ssh-copy-label="Dedicated SSH verification command"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                    <h6>
+                        4. Run on the HIMP server — verify passwordless sudo
+                    </h6>
+
+                    <p class="text-secondary">
+                        This must return
+                        <code>uid=0(root)</code>
+                        without requesting a password.
+                    </p>
+
+                    <div class="input-group mb-4">
+                        <textarea
+                            id="sshDedicatedBecomeTest"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            rows="4"
+                            readonly
+                        ></textarea>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            data-ssh-copy-target="sshDedicatedBecomeTest"
+                            data-ssh-copy-label="Dedicated Become verification command"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                    <h6>
+                        5. Run on the HIMP server — verify Ansible + Become
+                    </h6>
+
+                    <p class="text-secondary">
+                        The successful result should return
+                        <code>0</code>.
+                    </p>
+
+                    <div class="input-group mb-4">
+                        <textarea
+                            id="sshDedicatedAnsibleTest"
+                            class="form-control bg-dark text-light border-secondary font-monospace"
+                            rows="4"
+                            readonly
+                        ></textarea>
+
+                        <button
+                            type="button"
+                            class="btn btn-outline-primary"
+                            data-ssh-copy-target="sshDedicatedAnsibleTest"
+                            data-ssh-copy-label="Dedicated Ansible verification command"
+                        >
+                            Copy
+                        </button>
+                    </div>
+
+                    <button
+                        type="button"
+                        class="btn btn-success mb-4"
+                        id="sshSetupApplyDedicated"
+                    >
+                        Apply Recommended HIMP Settings
+                    </button>
+
+                </div>
+
+
+                <div class="card bg-black border-secondary">
+                    <div class="card-body">
+
+                        <h6>Final inventory configuration</h6>
+
+                        <div>
+                            Ansible User:
+                            <code id="sshSetupFinalUser"></code>
+                        </div>
+
+                        <div>
+                            Become:
+                            <code id="sshSetupFinalBecome"></code>
+                        </div>
+
+                        <p class="text-secondary small mt-3 mb-0">
+                            Add or update the host only after the
+                            SSH and any required privilege-escalation
+                            validation succeeds.
+                        </p>
+
+                    </div>
+                </div>
 
             </div>
 
             <div class="modal-footer border-secondary">
-
                 <button
                     type="button"
                     class="btn btn-secondary"
@@ -1372,7 +1652,6 @@ document.addEventListener(
                 >
                     Close
                 </button>
-
             </div>
 
         </div>

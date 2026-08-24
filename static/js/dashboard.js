@@ -238,6 +238,13 @@ function initializeUpdateButtons() {
 
 /*
  * HIMP Inventory SSH Setup UI
+ *
+ * Supports:
+ *   1. Existing / legacy administrative accounts.
+ *   2. Dedicated himp-automation onboarding.
+ *
+ * HIMP executes SSH as the himp service identity using:
+ *   /var/lib/himp/.ssh/id_ed25519
  */
 
 document.addEventListener("DOMContentLoaded", () => {
@@ -253,50 +260,296 @@ document.addEventListener("DOMContentLoaded", () => {
         "sshSetupHost"
     );
 
-    const copyCommand = document.getElementById(
-        "sshSetupCopyCommand"
-    );
-
-    const testCommand = document.getElementById(
-        "sshSetupTestCommand"
-    );
-
-    const ansibleCommand = document.getElementById(
-        "sshSetupAnsibleCommand"
-    );
-
-    const copyStatus = document.getElementById(
+    const status = document.getElementById(
         "sshSetupCopyStatus"
     );
 
+    const existingMode = document.getElementById(
+        "sshSetupModeExisting"
+    );
+
+    const dedicatedMode = document.getElementById(
+        "sshSetupModeDedicated"
+    );
+
+    const existingPanel = document.getElementById(
+        "sshSetupExistingPanel"
+    );
+
+    const dedicatedPanel = document.getElementById(
+        "sshSetupDedicatedPanel"
+    );
+
+    const finalUser = document.getElementById(
+        "sshSetupFinalUser"
+    );
+
+    const finalBecome = document.getElementById(
+        "sshSetupFinalBecome"
+    );
+
+    const existingBecomeStep = document.getElementById(
+        "sshExistingBecomeStep"
+    );
+
+    let currentSource = "add";
+
+    let currentValues = {
+        hostname: "",
+        ip: "",
+        user: "",
+        become: false,
+    };
+
     function clearStatus() {
-        copyStatus.textContent = "";
-        copyStatus.classList.add("d-none");
+        status.textContent = "";
+        status.classList.add("d-none");
     }
 
     function showStatus(message) {
-        copyStatus.textContent = message;
-        copyStatus.classList.remove("d-none");
+        status.textContent = message;
+        status.classList.remove("d-none");
     }
 
-    function configure(hostname, ip, user) {
-        const safeHostname = hostname.trim();
-        const safeIp = ip.trim();
-        const safeUser = user.trim();
+    function setCommand(id, value) {
+        const element = document.getElementById(id);
+
+        if (element) {
+            element.value = value;
+        }
+    }
+
+    function quoteShell(value) {
+        return "'" + String(value).replace(
+            /'/g,
+            "'\"'\"'"
+        ) + "'";
+    }
+
+    function configureExisting(values) {
+        const hostname = values.hostname.trim();
+        const ip = values.ip.trim();
+        const user = values.user.trim();
+        const remote = `${user}@${ip}`;
+
+        setCommand(
+            "sshExistingInstallKey",
+            "sudo -u himp env " +
+            "HOME=/var/lib/himp " +
+            "ssh-copy-id " +
+            "-o StrictHostKeyChecking=accept-new " +
+            "-i /var/lib/himp/.ssh/id_ed25519.pub " +
+            remote
+        );
+
+        setCommand(
+            "sshExistingTest",
+            "sudo -u himp env " +
+            "HOME=/var/lib/himp " +
+            "ssh " +
+            "-o BatchMode=yes " +
+            "-o PasswordAuthentication=no " +
+            "-o IdentitiesOnly=yes " +
+            "-i /var/lib/himp/.ssh/id_ed25519 " +
+            remote +
+            " " +
+            quoteShell("id && hostname -f")
+        );
+
+        if (values.become) {
+            existingBecomeStep.classList.remove(
+                "d-none"
+            );
+
+            setCommand(
+                "sshExistingBecomeTest",
+                "sudo -u himp env " +
+                "HOME=/var/lib/himp " +
+                "ssh " +
+                "-o BatchMode=yes " +
+                "-o PasswordAuthentication=no " +
+                "-o IdentitiesOnly=yes " +
+                "-i /var/lib/himp/.ssh/id_ed25519 " +
+                remote +
+                " " +
+                quoteShell("sudo -n id")
+            );
+
+            setCommand(
+                "sshExistingAnsibleTest",
+                "sudo -u himp env " +
+                "HOME=/var/lib/himp " +
+                "PATH=/opt/himp/.venv/bin:/usr/local/bin:/usr/bin:/bin " +
+                "ANSIBLE_PRIVATE_KEY_FILE=/var/lib/himp/.ssh/id_ed25519 " +
+                "/usr/bin/ansible all " +
+                "-i " + quoteShell(ip + ",") + " " +
+                "-u " + quoteShell(user) + " " +
+                "-b " +
+                "-m ansible.builtin.command " +
+                "-a " + quoteShell("id -u")
+            );
+        } else {
+            existingBecomeStep.classList.add(
+                "d-none"
+            );
+
+            setCommand(
+                "sshExistingAnsibleTest",
+                "sudo -u himp env " +
+                "HOME=/var/lib/himp " +
+                "PATH=/opt/himp/.venv/bin:/usr/local/bin:/usr/bin:/bin " +
+                "ANSIBLE_PRIVATE_KEY_FILE=/var/lib/himp/.ssh/id_ed25519 " +
+                "/usr/bin/ansible all " +
+                "-i " + quoteShell(ip + ",") + " " +
+                "-u " + quoteShell(user) + " " +
+                "-m ansible.builtin.ping"
+            );
+        }
+
+        finalUser.textContent = user;
+        finalBecome.textContent =
+            values.become ? "Enabled" : "Disabled";
 
         host.textContent =
-            `${safeHostname} (${safeUser}@${safeIp})`;
+            `${hostname} (${remote})`;
+    }
 
-        copyCommand.value =
-            `ssh-copy-id ${safeUser}@${safeIp}`;
+    function configureDedicated(values) {
+        const hostname = values.hostname.trim();
+        const ip = values.ip.trim();
+        const bootstrapUser = values.user.trim();
 
-        testCommand.value =
-            `ssh ${safeUser}@${safeIp}`;
+        setCommand(
+            "sshDedicatedStageKey",
+            "sudo -u himp env " +
+            "HOME=/var/lib/himp " +
+            "scp " +
+            "-o StrictHostKeyChecking=accept-new " +
+            "-o PreferredAuthentications=password " +
+            "-o PubkeyAuthentication=no " +
+            "/var/lib/himp/.ssh/id_ed25519.pub " +
+            `${bootstrapUser}@${ip}:` +
+            "/tmp/himp_id_ed25519.pub"
+        );
 
-        ansibleCommand.value =
-            `ansible ${safeHostname} -i inventory/hosts.yml -m ping`;
+        setCommand(
+            "sshDedicatedTargetSetup",
+            "getent passwd himp-automation >/dev/null || " +
+            "useradd --create-home " +
+            "--home-dir /home/himp-automation " +
+            "--shell /bin/bash " +
+            "--comment " +
+            quoteShell("HIMP unattended automation") +
+            " himp-automation; " +
+            "passwd -l himp-automation; " +
+            "install -d " +
+            "-o himp-automation " +
+            "-g himp-automation " +
+            "-m 0700 " +
+            "/home/himp-automation/.ssh; " +
+            "install " +
+            "-o himp-automation " +
+            "-g himp-automation " +
+            "-m 0600 " +
+            "/tmp/himp_id_ed25519.pub " +
+            "/home/himp-automation/.ssh/authorized_keys; " +
+            "rm -f /tmp/himp_id_ed25519.pub; " +
+            "printf '%s\\n' " +
+            quoteShell(
+                "himp-automation ALL=(ALL:ALL) NOPASSWD: ALL"
+            ) +
+            " > /etc/sudoers.d/himp-automation; " +
+            "chown root:root /etc/sudoers.d/himp-automation; " +
+            "chmod 0440 /etc/sudoers.d/himp-automation; " +
+            "visudo -cf /etc/sudoers.d/himp-automation"
+        );
 
+        const remote = `himp-automation@${ip}`;
+
+        setCommand(
+            "sshDedicatedTest",
+            "sudo -u himp env " +
+            "HOME=/var/lib/himp " +
+            "ssh " +
+            "-o StrictHostKeyChecking=accept-new " +
+            "-o BatchMode=yes " +
+            "-o PasswordAuthentication=no " +
+            "-o IdentitiesOnly=yes " +
+            "-i /var/lib/himp/.ssh/id_ed25519 " +
+            remote +
+            " " +
+            quoteShell("id && hostname -f")
+        );
+
+        setCommand(
+            "sshDedicatedBecomeTest",
+            "sudo -u himp env " +
+            "HOME=/var/lib/himp " +
+            "ssh " +
+            "-o BatchMode=yes " +
+            "-o PasswordAuthentication=no " +
+            "-o IdentitiesOnly=yes " +
+            "-i /var/lib/himp/.ssh/id_ed25519 " +
+            remote +
+            " " +
+            quoteShell("sudo -n id")
+        );
+
+        setCommand(
+            "sshDedicatedAnsibleTest",
+            "sudo -u himp env " +
+            "HOME=/var/lib/himp " +
+            "PATH=/opt/himp/.venv/bin:/usr/local/bin:/usr/bin:/bin " +
+            "ANSIBLE_PRIVATE_KEY_FILE=/var/lib/himp/.ssh/id_ed25519 " +
+            "/usr/bin/ansible all " +
+            "-i " + quoteShell(ip + ",") + " " +
+            "-u himp-automation " +
+            "-b " +
+            "-m ansible.builtin.command " +
+            "-a " + quoteShell("id -u")
+        );
+
+        finalUser.textContent =
+            "himp-automation";
+
+        finalBecome.textContent =
+            "Enabled";
+
+        host.textContent =
+            `${hostname} (${bootstrapUser}@${ip})`;
+    }
+
+    function configure(values) {
+        currentValues = {
+            hostname: values.hostname || "",
+            ip: values.ip || "",
+            user: values.user || "",
+            become: Boolean(values.become),
+        };
+
+        configureExisting(currentValues);
+        updateMode();
         clearStatus();
+    }
+
+    function updateMode() {
+        const dedicated = dedicatedMode.checked;
+
+        existingPanel.classList.toggle(
+            "d-none",
+            dedicated
+        );
+
+        dedicatedPanel.classList.toggle(
+            "d-none",
+            !dedicated
+        );
+
+        if (dedicated) {
+            configureDedicated(currentValues);
+        } else {
+            configureExisting(currentValues);
+        }
     }
 
     function getAddHostValues() {
@@ -315,6 +568,11 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById(
                     "addHostUser"
                 ).value,
+
+            become:
+                document.getElementById(
+                    "addHostBecome"
+                ).checked,
         };
     }
 
@@ -334,274 +592,157 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById(
                     "editHostUser"
                 ).value,
+
+            become:
+                document.getElementById(
+                    "editHostBecome"
+                ).checked,
         };
     }
 
-    function showSetup(values) {
+    function showSetup(values, source) {
         if (
             !values.hostname.trim() ||
             !values.ip.trim() ||
             !values.user.trim()
         ) {
             showStatus(
-                "Enter the hostname, IP address, and Ansible user before opening SSH setup."
+                "Enter hostname, IP address, and the current administrative or Ansible user before opening SSH Setup."
             );
             return;
         }
 
-        configure(
-            values.hostname,
-            values.ip,
-            values.user
-        );
+        currentSource = source;
 
-        const bootstrapModal =
-            bootstrap.Modal.getOrCreateInstance(
-                modal
-            );
+        existingMode.checked = true;
+        dedicatedMode.checked = false;
 
-        bootstrapModal.show();
+        configure(values);
+
+        bootstrap.Modal.getOrCreateInstance(
+            modal
+        ).show();
     }
 
     async function copyToClipboard(
-        input,
+        element,
         label
     ) {
-        try {
-            if (
-                navigator.clipboard &&
-                typeof navigator.clipboard.writeText === "function"
-            ) {
-                await navigator.clipboard.writeText(
-                    input.value
-                );
-
-                showStatus(
-                    `${label} copied to clipboard.`
-                );
-
-                return;
-            }
-        } catch (err) {
-            console.warn(
-                "Modern clipboard API unavailable:",
-                err
-            );
+        if (!element) {
+            return;
         }
 
         try {
-            input.focus();
-            input.select();
+            await navigator.clipboard.writeText(
+                element.value
+            );
 
-            const copied =
-                document.execCommand("copy");
+            showStatus(
+                `${label} copied to clipboard.`
+            );
+        } catch (error) {
+            element.focus();
+            element.select();
 
-            if (copied) {
-                showStatus(
-                    `${label} copied to clipboard.`
-                );
-
-                return;
-            }
-        } catch (err) {
-            console.warn(
-                "Legacy clipboard fallback failed:",
-                err
+            showStatus(
+                "Clipboard access was unavailable. The command is selected for manual copy."
             );
         }
+    }
 
-        input.focus();
-        input.select();
+    document.querySelectorAll(
+        "[data-ssh-copy-target]"
+    ).forEach((button) => {
+        button.addEventListener(
+            "click",
+            () => {
+                const target =
+                    document.getElementById(
+                        button.dataset.sshCopyTarget
+                    );
 
-        showStatus(
-            "Unable to copy automatically. "
-            + "The command has been selected so you can copy it manually."
+                copyToClipboard(
+                    target,
+                    button.dataset.sshCopyLabel ||
+                    "Command"
+                );
+            }
+        );
+    });
+
+    existingMode.addEventListener(
+        "change",
+        updateMode
+    );
+
+    dedicatedMode.addEventListener(
+        "change",
+        updateMode
+    );
+
+    const addButton = document.getElementById(
+        "showAddHostSshSetupButton"
+    );
+
+    if (addButton) {
+        addButton.addEventListener(
+            "click",
+            () => showSetup(
+                getAddHostValues(),
+                "add"
+            )
         );
     }
 
-    document.getElementById(
-        "showAddHostSshSetupButton"
-    ).addEventListener(
-        "click",
-        () => {
-            showSetup(
-                getAddHostValues()
-            );
-        }
-    );
-
-    document.getElementById(
+    const editButton = document.getElementById(
         "showEditHostSshSetupButton"
-    ).addEventListener(
-        "click",
-        () => {
-            showSetup(
-                getEditHostValues()
-            );
-        }
     );
 
-    document.getElementById(
-        "copySshSetupCopyCommand"
-    ).addEventListener(
-        "click",
-        () => {
-            copyToClipboard(
-                copyCommand,
-                "SSH key command"
-            );
-        }
-    );
-
-    document.getElementById(
-        "copySshSetupTestCommand"
-    ).addEventListener(
-        "click",
-        () => {
-            copyToClipboard(
-                testCommand,
-                "SSH test command"
-            );
-        }
-    );
-
-    document.getElementById(
-        "copySshSetupAnsibleCommand"
-    ).addEventListener(
-        "click",
-        () => {
-            copyToClipboard(
-                ansibleCommand,
-                "Ansible test command"
-            );
-        }
-    );
-});
-
-/*
- * HIMP Inventory Group Selector
- */
-
-document.addEventListener("DOMContentLoaded", () => {
-    const addGroup = document.getElementById(
-        "addHostGroup"
-    );
-
-    const editGroup = document.getElementById(
-        "editHostGroup"
-    );
-
-    if (!addGroup && !editGroup) {
-        return;
+    if (editButton) {
+        editButton.addEventListener(
+            "click",
+            () => showSetup(
+                getEditHostValues(),
+                "edit"
+            )
+        );
     }
 
-    async function loadGroups() {
-        const selects = [
-            addGroup,
-            editGroup,
-        ].filter(Boolean);
+    const applyDedicated =
+        document.getElementById(
+            "sshSetupApplyDedicated"
+        );
 
-        try {
-            const response = await fetch(
-                "/api/inventory/groups"
-            );
+    if (applyDedicated) {
+        applyDedicated.addEventListener(
+            "click",
+            () => {
+                if (currentSource === "add") {
+                    document.getElementById(
+                        "addHostUser"
+                    ).value =
+                        "himp-automation";
 
-            const result = await response.json();
+                    document.getElementById(
+                        "addHostBecome"
+                    ).checked = true;
+                } else {
+                    document.getElementById(
+                        "editHostUser"
+                    ).value =
+                        "himp-automation";
 
-            if (!response.ok) {
-                throw new Error(
-                    result.detail ||
-                    `HTTP ${response.status}`
+                    document.getElementById(
+                        "editHostBecome"
+                    ).checked = true;
+                }
+
+                showStatus(
+                    "Recommended settings applied: Ansible User = himp-automation; Become = enabled."
                 );
             }
-
-            const groups = result.groups || [];
-
-            selects.forEach((select) => {
-                const currentValue = select.value;
-
-                select.replaceChildren();
-
-                const placeholder =
-                    document.createElement("option");
-
-                placeholder.value = "";
-                placeholder.textContent =
-                    "Select a group";
-
-                select.appendChild(placeholder);
-
-                groups.forEach((group) => {
-                    const option =
-                        document.createElement("option");
-
-                    option.value = group.name;
-                    option.textContent =
-                        `${group.name} (${group.hosts})`;
-
-                    select.appendChild(option);
-                });
-
-                if (
-                    currentValue &&
-                    groups.some(
-                        (group) =>
-                            group.name === currentValue
-                    )
-                ) {
-                    select.value = currentValue;
-                }
-            });
-        } catch (err) {
-            console.error(
-                "Unable to load inventory groups:",
-                err
-            );
-
-            selects.forEach((select) => {
-                select.replaceChildren();
-
-                const option =
-                    document.createElement("option");
-
-                option.value = "";
-                option.textContent =
-                    "Unable to load groups";
-
-                select.appendChild(option);
-            });
-        }
+        );
     }
-
-    if (addGroup) {
-        const addModal =
-            document.getElementById(
-                "addHostModal"
-            );
-
-        if (addModal) {
-            addModal.addEventListener(
-                "show.bs.modal",
-                loadGroups
-            );
-        }
-    }
-
-    if (editGroup) {
-        const editModal =
-            document.getElementById(
-                "editHostModal"
-            );
-
-        if (editModal) {
-            editModal.addEventListener(
-                "show.bs.modal",
-                loadGroups
-            );
-        }
-    }
-
-    loadGroups();
 });
 
 /*
