@@ -33,6 +33,8 @@ EXPECTED_TABLES = {
     "workflow_executions",
     "workflow_tasks",
     "workflows",
+    "vulnerability_reports",
+    "vulnerability_findings",
 }
 
 
@@ -56,7 +58,10 @@ def test_schema_defines_every_himp_table_once():
         for statement in statements
     ]
 
-    assert len(statements) == 27
+    assert len(statements) == 29
+
+    assert "vulnerability_reports" in names
+    assert "vulnerability_findings" in names
     assert len(names) == len(set(names))
     assert set(names) == EXPECTED_TABLES
 
