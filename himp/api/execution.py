@@ -7,6 +7,7 @@ Provides plugin execution operations and history.
 import json
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 
 from himp.services.execution import ExecutionService
@@ -92,7 +93,7 @@ def execution_detail(
         result["artifacts"] = []
 
     return JSONResponse(
-        result
+        jsonable_encoder(result)
     )
 
 
