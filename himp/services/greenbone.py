@@ -42,6 +42,13 @@ class GreenboneClient:
         "completed-reports",
     )
 
+    HOST_RECONCILE_COMMAND = (
+        "/usr/bin/sudo",
+        "-n",
+        "/usr/local/sbin/himp-greenbone",
+        "host-reconcile",
+    )
+
     def __init__(
         self,
         host=None,
@@ -79,6 +86,120 @@ class GreenboneClient:
             f"{self.user}@{self.host}",
             *remote_command,
         ]
+
+    def reconcile_host(
+        self,
+        hostname,
+        address,
+        timeout=None,
+    ):
+        """
+        Ensure one HIMP inventory host has a Greenbone target and task.
+
+        This operation never starts a vulnerability scan.
+        """
+        if (
+            not isinstance(hostname, str)
+            or not hostname.strip()
+        ):
+            raise ValueError(
+                "hostname is required"
+            )
+
+        if (
+            not isinstance(address, str)
+            or not address.strip()
+        ):
+            raise ValueError(
+                "address is required"
+            )
+
+        command = self._ssh_command(
+            (
+                *self.HOST_RECONCILE_COMMAND,
+                hostname.strip(),
+                address.strip(),
+            )
+        )
+
+        try:
+            process = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=(
+                    timeout
+                    if timeout is not None
+                    else self.COMMAND_TIMEOUT
+                ),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError(
+                "Greenbone host reconciliation timed out"
+            ) from exc
+
+        if process.returncode != 0:
+            message = (
+                process.stderr.strip()
+                or process.stdout.strip()
+                or (
+                    "Greenbone host reconciliation "
+                    f"failed with rc={process.returncode}"
+                )
+            )
+
+            raise RuntimeError(
+                message
+            )
+
+        values = {}
+
+        for line in process.stdout.splitlines():
+            line = line.strip()
+
+            if "=" not in line:
+                continue
+
+            key, value = line.split(
+                "=",
+                1,
+            )
+
+            values[key.strip()] = value.strip()
+
+        if values.get(
+            "HOST_RECONCILE"
+        ) != "PASS":
+            raise ValueError(
+                "Greenbone host reconciliation "
+                "contract did not report PASS"
+            )
+
+        if values.get(
+            "SCAN_STARTED"
+        ) != "NO":
+            raise RuntimeError(
+                "Greenbone host reconciliation "
+                "unexpectedly started a scan"
+            )
+
+        return {
+            "hostname": hostname.strip(),
+            "address": address.strip(),
+            "target_created": (
+                values.get(
+                    "TARGET_CREATED"
+                ) == "YES"
+            ),
+            "task_created": (
+                values.get(
+                    "TASK_CREATED"
+                ) == "YES"
+            ),
+            "scan_started": False,
+        }
+
 
     def completed_reports(
         self,

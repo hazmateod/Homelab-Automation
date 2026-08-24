@@ -308,3 +308,92 @@ def test_completed_reports_rejects_count_mismatch(
         match="count mismatch",
     ):
         client.completed_reports()
+
+
+def test_reconcile_host_uses_constrained_remote_command(
+    monkeypatch,
+):
+    captured = {}
+
+    def fake_run(
+        command,
+        **kwargs,
+    ):
+        captured["command"] = command
+
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "TARGET_CREATED=NO\n"
+                "TASK_CREATED=NO\n"
+                "SCAN_STARTED=NO\n"
+                "HOST_RECONCILE=PASS\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    client = GreenboneClient()
+
+    result = client.reconcile_host(
+        "logs.server.arpa",
+        "10.10.37.58",
+    )
+
+    assert result == {
+        "hostname": "logs.server.arpa",
+        "address": "10.10.37.58",
+        "target_created": False,
+        "task_created": False,
+        "scan_started": False,
+    }
+
+    assert captured["command"][-6:] == [
+        "/usr/bin/sudo",
+        "-n",
+        "/usr/local/sbin/himp-greenbone",
+        "host-reconcile",
+        "logs.server.arpa",
+        "10.10.37.58",
+    ]
+
+
+def test_reconcile_host_rejects_scan_started_contract(
+    monkeypatch,
+):
+    def fake_run(
+        command,
+        **kwargs,
+    ):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "TARGET_CREATED=YES\n"
+                "TASK_CREATED=YES\n"
+                "SCAN_STARTED=YES\n"
+                "HOST_RECONCILE=PASS\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="unexpectedly started",
+    ):
+        GreenboneClient().reconcile_host(
+            "logs.server.arpa",
+            "10.10.37.58",
+        )

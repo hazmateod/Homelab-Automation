@@ -1,3 +1,6 @@
+from himp.services.vulnerability_onboarding import (
+    VulnerabilityOnboardingService,
+)
 """
 Automation Service.
 
@@ -780,7 +783,51 @@ class AutomationService:
                     "Inventory service not configured"
                 )
 
-            return self.inventory.sync()
+            onboarding = (
+                VulnerabilityOnboardingService()
+            )
+
+            try:
+                before_hosts = {
+                    host["hostname"]: host["address"]
+                    for host in onboarding.eligible_hosts()
+                }
+
+            except Exception:
+                before_hosts = {}
+
+            inventory_result = (
+                self.inventory.sync()
+            )
+
+            try:
+                after_hosts = (
+                    onboarding.eligible_hosts()
+                )
+
+                changed_hosts = [
+                    host
+                    for host in after_hosts
+                    if (
+                        host["hostname"]
+                        not in before_hosts
+                        or before_hosts[
+                            host["hostname"]
+                        ]
+                        != host["address"]
+                    )
+                ]
+
+                if changed_hosts:
+                    onboarding.reconcile(
+                        hosts=changed_hosts,
+                        timeout=60,
+                    )
+
+            except Exception:
+                pass
+
+            return inventory_result
 
         if task_id == "scheduled_updates":
 
