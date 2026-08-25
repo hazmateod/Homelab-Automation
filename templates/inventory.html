@@ -420,6 +420,76 @@
 </div>
 
 
+{% if vulnerability_scan_admin %}
+
+<div class="card bg-dark border-warning mb-4">
+    <div class="card-header">
+        Vulnerability Scan
+    </div>
+
+    <div class="card-body">
+
+        <p class="text-secondary">
+            Start a Greenbone vulnerability scan for an
+            active inventory host.
+        </p>
+
+        <div
+            id="inventory-vulnerability-scan-feedback"
+            class="alert d-none"
+            role="status"
+            aria-live="polite"
+        ></div>
+
+        <div class="row g-3 align-items-end">
+
+            <div class="col-md-9">
+                <label
+                    for="inventory-vulnerability-scan-host"
+                    class="form-label"
+                >
+                    Host
+                </label>
+
+                <select
+                    id="inventory-vulnerability-scan-host"
+                    class="form-select"
+                >
+                    <option value="">
+                        Select a host...
+                    </option>
+
+                    {% for host in inventory.hosts %}
+                    <option
+                        value="{{ host.hostname }}"
+                        data-ip="{{ host.ip }}"
+                    >
+                        {{ host.hostname }} — {{ host.ip }}
+                    </option>
+                    {% endfor %}
+
+                </select>
+            </div>
+
+            <div class="col-md-3 d-grid">
+                <button
+                    type="button"
+                    id="inventory-vulnerability-scan-button"
+                    class="btn btn-warning"
+                    disabled
+                >
+                    Start Scan
+                </button>
+            </div>
+
+        </div>
+
+    </div>
+</div>
+
+{% endif %}
+
+
 <div class="card bg-dark border-secondary">
 
     <div class="card-header d-flex justify-content-between align-items-center">
@@ -2112,5 +2182,154 @@ document.addEventListener(
         </div>
     </div>
 </div>
+
+
+{% if vulnerability_scan_admin %}
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    const hostSelect = document.getElementById(
+        "inventory-vulnerability-scan-host"
+    );
+
+    const button = document.getElementById(
+        "inventory-vulnerability-scan-button"
+    );
+
+    const feedback = document.getElementById(
+        "inventory-vulnerability-scan-feedback"
+    );
+
+    if (!hostSelect || !button || !feedback) {
+        return;
+    }
+
+    const showFeedback = (
+        message,
+        level
+    ) => {
+        feedback.textContent = message;
+
+        feedback.classList.remove(
+            "d-none",
+            "alert-success",
+            "alert-warning",
+            "alert-danger"
+        );
+
+        feedback.classList.add(
+            `alert-${level}`
+        );
+    };
+
+    hostSelect.addEventListener(
+        "change",
+        () => {
+            button.disabled = !hostSelect.value;
+        }
+    );
+
+    button.addEventListener(
+        "click",
+        async () => {
+            const hostname = hostSelect.value;
+
+            if (!hostname) {
+                return;
+            }
+
+            const accepted = window.confirm(
+                `Start a new vulnerability scan for ${hostname}?`
+            );
+
+            if (!accepted) {
+                return;
+            }
+
+            const originalText = button.textContent.trim();
+
+            button.disabled = true;
+            hostSelect.disabled = true;
+            button.textContent = "Starting Scan...";
+
+            feedback.classList.add(
+                "d-none"
+            );
+
+            try {
+                const response = await fetch(
+                    `/api/vulnerabilities/hosts/${
+                        encodeURIComponent(hostname)
+                    }/rescan`,
+                    {
+                        method: "POST",
+                        headers: {
+                            "Accept": "application/json"
+                        }
+                    }
+                );
+
+                let payload = {};
+
+                try {
+                    payload = await response.json();
+                } catch (_error) {
+                    payload = {};
+                }
+
+                if (!response.ok) {
+                    const detail = (
+                        payload.detail
+                        || "The vulnerability scan request failed."
+                    );
+
+                    throw new Error(detail);
+                }
+
+                if (payload.started) {
+                    showFeedback(
+                        `Vulnerability scan started for ${hostname}.`,
+                        "success"
+                    );
+
+                    button.textContent = "Scan Started";
+                    return;
+                }
+
+                if (payload.already_active) {
+                    const status = (
+                        payload.status
+                        ? ` (${payload.status})`
+                        : ""
+                    );
+
+                    showFeedback(
+                        `A vulnerability scan is already active for ${hostname}${status}.`,
+                        "warning"
+                    );
+
+                    button.textContent = "Scan Already Active";
+                    return;
+                }
+
+                throw new Error(
+                    "Greenbone returned an unexpected rescan state."
+                );
+
+            } catch (error) {
+                showFeedback(
+                    error.message
+                    || "The vulnerability scan request failed.",
+                    "danger"
+                );
+
+                hostSelect.disabled = false;
+                button.disabled = !hostSelect.value;
+                button.textContent = originalText;
+            }
+        }
+    );
+});
+</script>
+{% endif %}
 
 {% endblock %}

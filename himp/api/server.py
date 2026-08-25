@@ -382,12 +382,19 @@ def home(request: Request):
     )
 
 
-@app.get("/inventory", dependencies=[Depends(require_page_session)])
-def inventory(request: Request):
+@app.get("/inventory")
+def inventory(
+    request: Request,
+    session=Depends(require_page_session),
+):
 
     context = dashboard_context()
 
     context["inventory"] = himp.inventory.summary()
+
+    context["vulnerability_scan_admin"] = (
+        session.role == "admin"
+    )
 
     context["storage_summary"] = (
         himp.storage.summary()
