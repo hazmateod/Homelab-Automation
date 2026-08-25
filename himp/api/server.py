@@ -543,12 +543,117 @@ def vulnerability_host(
         )
     )
 
+    from himp.services.vulnerability_comparison import (
+        VulnerabilityComparisonService,
+    )
+
+    context["vulnerability_comparison"] = (
+        VulnerabilityComparisonService()
+        .compare_host(
+            hostname,
+            limit=3,
+        )
+    )
+
     context["inventory_host"] = host
 
     return templates.TemplateResponse(
         request=request,
         name="vulnerability_host.html",
         context=context,
+    )
+
+
+@app.get(
+    "/api/vulnerabilities/hosts/{hostname}/pdf",
+    dependencies=[Depends(require_session)],
+)
+def vulnerability_host_pdf_api(
+    hostname: str,
+):
+    from fastapi.responses import Response
+    from himp.services.vulnerability_report_export import (
+        VulnerabilityReportExportService,
+    )
+
+    content = (
+        VulnerabilityReportExportService()
+        .pdf(
+            hostname
+        )
+    )
+
+    return Response(
+        content=content,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": (
+                "attachment; "
+                f'filename="{hostname}-vulnerabilities.pdf"'
+            ),
+        },
+    )
+
+
+@app.get(
+    "/api/vulnerabilities/hosts/{hostname}/txt",
+    dependencies=[Depends(require_session)],
+)
+def vulnerability_host_txt_api(
+    hostname: str,
+):
+    from fastapi.responses import Response
+    from himp.services.vulnerability_report_export import (
+        VulnerabilityReportExportService,
+    )
+
+    content = (
+        VulnerabilityReportExportService()
+        .txt(
+            hostname
+        )
+    )
+
+    return Response(
+        content=content,
+        media_type="text/plain; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                "attachment; "
+                f'filename="{hostname}-vulnerabilities.txt"'
+            ),
+        },
+    )
+
+
+@app.get(
+    "/api/vulnerabilities/hosts/{hostname}/csv",
+    dependencies=[Depends(require_session)],
+)
+def vulnerability_host_csv_api(
+    hostname: str,
+):
+    from fastapi.responses import Response
+    from himp.services.vulnerability_report_export import (
+        VulnerabilityReportExportService,
+    )
+
+    content = (
+        VulnerabilityReportExportService()
+        .csv(
+            hostname
+        )
+    )
+
+    return Response(
+        content=content,
+        media_type="text/csv; charset=utf-8",
+        headers={
+            "Content-Disposition": (
+                "attachment; "
+                f'filename="{hostname}-vulnerabilities.csv"'
+            ),
+        },
     )
 
 
