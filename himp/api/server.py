@@ -66,6 +66,9 @@ from himp.services.logs import LogService
 from himp.services.vulnerability_intelligence import (
     VulnerabilityIntelligenceService,
 )
+from himp.services.vulnerability_rescan import (
+    VulnerabilityRescanService,
+)
 from himp.app import HIMP
 
 
@@ -231,6 +234,12 @@ log_service = LogService()
 
 vulnerability_intelligence_service = (
     VulnerabilityIntelligenceService()
+)
+
+vulnerability_rescan_service = (
+    VulnerabilityRescanService(
+        inventory=himp.inventory,
+    )
 )
 
 workflow_execution_service.automation_service = (
@@ -515,13 +524,51 @@ def vulnerabilities(request: Request):
     )
 
 
+@app.post(
+    "/api/vulnerabilities/hosts/{hostname}/rescan",
+)
+def vulnerability_host_rescan_api(
+    hostname: str,
+    _admin=Depends(require_admin),
+):
+    try:
+        return (
+            vulnerability_rescan_service
+            .start(
+                hostname,
+                timeout=60,
+            )
+        )
+
+    except LookupError as exc:
+        raise HTTPException(
+            status_code=404,
+            detail=str(exc),
+        ) from exc
+
+    except ValueError as exc:
+        raise HTTPException(
+            status_code=400,
+            detail=str(exc),
+        ) from exc
+
+    except RuntimeError as exc:
+        raise HTTPException(
+            status_code=502,
+            detail=(
+                "Greenbone rescan request failed: "
+                f"{exc}"
+            ),
+        ) from exc
+
+
 @app.get(
     "/vulnerabilities/hosts/{hostname}",
-    dependencies=[Depends(require_page_session)],
 )
 def vulnerability_host(
     request: Request,
     hostname: str,
+    session=Depends(require_page_session),
 ):
 
     host = himp.inventory.find_host(
@@ -556,6 +603,10 @@ def vulnerability_host(
     )
 
     context["inventory_host"] = host
+
+    context["vulnerability_rescan_admin"] = (
+        session.role == "admin"
+    )
 
     return templates.TemplateResponse(
         request=request,

@@ -397,3 +397,163 @@ def test_reconcile_host_rejects_scan_started_contract(
             "logs.server.arpa",
             "10.10.37.58",
         )
+
+
+
+def test_start_host_scan_uses_constrained_remote_command(
+    monkeypatch,
+):
+    captured = {}
+
+    def fake_run(
+        command,
+        **kwargs,
+    ):
+        captured["command"] = command
+
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "HOST_SCAN=START_REQUESTED\n"
+                "HOSTNAME=prox106\n"
+                "ADDRESS=192.168.10.6\n"
+                "TASK_ID=task-prox106\n"
+                "TASK_NAME=HIMP - prox106 - Full and Fast\n"
+                "TARGET=HIMP - prox106\n"
+                "PREVIOUS_STATUS=Done\n"
+                "REPORT_ID=-\n"
+                "SCAN_STARTED=YES\n"
+                "HOST_START=PASS\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    result = GreenboneClient().start_host_scan(
+        "prox106",
+        "192.168.10.6",
+    )
+
+    assert result["scan_started"] is True
+    assert result["already_active"] is False
+    assert result["task_id"] == "task-prox106"
+    assert result["report_id"] is None
+
+    assert captured["command"][-6:] == [
+        "/usr/bin/sudo",
+        "-n",
+        "/usr/local/sbin/himp-greenbone",
+        "host-start",
+        "prox106",
+        "192.168.10.6",
+    ]
+
+
+def test_start_host_scan_handles_already_active(
+    monkeypatch,
+):
+    def fake_run(
+        command,
+        **kwargs,
+    ):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "HOST_SCAN=ALREADY_ACTIVE\n"
+                "HOSTNAME=prox106\n"
+                "ADDRESS=192.168.10.6\n"
+                "TASK_ID=task-prox106\n"
+                "TASK_NAME=HIMP - prox106 - Full and Fast\n"
+                "TARGET=HIMP - prox106\n"
+                "STATUS=Running\n"
+                "SCAN_STARTED=NO\n"
+                "HOST_START=PASS\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    result = GreenboneClient().start_host_scan(
+        "prox106",
+        "192.168.10.6",
+    )
+
+    assert result["scan_started"] is False
+    assert result["already_active"] is True
+    assert result["status"] == "Running"
+
+
+def test_start_host_scan_rejects_remote_failure(
+    monkeypatch,
+):
+    def fake_run(
+        command,
+        **kwargs,
+    ):
+        return subprocess.CompletedProcess(
+            command,
+            1,
+            stdout="",
+            stderr="host is not canonical",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="not canonical",
+    ):
+        GreenboneClient().start_host_scan(
+            "unknown-host",
+            "10.10.37.250",
+        )
+
+
+def test_start_host_scan_rejects_invalid_contract(
+    monkeypatch,
+):
+    def fake_run(
+        command,
+        **kwargs,
+    ):
+        return subprocess.CompletedProcess(
+            command,
+            0,
+            stdout=(
+                "HOST_SCAN=START_REQUESTED\n"
+                "SCAN_STARTED=NO\n"
+                "HOST_START=PASS\n"
+            ),
+            stderr="",
+        )
+
+    monkeypatch.setattr(
+        subprocess,
+        "run",
+        fake_run,
+    )
+
+    with pytest.raises(
+        RuntimeError,
+        match="without SCAN_STARTED=YES",
+    ):
+        GreenboneClient().start_host_scan(
+            "prox106",
+            "192.168.10.6",
+        )

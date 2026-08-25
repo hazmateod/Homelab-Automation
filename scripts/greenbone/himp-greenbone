@@ -1,0 +1,105 @@
+#!/bin/sh
+set -eu
+
+case "${1:-}" in
+    status|capabilities|targets|tasks|reports|completed-reports|pilot-target|pilot-task|pilot-start|fleet-reconcile|fleet-start-batch1|fleet-start-batch2|fleet-admin-visibility|fleet-start-pending|fleet-resume-incomplete)
+        if [ "$#" -ne 1 ]; then
+            echo "ERROR: unexpected arguments" >&2
+            exit 2
+        fi
+
+        exec \
+          /opt/himp-greenbone/venv/bin/python \
+          /opt/himp-greenbone/himp_greenbone.py \
+          "$1"
+        ;;
+
+    host-reconcile)
+        if [ "$#" -ne 3 ]; then
+            echo \
+              "Usage: himp-greenbone host-reconcile <hostname> <IPv4>" \
+              >&2
+            exit 2
+        fi
+
+        case "$2" in
+            *[!a-zA-Z0-9.-]*|'')
+                echo "ERROR: invalid hostname" >&2
+                exit 2
+                ;;
+        esac
+
+        case "$3" in
+            *[!0-9.]*|'')
+                echo "ERROR: invalid IPv4 address" >&2
+                exit 2
+                ;;
+        esac
+
+        exec \
+          /opt/himp-greenbone/venv/bin/python \
+          /opt/himp-greenbone/himp_greenbone.py \
+          host-reconcile \
+          "$2" \
+          "$3"
+        ;;
+
+    host-start)
+        if [ "$#" -ne 3 ]; then
+            echo \
+              "Usage: himp-greenbone host-start <hostname> <IPv4>" \
+              >&2
+            exit 2
+        fi
+
+        case "$2" in
+            *[!a-zA-Z0-9.-]*|'')
+                echo "ERROR: invalid hostname" >&2
+                exit 2
+                ;;
+        esac
+
+        case "$3" in
+            *[!0-9.]*|'')
+                echo "ERROR: invalid IPv4 address" >&2
+                exit 2
+                ;;
+        esac
+
+        exec \
+          /opt/himp-greenbone/venv/bin/python \
+          /opt/himp-greenbone/himp_greenbone.py \
+          host-start \
+          "$2" \
+          "$3"
+        ;;
+
+    report)
+        if [ "$#" -ne 2 ]; then
+            echo "Usage: himp-greenbone report <report-uuid>" >&2
+            exit 2
+        fi
+
+        case "$2" in
+            ????????-????-????-????-????????????)
+                ;;
+            *)
+                echo "ERROR: invalid report UUID" >&2
+                exit 2
+                ;;
+        esac
+
+        exec \
+          /opt/himp-greenbone/venv/bin/python \
+          /opt/himp-greenbone/himp_greenbone.py \
+          report \
+          "$2"
+        ;;
+
+    *)
+        echo \
+          "Usage: himp-greenbone {status|capabilities|targets|tasks|reports|pilot-target|pilot-task|pilot-start|report <report-uuid>}" \
+          >&2
+        exit 2
+        ;;
+esac

@@ -18,7 +18,7 @@ import xml.etree.ElementTree as ET
 
 class GreenboneClient:
     """
-    Read-only client for the dedicated Greenbone integration endpoint.
+    Constrained client for the dedicated Greenbone integration endpoint.
     """
 
     HOST = "10.10.37.62"
@@ -47,6 +47,13 @@ class GreenboneClient:
         "-n",
         "/usr/local/sbin/himp-greenbone",
         "host-reconcile",
+    )
+
+    HOST_START_COMMAND = (
+        "/usr/bin/sudo",
+        "-n",
+        "/usr/local/sbin/himp-greenbone",
+        "host-start",
     )
 
     def __init__(
@@ -198,6 +205,150 @@ class GreenboneClient:
                 ) == "YES"
             ),
             "scan_started": False,
+        }
+
+
+    def start_host_scan(
+        self,
+        hostname,
+        address,
+        timeout=None,
+    ):
+        """
+        Start the canonical Greenbone task for one inventory host.
+        """
+        if (
+            not isinstance(hostname, str)
+            or not hostname.strip()
+        ):
+            raise ValueError(
+                "hostname is required"
+            )
+
+        if (
+            not isinstance(address, str)
+            or not address.strip()
+        ):
+            raise ValueError(
+                "address is required"
+            )
+
+        command = self._ssh_command(
+            (
+                *self.HOST_START_COMMAND,
+                hostname.strip(),
+                address.strip(),
+            )
+        )
+
+        try:
+            process = subprocess.run(
+                command,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=(
+                    timeout
+                    if timeout is not None
+                    else self.COMMAND_TIMEOUT
+                ),
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError(
+                "Greenbone host scan start timed out"
+            ) from exc
+
+        if process.returncode != 0:
+            message = (
+                process.stderr.strip()
+                or process.stdout.strip()
+                or (
+                    "Greenbone host scan start "
+                    f"failed with rc={process.returncode}"
+                )
+            )
+
+            raise RuntimeError(
+                message
+            )
+
+        values = {}
+
+        for line in process.stdout.splitlines():
+            line = line.strip()
+
+            if "=" not in line:
+                continue
+
+            key, value = line.split(
+                "=",
+                1,
+            )
+
+            values[key.strip()] = value.strip()
+
+        if values.get("HOST_START") != "PASS":
+            raise ValueError(
+                "Greenbone host-start contract "
+                "did not report PASS"
+            )
+
+        state = values.get("HOST_SCAN")
+
+        if state not in {
+            "START_REQUESTED",
+            "ALREADY_ACTIVE",
+        }:
+            raise ValueError(
+                "Greenbone host-start contract "
+                "returned invalid state"
+            )
+
+        scan_started = (
+            values.get("SCAN_STARTED") == "YES"
+        )
+
+        if state == "START_REQUESTED" and not scan_started:
+            raise RuntimeError(
+                "Greenbone reported start requested "
+                "without SCAN_STARTED=YES"
+            )
+
+        if state == "ALREADY_ACTIVE" and scan_started:
+            raise RuntimeError(
+                "Greenbone reported already active "
+                "with SCAN_STARTED=YES"
+            )
+
+        return {
+            "hostname": values.get(
+                "HOSTNAME",
+                hostname.strip(),
+            ),
+            "address": values.get(
+                "ADDRESS",
+                address.strip(),
+            ),
+            "task_id": values.get("TASK_ID"),
+            "task_name": values.get("TASK_NAME"),
+            "target_name": values.get("TARGET"),
+            "previous_status": values.get(
+                "PREVIOUS_STATUS"
+            ),
+            "status": values.get("STATUS"),
+            "report_id": (
+                None
+                if values.get("REPORT_ID") in {
+                    None,
+                    "",
+                    "-",
+                }
+                else values.get("REPORT_ID")
+            ),
+            "scan_started": scan_started,
+            "already_active": (
+                state == "ALREADY_ACTIVE"
+            ),
         }
 
 

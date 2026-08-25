@@ -1,0 +1,32 @@
+# HIMP -> Greenbone integration identity.
+# Phase 16.3.1 read-only contract.
+
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone status
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone capabilities
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone targets
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone tasks
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone reports
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone pilot-target
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone pilot-task
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone pilot-start
+
+# Phase 16.3.2 read-only report retrieval.
+# Argument validation is enforced by /usr/local/sbin/himp-greenbone.
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone report *
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone fleet-reconcile
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone fleet-start-batch1
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone fleet-admin-visibility
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone fleet-start-batch2
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone fleet-start-pending
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone fleet-resume-incomplete
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone completed-reports
+
+# Phase 16.4 inventory-driven single-host reconciliation.
+# Launcher and Python helper validate hostname/address.
+# This operation may create a target/task but never starts a scan.
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone host-reconcile * *
+
+# Phase 16.7.2 constrained single-host vulnerability scan start.
+# Launcher and Python helper independently validate hostname/address,
+# canonical manifest membership, target identity, task identity, and state.
+himp-greenbone ALL=(root) NOPASSWD: /usr/local/sbin/himp-greenbone host-start * *
