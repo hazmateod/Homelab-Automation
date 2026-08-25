@@ -785,6 +785,123 @@ def command_host_start(gmp, hostname, address):
     print("HOST_START=PASS")
 
 
+def ensure_admin_visibility(
+    gmp,
+    permission_name,
+    resource_type,
+    resource_id,
+    resource_name,
+):
+    """
+    Ensure the Greenbone Admin role has one bounded read permission
+    for a HIMP-managed resource.
+    """
+
+    admin_role_id = (
+        "7a8cb5b4-b74d-11e2-8187-406186ea4fc5"
+    )
+
+    if permission_name not in {
+        "get_targets",
+        "get_tasks",
+        "get_reports",
+    }:
+        raise RuntimeError(
+            "Unsupported Admin visibility permission"
+        )
+
+    if resource_type not in {
+        "target",
+        "task",
+        "report",
+    }:
+        raise RuntimeError(
+            "Unsupported Admin visibility resource type"
+        )
+
+    if not resource_id:
+        raise RuntimeError(
+            "Admin visibility resource UUID is missing"
+        )
+
+    permissions_response = gmp.get_permissions(
+        filter_string="rows=-1"
+    )
+
+    for permission in permissions_response.xpath(
+        "permission"
+    ):
+        existing_name = text_value(
+            permission,
+            "name",
+        )
+
+        subject_id = permission.xpath(
+            "string(subject/@id)"
+        )
+
+        subject_type = text_value(
+            permission,
+            "subject/type",
+        )
+
+        existing_resource_id = permission.xpath(
+            "string(resource/@id)"
+        )
+
+        existing_resource_type = text_value(
+            permission,
+            "resource/type",
+        )
+
+        if (
+            existing_name == permission_name
+            and subject_id == admin_role_id
+            and subject_type == "role"
+            and existing_resource_id == resource_id
+            and existing_resource_type == resource_type
+        ):
+            print(
+                "ADMIN_VISIBILITY_EXISTING\t"
+                f"{permission_name}\t"
+                f"{resource_type}\t"
+                f"{resource_id}\t"
+                f"{resource_name}"
+            )
+
+            return False
+
+    response = gmp.create_permission(
+        permission_name,
+        admin_role_id,
+        "role",
+        resource_id=resource_id,
+        resource_type=resource_type,
+        comment=(
+            "HIMP read-only Admin visibility "
+            "for Greenbone-managed fleet resources."
+        ),
+    )
+
+    permission_id = response.get("id")
+
+    if not permission_id:
+        raise RuntimeError(
+            "Greenbone did not return a permission UUID"
+        )
+
+    print(
+        "ADMIN_VISIBILITY_CREATED\t"
+        f"{permission_name}\t"
+        f"{resource_type}\t"
+        f"{resource_id}\t"
+        f"{permission_id}\t"
+        f"{resource_name}"
+    )
+
+    return True
+
+
 def command_host_reconcile(gmp, hostname, address):
     """
     Ensure exactly one HIMP Greenbone target and task exist
@@ -1039,6 +1156,26 @@ def command_host_reconcile(gmp, hostname, address):
             f"{task_id}"
         )
 
+    target_visibility_created = (
+        ensure_admin_visibility(
+            gmp,
+            "get_targets",
+            "target",
+            target_id,
+            target_name,
+        )
+    )
+
+    task_visibility_created = (
+        ensure_admin_visibility(
+            gmp,
+            "get_tasks",
+            "task",
+            task_id,
+            task_name,
+        )
+    )
+
     manifest_path = Path(
         "/etc/himp-greenbone/scan-hosts.tsv"
     )
@@ -1142,6 +1279,24 @@ def command_host_reconcile(gmp, hostname, address):
     print(
         "MANIFEST_UPDATED="
         + ("YES" if manifest_updated else "NO")
+    )
+
+    print(
+        "TARGET_ADMIN_VISIBILITY="
+        + (
+            "CREATED"
+            if target_visibility_created
+            else "EXISTING"
+        )
+    )
+
+    print(
+        "TASK_ADMIN_VISIBILITY="
+        + (
+            "CREATED"
+            if task_visibility_created
+            else "EXISTING"
+        )
     )
 
     print("SCAN_STARTED=NO")

@@ -261,3 +261,110 @@ def test_greenbone_installer_is_syntax_valid():
         result.stderr
         or result.stdout
     )
+
+
+def test_host_reconcile_ensures_admin_read_visibility():
+    source = HELPER.read_text()
+
+    assert (
+        "def ensure_admin_visibility("
+        in source
+    )
+
+    assert (
+        '"get_targets",\n'
+        '            "target",\n'
+        '            target_id,\n'
+        '            target_name,'
+        in source
+    )
+
+    assert (
+        '"get_tasks",\n'
+        '            "task",\n'
+        '            task_id,\n'
+        '            task_name,'
+        in source
+    )
+
+    assert (
+        "TARGET_ADMIN_VISIBILITY="
+        in source
+    )
+
+    assert (
+        "TASK_ADMIN_VISIBILITY="
+        in source
+    )
+
+
+def test_admin_visibility_is_read_only_and_role_bounded():
+    source = HELPER.read_text()
+
+    assert (
+        '"7a8cb5b4-b74d-11e2-8187-406186ea4fc5"'
+        in source
+    )
+
+    assert (
+        'permission_name not in {\n'
+        '        "get_targets",\n'
+        '        "get_tasks",\n'
+        '        "get_reports",'
+        in source
+    )
+
+    assert (
+        'resource_type not in {\n'
+        '        "target",\n'
+        '        "task",\n'
+        '        "report",'
+        in source
+    )
+
+    assert (
+        'gmp.create_permission('
+        in source
+    )
+
+    assert (
+        '"HIMP read-only Admin visibility "'
+        in source
+    )
+
+
+def test_host_reconcile_admin_visibility_does_not_start_scan():
+    source = HELPER.read_text()
+
+    start = source.index(
+        "def command_host_reconcile("
+    )
+
+    end = source.index(
+        "def command_fleet_reconcile(",
+        start,
+    )
+
+    reconcile_source = source[
+        start:end
+    ]
+
+    assert (
+        "ensure_admin_visibility("
+        in reconcile_source
+    )
+
+    assert (
+        "gmp.start_task("
+        not in reconcile_source
+    )
+
+    assert (
+        'print("SCAN_STARTED=NO")'
+        in reconcile_source
+    )
+
+    assert (
+        'print("HOST_RECONCILE=PASS")'
+        in reconcile_source
+    )
