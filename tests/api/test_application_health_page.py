@@ -429,3 +429,217 @@ def test_application_health_page_exposes_attention_pass_state(
         in response.text
     )
     assert "PASS" in response.text
+
+
+def test_application_health_page_exposes_host_connectivity_guidance(
+    monkeypatch,
+):
+    application_summary = {
+        "status": "healthy",
+        "components": {},
+        "release": {
+            "available": False,
+            "revision": None,
+        },
+        "scheduler_operations": {
+            "available": True,
+            "total": 0,
+            "enabled": 0,
+            "disabled": 0,
+            "failed": 0,
+            "schedules": [],
+        },
+        "maintenance": {
+            "available": True,
+            "active_count": 0,
+            "upcoming_count": 0,
+            "active": [],
+            "upcoming": [],
+        },
+        "infrastructure": {
+            "available": True,
+            "total": 1,
+            "passed": 0,
+            "warnings": 0,
+            "failed": 1,
+            "unknown": 0,
+            "score": 0,
+        },
+    }
+
+    operational_summary = {
+        "status": "FAIL",
+        "health": {},
+        "workflows": {},
+        "automations": {},
+        "remediation": {},
+        "attention": [
+            {
+                "severity": "FAIL",
+                "category": "Host Connectivity",
+                "message": (
+                    "1 host(s) failed connectivity checks."
+                ),
+                "href": "/health",
+            },
+        ],
+    }
+
+    guidance = {
+        "id": "host_connectivity_failed",
+        "category": "Host Connectivity",
+        "severity": "FAIL",
+        "title": "A system is not responding",
+        "urgency": "CHECK_WHEN_CONVENIENT",
+        "summary": (
+            "HIMP could not communicate with a system."
+        ),
+        "meaning": (
+            "The system may be temporarily unavailable."
+        ),
+        "safe_actions": [
+            "Check Infrastructure Health.",
+            "Check whether the system is powered on.",
+        ],
+        "can_wait": (
+            "Usually yes when only one system is affected."
+        ),
+        "do_not": [
+            "Do not restart unrelated servers.",
+            "Do not change network settings.",
+        ],
+        "escalation": (
+            "Get technical help if several systems fail."
+        ),
+        "detail_href": "/health",
+    }
+
+    monkeypatch.setattr(
+        server.himp.application_health,
+        "summary",
+        lambda: application_summary,
+    )
+
+    monkeypatch.setattr(
+        server.himp.dashboard,
+        "operational_summary",
+        lambda: operational_summary,
+    )
+
+    monkeypatch.setattr(
+        server.himp.operator_guidance,
+        "for_attention",
+        lambda item: guidance,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/application-health"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "A system is not responding" in response.text
+    assert "Check when convenient" in response.text
+    assert "What happened?" in response.text
+    assert "What does this mean?" in response.text
+    assert "What should I do?" in response.text
+    assert "Can this wait?" in response.text
+    assert "Do not do these things" in response.text
+    assert "When should I get help?" in response.text
+    assert "Check Infrastructure Health." in response.text
+    assert "Do not restart unrelated servers." in response.text
+    assert "View technical details" in response.text
+
+
+def test_application_health_page_allows_attention_without_guidance(
+    monkeypatch,
+):
+    application_summary = {
+        "status": "healthy",
+        "components": {},
+        "release": {
+            "available": False,
+            "revision": None,
+        },
+        "scheduler_operations": {
+            "available": True,
+            "total": 0,
+            "enabled": 0,
+            "disabled": 0,
+            "failed": 0,
+            "schedules": [],
+        },
+        "maintenance": {
+            "available": True,
+            "active_count": 0,
+            "upcoming_count": 0,
+            "active": [],
+            "upcoming": [],
+        },
+        "infrastructure": {
+            "available": True,
+            "total": 0,
+            "passed": 0,
+            "warnings": 0,
+            "failed": 0,
+            "unknown": 0,
+            "score": 0,
+        },
+    }
+
+    operational_summary = {
+        "status": "FAIL",
+        "health": {},
+        "workflows": {},
+        "automations": {},
+        "remediation": {},
+        "attention": [
+            {
+                "severity": "FAIL",
+                "category": "Automation",
+                "message": "Automation failed.",
+                "href": "/automation",
+            },
+        ],
+    }
+
+    monkeypatch.setattr(
+        server.himp.application_health,
+        "summary",
+        lambda: application_summary,
+    )
+
+    monkeypatch.setattr(
+        server.himp.dashboard,
+        "operational_summary",
+        lambda: operational_summary,
+    )
+
+    monkeypatch.setattr(
+        server.himp.operator_guidance,
+        "for_attention",
+        lambda item: None,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/application-health"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "Automation failed." in response.text
+    assert "What should I do?" not in response.text

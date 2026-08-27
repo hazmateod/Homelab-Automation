@@ -736,6 +736,117 @@
                     {% endif %}
 
                 </div>
+
+                {% if item.guidance %}
+
+                <div class="mt-3 border-top border-secondary pt-3">
+
+                    <div class="d-flex flex-wrap gap-2
+                                align-items-center mb-3">
+
+                        <span class="fw-semibold">
+                            {{ item.guidance.title }}
+                        </span>
+
+                        {% if item.guidance.urgency ==
+                              "NO_ACTION_NEEDED" %}
+                        <span class="badge bg-success">
+                            No action needed
+                        </span>
+                        {% elif item.guidance.urgency ==
+                                "CHECK_WHEN_CONVENIENT" %}
+                        <span class="badge bg-warning text-dark">
+                            Check when convenient
+                        </span>
+                        {% elif item.guidance.urgency ==
+                                "ACTION_RECOMMENDED" %}
+                        <span class="badge bg-warning text-dark">
+                            Action recommended
+                        </span>
+                        {% else %}
+                        <span class="badge bg-danger">
+                            Get technical help
+                        </span>
+                        {% endif %}
+
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1">
+                            What happened?
+                        </div>
+                        <div class="small text-secondary">
+                            {{ item.guidance.summary }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1">
+                            What does this mean?
+                        </div>
+                        <div class="small text-secondary">
+                            {{ item.guidance.meaning }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1">
+                            What should I do?
+                        </div>
+                        <ol class="small text-secondary mb-0">
+                            {% for action in
+                                  item.guidance.safe_actions %}
+                            <li class="mb-1">
+                                {{ action }}
+                            </li>
+                            {% endfor %}
+                        </ol>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1">
+                            Can this wait?
+                        </div>
+                        <div class="small text-secondary">
+                            {{ item.guidance.can_wait }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1 text-warning">
+                            Do not do these things
+                        </div>
+                        <ul class="small text-secondary mb-0">
+                            {% for warning in item.guidance.do_not %}
+                            <li class="mb-1">
+                                {{ warning }}
+                            </li>
+                            {% endfor %}
+                        </ul>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1">
+                            When should I get help?
+                        </div>
+                        <div class="small text-secondary">
+                            {{ item.guidance.escalation }}
+                        </div>
+                    </div>
+
+                    <div>
+                        <a
+                            href="{{ item.guidance.detail_href }}"
+                            class="btn btn-sm btn-outline-primary"
+                        >
+                            View technical details
+                        </a>
+                    </div>
+
+                </div>
+
+                {% endif %}
+
             </a>
 
             {% endfor %}

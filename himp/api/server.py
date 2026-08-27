@@ -825,6 +825,13 @@ def application_health(request: Request):
         himp.dashboard.operational_summary()
     )
 
+    for item in context["operational_attention"]["attention"]:
+        item["guidance"] = (
+            himp.operator_guidance.for_attention(
+                item
+            )
+        )
+
     return templates.TemplateResponse(
         request=request,
         name="application_health.html",

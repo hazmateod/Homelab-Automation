@@ -1,0 +1,89 @@
+---
+# HIMP Operator Guidance Catalog
+#
+# Reviewed, deterministic self-help guidance for HIMP operational
+# conditions.
+#
+# This catalog is intentionally informational. It must not execute
+# remediation, restart services, modify infrastructure, or infer
+# troubleshooting procedures dynamically.
+#
+# Guidance should be understandable by a non-technical operator and
+# should favor safe observation and escalation over speculative change.
+
+guidance:
+
+  host_connectivity_failed:
+    category: Host Connectivity
+    severity: FAIL
+    title: A system is not responding
+    urgency: CHECK_WHEN_CONVENIENT
+
+    summary: >-
+      HIMP could not successfully communicate with one or more systems
+      during its most recent connectivity checks.
+
+    meaning: >-
+      A server or device may be powered off, temporarily unavailable,
+      disconnected from the network, restarting, or experiencing a
+      problem. Other systems may continue working normally.
+
+    safe_actions:
+      - Check the Infrastructure Health page to identify the affected system.
+      - Check whether the affected system appears to be powered on.
+      - Check for an obvious disconnected network or power cable if the system is physically accessible.
+      - Wait a few minutes and check HIMP again if the system may be restarting.
+
+    can_wait: >-
+      Usually yes when only one system is affected and the services you
+      need are still working. Get technical help sooner if several systems
+      fail at the same time or an important household service stops working.
+
+    do_not:
+      - Do not restart unrelated servers.
+      - Do not change router, switch, firewall, DNS, or network settings.
+      - Do not delete or restore virtual machines or containers.
+      - Do not repeatedly power-cycle the affected system.
+      - Do not make configuration changes just to clear the red status.
+
+    escalation: >-
+      Get technical help if multiple systems are unreachable, the affected
+      system provides an important service, the condition persists, or you
+      are unsure whether an action is safe.
+
+    detail_href: /health
+
+  host_connectivity_warning:
+    category: Host Connectivity
+    severity: WARNING
+    title: A system may need attention
+    urgency: CHECK_WHEN_CONVENIENT
+
+    summary: >-
+      HIMP detected a connectivity warning for one or more systems, but
+      this does not necessarily mean the system is completely unavailable.
+
+    meaning: >-
+      A system may be responding inconsistently or HIMP may not have enough
+      information to consider the connectivity check fully healthy.
+
+    safe_actions:
+      - Check the Infrastructure Health page for the affected system.
+      - Confirm that the service you need is still working normally.
+      - Check HIMP again later to see whether the warning clears.
+
+    can_wait: >-
+      Usually yes if household services are working normally and the warning
+      is limited to one system.
+
+    do_not:
+      - Do not restart systems solely because of this warning.
+      - Do not change network or DNS settings to clear the warning.
+      - Do not make configuration changes unless a reviewed procedure specifically requires them.
+
+    escalation: >-
+      Get technical help if the warning becomes a failure, several systems
+      develop warnings, an important service stops working, or the warning
+      continues for an extended period.
+
+    detail_href: /health
