@@ -213,3 +213,19 @@ def test_application_health_page_exposes_operations_overview(
     assert "Infrastructure Health" in response.text
     assert "94%" in response.text
     assert "Manage Automation" in response.text
+
+
+def test_sidebar_exposes_application_operations_navigation():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+
+    source = (
+        root
+        / "templates"
+        / "layout"
+        / "sidebar.html"
+    ).read_text(encoding="utf-8")
+
+    assert 'href="/application-health"' in source
+    assert "Operations" in source
