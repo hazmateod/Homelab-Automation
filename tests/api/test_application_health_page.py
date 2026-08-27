@@ -26,6 +26,17 @@ def authenticated_session():
     )
 
 
+def empty_operational_summary():
+    return {
+        "status": "PASS",
+        "health": {},
+        "workflows": {},
+        "automations": {},
+        "remediation": {},
+        "attention": [],
+    }
+
+
 def test_authenticated_application_health_page_exposes_summary(
     monkeypatch,
 ):
@@ -94,6 +105,12 @@ def test_authenticated_application_health_page_exposes_summary(
         server.himp.application_health,
         "summary",
         lambda: expected,
+    )
+
+    monkeypatch.setattr(
+        server.himp.dashboard,
+        "operational_summary",
+        empty_operational_summary,
     )
 
     server.app.dependency_overrides[
@@ -191,6 +208,12 @@ def test_application_health_page_exposes_operations_overview(
         lambda: expected,
     )
 
+    monkeypatch.setattr(
+        server.himp.dashboard,
+        "operational_summary",
+        empty_operational_summary,
+    )
+
     server.app.dependency_overrides[
         require_page_session
     ] = authenticated_session
@@ -229,3 +252,180 @@ def test_sidebar_exposes_application_operations_navigation():
 
     assert 'href="/application-health"' in source
     assert "Operations" in source
+
+
+def test_application_health_page_exposes_operational_attention(
+    monkeypatch,
+):
+    application_summary = {
+        "status": "healthy",
+        "components": {},
+        "release": {
+            "available": False,
+            "revision": None,
+        },
+        "scheduler_operations": {
+            "available": True,
+            "total": 0,
+            "enabled": 0,
+            "disabled": 0,
+            "failed": 0,
+            "schedules": [],
+        },
+        "maintenance": {
+            "available": True,
+            "active_count": 0,
+            "upcoming_count": 0,
+            "active": [],
+            "upcoming": [],
+        },
+        "infrastructure": {
+            "available": True,
+            "total": 0,
+            "passed": 0,
+            "warnings": 0,
+            "failed": 0,
+            "unknown": 0,
+            "score": 0,
+        },
+    }
+
+    operational_summary = {
+        "status": "FAIL",
+        "health": {},
+        "workflows": {},
+        "automations": {},
+        "remediation": {},
+        "attention": [
+            {
+                "severity": "FAIL",
+                "category": "Host Connectivity",
+                "message": (
+                    "1 host(s) failed connectivity checks."
+                ),
+                "href": "/health",
+            },
+            {
+                "severity": "WARNING",
+                "category": "Remediation",
+                "message": (
+                    "2 remediation recommendation(s) "
+                    "await confirmation."
+                ),
+                "href": "/remediation",
+            },
+        ],
+    }
+
+    monkeypatch.setattr(
+        server.himp.application_health,
+        "summary",
+        lambda: application_summary,
+    )
+
+    monkeypatch.setattr(
+        server.himp.dashboard,
+        "operational_summary",
+        lambda: operational_summary,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/application-health"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "Operational Attention" in response.text
+    assert "Host Connectivity" in response.text
+    assert "1 host(s) failed connectivity checks." in response.text
+    assert 'href="/health"' in response.text
+    assert "Remediation" in response.text
+    assert "await confirmation" in response.text
+    assert 'href="/remediation"' in response.text
+    assert "FAIL" in response.text
+    assert "WARNING" in response.text
+
+
+def test_application_health_page_exposes_attention_pass_state(
+    monkeypatch,
+):
+    application_summary = {
+        "status": "healthy",
+        "components": {},
+        "release": {
+            "available": False,
+            "revision": None,
+        },
+        "scheduler_operations": {
+            "available": True,
+            "total": 0,
+            "enabled": 0,
+            "disabled": 0,
+            "failed": 0,
+            "schedules": [],
+        },
+        "maintenance": {
+            "available": True,
+            "active_count": 0,
+            "upcoming_count": 0,
+            "active": [],
+            "upcoming": [],
+        },
+        "infrastructure": {
+            "available": True,
+            "total": 0,
+            "passed": 0,
+            "warnings": 0,
+            "failed": 0,
+            "unknown": 0,
+            "score": 0,
+        },
+    }
+
+    operational_summary = {
+        "status": "PASS",
+        "health": {},
+        "workflows": {},
+        "automations": {},
+        "remediation": {},
+        "attention": [],
+    }
+
+    monkeypatch.setattr(
+        server.himp.application_health,
+        "summary",
+        lambda: application_summary,
+    )
+
+    monkeypatch.setattr(
+        server.himp.dashboard,
+        "operational_summary",
+        lambda: operational_summary,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/application-health"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "Operational Attention" in response.text
+    assert (
+        "No current operational conditions require attention."
+        in response.text
+    )
+    assert "PASS" in response.text
