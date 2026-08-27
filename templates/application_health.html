@@ -703,9 +703,8 @@
 
             {% for item in operational_attention.attention %}
 
-            <a
-                href="{{ item.href }}"
-                class="list-group-item list-group-item-action
+            <div
+                class="list-group-item
                        bg-dark text-light border-secondary"
             >
                 <div class="d-flex w-100 justify-content-between
@@ -718,6 +717,15 @@
 
                         <div class="small text-secondary mt-1">
                             {{ item.message }}
+                        </div>
+
+                        <div class="mt-2">
+                            <a
+                                href="{{ item.href }}"
+                                class="small"
+                            >
+                                Review condition
+                            </a>
                         </div>
                     </div>
 
@@ -847,7 +855,7 @@
 
                 {% endif %}
 
-            </a>
+            </div>
 
             {% endfor %}
 

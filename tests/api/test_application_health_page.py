@@ -643,3 +643,34 @@ def test_application_health_page_allows_attention_without_guidance(
     assert response.status_code == 200
     assert "Automation failed." in response.text
     assert "What should I do?" not in response.text
+
+
+def test_operational_attention_avoids_nested_anchor_wrapper():
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[2]
+
+    source = (
+        root
+        / "templates"
+        / "application_health.html"
+    ).read_text(encoding="utf-8")
+
+    assert (
+        'class="list-group-item list-group-item-action'
+        not in source
+    )
+
+    assert (
+        'href="{{ item.href }}"'
+        in source
+    )
+
+    assert "Review condition" in source
+
+    assert (
+        'href="{{ item.guidance.detail_href }}"'
+        in source
+    )
+
+    assert "View technical details" in source
