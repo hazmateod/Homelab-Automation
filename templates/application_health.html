@@ -799,6 +799,24 @@
 
                     <div class="mb-3">
                         <div class="fw-semibold mb-1">
+                            What does this affect?
+                        </div>
+                        <div class="small text-secondary">
+                            {{ item.guidance.affects }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1">
+                            How do I know it is fixed?
+                        </div>
+                        <div class="small text-secondary">
+                            {{ item.guidance.resolved_when }}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="fw-semibold mb-1">
                             What should I do?
                         </div>
                         <ol class="small text-secondary mb-0">

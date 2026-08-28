@@ -90,7 +90,7 @@ def test_maps_warning_host_connectivity_attention():
     assert result["severity"] == "WARNING"
 
 
-def test_unmapped_attention_returns_none():
+def test_unsupported_attention_returns_none():
     root = Path(__file__).resolve().parents[2]
 
     service = OperatorGuidanceService(
@@ -99,7 +99,7 @@ def test_unmapped_attention_returns_none():
 
     result = service.for_attention(
         {
-            "severity": "FAIL",
+            "severity": "WARNING",
             "category": "Automation",
         }
     )
@@ -144,6 +144,8 @@ guidance:
     urgency: PANIC
     summary: Summary
     meaning: Meaning
+    affects: Affected system.
+    resolved_when: HIMP reports recovery.
     safe_actions:
       - Check something.
     can_wait: Yes.
@@ -179,6 +181,8 @@ guidance:
     urgency: GET_TECHNICAL_HELP
     summary: Summary
     meaning: Meaning
+    affects: Affected system.
+    resolved_when: HIMP reports recovery.
     safe_actions: []
     can_wait: No.
     do_not:
@@ -197,3 +201,155 @@ guidance:
         match="safe_actions",
     ):
         service.load()
+
+
+def test_for_attention_maps_workflow_failure(
+    tmp_path,
+):
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Workflow",
+            "severity": "FAIL",
+        }
+    )
+
+    assert result["id"] == "workflow_failed"
+    assert result["urgency"] == "CHECK_WHEN_CONVENIENT"
+
+
+def test_for_attention_maps_automation_failure(
+    tmp_path,
+):
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Automation",
+            "severity": "FAIL",
+        }
+    )
+
+    assert result["id"] == "automation_failed"
+    assert result["urgency"] == "CHECK_WHEN_CONVENIENT"
+
+
+def test_for_attention_maps_remediation_execution_failure(
+    tmp_path,
+):
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Remediation",
+            "severity": "FAIL",
+        }
+    )
+
+    assert (
+        result["id"]
+        == "remediation_execution_failed"
+    )
+    assert result["urgency"] == "GET_TECHNICAL_HELP"
+
+
+def test_for_attention_maps_remediation_confirmation_warning(
+    tmp_path,
+):
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Remediation",
+            "severity": "WARNING",
+        }
+    )
+
+    assert (
+        result["id"]
+        == "remediation_confirmation_required"
+    )
+    assert result["urgency"] == "NO_ACTION_NEEDED"
+
+
+def test_for_attention_rejects_unsupported_product_condition(
+    tmp_path,
+):
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    assert service.for_attention(
+        {
+            "category": "Workflow",
+            "severity": "WARNING",
+        }
+    ) is None
+
+
+def test_safe_for_attention_returns_none_when_catalog_missing(
+    tmp_path,
+):
+    service = OperatorGuidanceService(
+        tmp_path / "missing.yml"
+    )
+
+    result = service.safe_for_attention(
+        {
+            "category": "Automation",
+            "severity": "FAIL",
+        }
+    )
+
+    assert result is None
+
+
+def test_safe_for_attention_returns_none_for_malformed_catalog(
+    tmp_path,
+):
+    path = tmp_path / "operator_guidance.yml"
+
+    path.write_text(
+        "guidance: [broken",
+        encoding="utf-8",
+    )
+
+    service = OperatorGuidanceService(
+        path
+    )
+
+    result = service.safe_for_attention(
+        {
+            "category": "Automation",
+            "severity": "FAIL",
+        }
+    )
+
+    assert result is None
+
+
+def test_strict_lookup_still_rejects_missing_catalog(
+    tmp_path,
+):
+    service = OperatorGuidanceService(
+        tmp_path / "missing.yml"
+    )
+
+    with pytest.raises(
+        FileNotFoundError
+    ):
+        service.for_attention(
+            {
+                "category": "Automation",
+                "severity": "FAIL",
+            }
+        )

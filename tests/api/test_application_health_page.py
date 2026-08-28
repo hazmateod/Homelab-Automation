@@ -497,6 +497,12 @@ def test_application_health_page_exposes_host_connectivity_guidance(
         "meaning": (
             "The system may be temporarily unavailable."
         ),
+        "affects": (
+            "This affects the system HIMP cannot reach."
+        ),
+        "resolved_when": (
+            "HIMP reports the system healthy again."
+        ),
         "safe_actions": [
             "Check Infrastructure Health.",
             "Check whether the system is powered on.",
@@ -549,6 +555,8 @@ def test_application_health_page_exposes_host_connectivity_guidance(
     assert "Check when convenient" in response.text
     assert "What happened?" in response.text
     assert "What does this mean?" in response.text
+    assert "What does this affect?" in response.text
+    assert "How do I know it is fixed?" in response.text
     assert "What should I do?" in response.text
     assert "Can this wait?" in response.text
     assert "Do not do these things" in response.text
@@ -674,3 +682,90 @@ def test_operational_attention_avoids_nested_anchor_wrapper():
     )
 
     assert "View technical details" in source
+
+
+def test_application_health_page_survives_guidance_catalog_failure(
+    monkeypatch,
+):
+    application_summary = {
+        "status": "healthy",
+        "components": {},
+        "release": {
+            "available": False,
+            "revision": None,
+        },
+        "scheduler_operations": {
+            "available": True,
+            "total": 0,
+            "enabled": 0,
+            "disabled": 0,
+            "failed": 0,
+            "schedules": [],
+        },
+        "maintenance": {
+            "available": True,
+            "active_count": 0,
+            "upcoming_count": 0,
+            "active": [],
+            "upcoming": [],
+        },
+        "infrastructure": {
+            "available": True,
+            "total": 1,
+            "passed": 0,
+            "warnings": 0,
+            "failed": 1,
+            "unknown": 0,
+            "score": 0,
+        },
+    }
+
+    operational_summary = {
+        "status": "FAIL",
+        "health": {},
+        "workflows": {},
+        "automations": {},
+        "remediation": {},
+        "attention": [
+            {
+                "severity": "FAIL",
+                "category": "Automation",
+                "message": "Automation failed.",
+                "href": "/automation",
+            },
+        ],
+    }
+
+    monkeypatch.setattr(
+        server.himp.application_health,
+        "summary",
+        lambda: application_summary,
+    )
+
+    monkeypatch.setattr(
+        server.himp.dashboard,
+        "operational_summary",
+        lambda: operational_summary,
+    )
+
+    monkeypatch.setattr(
+        server.himp.operator_guidance,
+        "safe_for_attention",
+        lambda item: None,
+    )
+
+    server.app.dependency_overrides[
+        require_page_session
+    ] = authenticated_session
+
+    try:
+        with TestClient(server.app) as client:
+            response = client.get(
+                "/application-health"
+            )
+    finally:
+        server.app.dependency_overrides.clear()
+
+    assert response.status_code == 200
+    assert "Automation failed." in response.text
+    assert "What should I do?" not in response.text

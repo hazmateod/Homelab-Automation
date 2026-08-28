@@ -1,89 +1,183 @@
----
-# HIMP Operator Guidance Catalog
-#
-# Reviewed, deterministic self-help guidance for HIMP operational
-# conditions.
-#
-# This catalog is intentionally informational. It must not execute
-# remediation, restart services, modify infrastructure, or infer
-# troubleshooting procedures dynamically.
-#
-# Guidance should be understandable by a non-technical operator and
-# should favor safe observation and escalation over speculative change.
-
 guidance:
-
   host_connectivity_failed:
     category: Host Connectivity
     severity: FAIL
     title: A system is not responding
     urgency: CHECK_WHEN_CONVENIENT
-
-    summary: >-
-      HIMP could not successfully communicate with one or more systems
-      during its most recent connectivity checks.
-
-    meaning: >-
-      A server or device may be powered off, temporarily unavailable,
-      disconnected from the network, restarting, or experiencing a
-      problem. Other systems may continue working normally.
-
+    summary: HIMP could not successfully communicate with one or more systems during its most
+      recent connectivity checks.
+    meaning: A server or device may be powered off, temporarily unavailable, disconnected
+      from the network, restarting, or experiencing a problem. Other systems may continue
+      working normally.
     safe_actions:
-      - Check the Infrastructure Health page to identify the affected system.
-      - Check whether the affected system appears to be powered on.
-      - Check for an obvious disconnected network or power cable if the system is physically accessible.
-      - Wait a few minutes and check HIMP again if the system may be restarting.
-
-    can_wait: >-
-      Usually yes when only one system is affected and the services you
-      need are still working. Get technical help sooner if several systems
-      fail at the same time or an important household service stops working.
-
+    - Check the Infrastructure Health page to identify the affected system.
+    - Check whether the affected system appears to be powered on.
+    - Check for an obvious disconnected network or power cable if the system is physically
+      accessible.
+    - Wait a few minutes and check HIMP again if the system may be restarting.
+    can_wait: Usually yes when only one system is affected and the services you need are still
+      working. Get technical help sooner if several systems fail at the same time or an important
+      household service stops working.
     do_not:
-      - Do not restart unrelated servers.
-      - Do not change router, switch, firewall, DNS, or network settings.
-      - Do not delete or restore virtual machines or containers.
-      - Do not repeatedly power-cycle the affected system.
-      - Do not make configuration changes just to clear the red status.
-
-    escalation: >-
-      Get technical help if multiple systems are unreachable, the affected
-      system provides an important service, the condition persists, or you
-      are unsure whether an action is safe.
-
+    - Do not restart unrelated servers.
+    - Do not change router, switch, firewall, DNS, or network settings.
+    - Do not delete or restore virtual machines or containers.
+    - Do not repeatedly power-cycle the affected system.
+    - Do not make configuration changes just to clear the red status.
+    escalation: Get technical help if multiple systems are unreachable, the affected system
+      provides an important service, the condition persists, or you are unsure whether an
+      action is safe.
     detail_href: /health
-
+    affects: This affects the individual system HIMP cannot reach. Other household services
+      may continue working normally when only one system is affected.
+    resolved_when: The affected system returns to a healthy connectivity state in HIMP and
+      the Host Connectivity attention item is no longer present.
   host_connectivity_warning:
     category: Host Connectivity
     severity: WARNING
     title: A system may need attention
     urgency: CHECK_WHEN_CONVENIENT
-
-    summary: >-
-      HIMP detected a connectivity warning for one or more systems, but
-      this does not necessarily mean the system is completely unavailable.
-
-    meaning: >-
-      A system may be responding inconsistently or HIMP may not have enough
-      information to consider the connectivity check fully healthy.
-
+    summary: HIMP detected a connectivity warning for one or more systems, but this does not
+      necessarily mean the system is completely unavailable.
+    meaning: A system may be responding inconsistently or HIMP may not have enough information
+      to consider the connectivity check fully healthy.
     safe_actions:
-      - Check the Infrastructure Health page for the affected system.
-      - Confirm that the service you need is still working normally.
-      - Check HIMP again later to see whether the warning clears.
-
-    can_wait: >-
-      Usually yes if household services are working normally and the warning
-      is limited to one system.
-
+    - Check the Infrastructure Health page for the affected system.
+    - Confirm that the service you need is still working normally.
+    - Check HIMP again later to see whether the warning clears.
+    can_wait: Usually yes if household services are working normally and the warning is limited
+      to one system.
     do_not:
-      - Do not restart systems solely because of this warning.
-      - Do not change network or DNS settings to clear the warning.
-      - Do not make configuration changes unless a reviewed procedure specifically requires them.
-
-    escalation: >-
-      Get technical help if the warning becomes a failure, several systems
-      develop warnings, an important service stops working, or the warning
-      continues for an extended period.
-
+    - Do not restart systems solely because of this warning.
+    - Do not change network or DNS settings to clear the warning.
+    - Do not make configuration changes unless a reviewed procedure specifically requires
+      them.
+    escalation: Get technical help if the warning becomes a failure, several systems develop
+      warnings, an important service stops working, or the warning continues for an extended
+      period.
     detail_href: /health
+    affects: This affects the system reporting the warning. It does not necessarily mean the
+      system or household service is unavailable.
+    resolved_when: The system returns to a healthy state in HIMP and the Host Connectivity
+      warning is no longer present.
+  workflow_failed:
+    category: Workflow
+    severity: FAIL
+    title: An automated workflow did not finish successfully
+    urgency: CHECK_WHEN_CONVENIENT
+    summary: HIMP reports that one of its multi-step workflows failed during its most recent
+      execution.
+    meaning: A workflow is a sequence of automated tasks. One of those tasks did not complete
+      successfully, so some information or maintenance work that HIMP normally performs may
+      not have finished.
+    safe_actions:
+    - Open the Workflows area and review the failed workflow and its most recent execution.
+    - Check whether the household service associated with the workflow is still working normally.
+    - Check HIMP again later to see whether a later successful execution clears the condition.
+    can_wait: Usually yes when household services are still working normally and only one
+      workflow has failed. Get technical help sooner if the failure is associated with an
+      important service or several HIMP functions begin failing.
+    do_not:
+    - Do not repeatedly retry or replay a failed workflow just to clear the red status.
+    - Do not restart unrelated servers or services.
+    - Do not change network, DNS, firewall, storage, or virtualization settings.
+    - Do not delete workflow history or other records that may help diagnose the failure.
+    escalation: Get technical help if the same workflow continues to fail, several workflows
+      fail, an important household service stops working, or you are unsure whether retrying
+      the workflow is safe.
+    detail_href: /workflows
+    affects: This affects the HIMP workflow that failed and any work that workflow was expected
+      to complete. Other workflows and household services may continue operating normally.
+    resolved_when: A later execution of the workflow completes successfully and HIMP no longer
+      reports the workflow failure as an Operational Attention condition.
+  automation_failed:
+    category: Automation
+    severity: FAIL
+    title: A scheduled HIMP task failed
+    urgency: CHECK_WHEN_CONVENIENT
+    summary: HIMP reports that a scheduled automation did not complete successfully during
+      its most recent execution.
+    meaning: HIMP periodically performs tasks such as health checks and inventory updates.
+      A failure means the most recent attempt did not finish successfully. It does not automatically
+      mean the servers or household services themselves are down.
+    safe_actions:
+    - Open the Automation page and identify the failed task.
+    - Review the most recent execution information and any displayed error.
+    - Check whether the household services you need are still working normally.
+    - Wait for the next scheduled execution when there is no immediate service impact.
+    can_wait: Usually yes when household services are operating normally. A single failed
+      scheduled task can often wait for technical review, especially if HIMP and the rest
+      of the infrastructure remain healthy.
+    do_not:
+    - Do not repeatedly run the failed automation.
+    - Do not disable schedules just to remove the warning.
+    - Do not restart unrelated servers or services.
+    - Do not change network, DNS, firewall, storage, or virtualization settings.
+    - Do not make configuration changes based only on an automation error message.
+    escalation: Get technical help if the automation fails repeatedly, several automations
+      begin failing, an important service is unavailable, or the displayed error suggests
+      a wider infrastructure problem.
+    detail_href: /automation
+    affects: This affects the scheduled HIMP task that failed. It does not automatically mean
+      the servers or household services checked by that task are unavailable.
+    resolved_when: A later execution of the scheduled task completes successfully and HIMP
+      no longer reports the automation failure as an Operational Attention condition.
+  remediation_execution_failed:
+    category: Remediation
+    severity: FAIL
+    title: A corrective action did not complete successfully
+    urgency: GET_TECHNICAL_HELP
+    summary: HIMP reports that an attempted remediation did not complete successfully.
+    meaning: HIMP attempted an approved or policy-allowed corrective action, but the execution
+      failed. The original problem may still be present and the system should not be assumed
+      to be repaired.
+    safe_actions:
+    - Open the Remediation page and review the failed remediation record.
+    - Check whether the affected service is currently working.
+    - Leave the failed record available so a technical administrator can review what happened.
+    can_wait: It may wait briefly if all important household services are working, but this
+      condition should receive technical review because an attempted corrective action has
+      already failed.
+    do_not:
+    - Do not repeatedly execute the failed remediation.
+    - Do not approve additional remediation attempts simply to clear the failure.
+    - Do not restart unrelated systems.
+    - Do not manually change network, DNS, firewall, storage, or virtualization settings.
+    - Do not delete the failed remediation or its audit history.
+    escalation: Get technical help before attempting additional corrective actions, especially
+      if the affected service is unavailable, the failure repeats, or you do not understand
+      what the remediation was intended to change.
+    detail_href: /remediation
+    affects: This affects the corrective action HIMP attempted and the problem that action
+      was intended to address. The original problem may still be present.
+    resolved_when: A technical review confirms the affected service is healthy and HIMP no
+      longer reports the failed remediation as an Operational Attention condition.
+  remediation_confirmation_required:
+    category: Remediation
+    severity: WARNING
+    title: HIMP is waiting for a decision
+    urgency: NO_ACTION_NEEDED
+    summary: HIMP has a remediation proposal that requires operator approval before it is
+      allowed to proceed.
+    meaning: Nothing has failed simply because this warning is present. HIMP has intentionally
+      stopped before making a change and is waiting for an authorized operator to review the
+      proposal.
+    safe_actions:
+    - Open the Remediation page and read the pending proposal.
+    - Leave the proposal pending if you do not understand the requested change.
+    - Continue using the household normally if the services you need are working.
+    can_wait: Yes in most cases. A pending confirmation is a safety control, not an instruction
+      that a non-technical operator must approve the change.
+    do_not:
+    - Do not approve a remediation solely to remove the warning.
+    - Do not approve a change you do not understand.
+    - Do not repeatedly approve or deny items experimentally.
+    - Do not manually perform the proposed infrastructure change instead.
+    escalation: Get technical help if an important service is unavailable and the pending
+      proposal appears related to that outage, or if you need help deciding whether the proposed
+      remediation is appropriate.
+    detail_href: /remediation
+    affects: This affects only the pending corrective action. HIMP has paused before making
+      the proposed change until an authorized operator reviews it.
+    resolved_when: The proposal is appropriately reviewed and no longer requires confirmation,
+      or the underlying condition clears without the proposed remediation being needed.

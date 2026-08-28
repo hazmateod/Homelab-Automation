@@ -827,7 +827,7 @@ def application_health(request: Request):
 
     for item in context["operational_attention"]["attention"]:
         item["guidance"] = (
-            himp.operator_guidance.for_attention(
+            himp.operator_guidance.safe_for_attention(
                 item
             )
         )

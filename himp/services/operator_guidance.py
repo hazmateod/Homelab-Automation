@@ -25,6 +25,8 @@ class OperatorGuidanceService:
         "urgency",
         "summary",
         "meaning",
+        "affects",
+        "resolved_when",
         "safe_actions",
         "can_wait",
         "do_not",
@@ -233,17 +235,63 @@ class OperatorGuidanceService:
             "severity"
         )
 
-        if category != "Host Connectivity":
+        guidance_id = {
+            (
+                "Host Connectivity",
+                "FAIL",
+            ): "host_connectivity_failed",
+            (
+                "Host Connectivity",
+                "WARNING",
+            ): "host_connectivity_warning",
+            (
+                "Workflow",
+                "FAIL",
+            ): "workflow_failed",
+            (
+                "Automation",
+                "FAIL",
+            ): "automation_failed",
+            (
+                "Remediation",
+                "FAIL",
+            ): "remediation_execution_failed",
+            (
+                "Remediation",
+                "WARNING",
+            ): "remediation_confirmation_required",
+        }.get(
+            (
+                category,
+                severity,
+            )
+        )
+
+        if guidance_id is None:
             return None
 
-        if severity == "FAIL":
-            return self.get(
-                "host_connectivity_failed"
-            )
+        return self.get(
+            guidance_id
+        )
 
-        if severity == "WARNING":
-            return self.get(
-                "host_connectivity_warning"
-            )
 
-        return None
+    def safe_for_attention(
+        self,
+        attention,
+    ):
+        """
+        Return optional presentation guidance without allowing a
+        catalog problem to break the owning operations page.
+        """
+
+        try:
+            return self.for_attention(
+                attention
+            )
+        except (
+            OSError,
+            UnicodeError,
+            yaml.YAMLError,
+            ValueError,
+        ):
+            return None
