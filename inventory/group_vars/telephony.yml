@@ -1,0 +1,14 @@
+---
+service: "FreePBX"
+
+role: "PBX"
+
+category: "Telephony"
+
+platform: "Debian"
+
+vendor: "FreePBX"
+
+priority: "Critical"
+
+icon: "☎️"
