@@ -114,7 +114,24 @@ if [[ ! -f "$RUNTIME_INVENTORY" ]]; then
     echo "Runtime inventory seeded from Git baseline."
 else
     echo
-    echo "Preserving persistent runtime inventory."
+    echo "Preserving persistent runtime host inventory."
+
+    echo
+    echo "Synchronizing Git-managed inventory group variables..."
+
+    mkdir -p "$DEPLOY_ROOT/inventory/group_vars"
+
+    find "$DEPLOY_ROOT/inventory/group_vars" \
+        -mindepth 1 \
+        -maxdepth 1 \
+        -type f \
+        -delete
+
+    cp -a \
+        "$PROJECT_ROOT/inventory/group_vars/." \
+        "$DEPLOY_ROOT/inventory/group_vars/"
+
+    echo "Inventory group variables synchronized from Git."
 fi
 
 echo

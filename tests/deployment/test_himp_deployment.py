@@ -98,6 +98,20 @@ def _make_project(tmp_path):
         parents=True
     )
 
+    (project / "inventory" / "group_vars").mkdir(
+        parents=True
+    )
+
+    (
+        project
+        / "inventory"
+        / "group_vars"
+        / "infrastructure.yml"
+    ).write_text(
+        "service: infrastructure\n"
+        "priority: standard\n"
+    )
+
     (project / "inventory" / "hosts.yml").write_text(
         "all:\n"
         "  children:\n"
@@ -498,7 +512,7 @@ def test_runtime_inventory_is_preserved_on_redeployment(
     )
 
     assert (
-        "Preserving persistent runtime inventory."
+        "Preserving persistent runtime host inventory."
         in result.stdout
     )
 
@@ -1180,3 +1194,131 @@ def test_failed_application_readiness_rejects_release_marker(tmp_path):
         in result.stdout
     )
     assert not (deploy_root / ".himp-release").exists()
+
+
+def test_redeployment_preserves_hosts_and_synchronizes_group_vars(
+    tmp_path,
+):
+    project, deploy_root, systemd_root, bin_dir, log_file = (
+        _prepare_environment(tmp_path)
+    )
+
+    _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    runtime_hosts = (
+        deploy_root
+        / "inventory"
+        / "hosts.yml"
+    )
+
+    runtime_hosts.write_text(
+        runtime_hosts.read_text()
+        + "# runtime-managed host state\n"
+    )
+
+    expected_hosts = runtime_hosts.read_text()
+
+    source_group_vars = (
+        project
+        / "inventory"
+        / "group_vars"
+    )
+
+    runtime_group_vars = (
+        deploy_root
+        / "inventory"
+        / "group_vars"
+    )
+
+    (
+        source_group_vars
+        / "infrastructure.yml"
+    ).write_text(
+        "service: infrastructure\n"
+        "priority: critical\n"
+        "plugin: test-plugin\n"
+    )
+
+    (
+        source_group_vars
+        / "telephony.yml"
+    ).write_text(
+        "service: FreePBX\n"
+        "plugin: freepbx\n"
+        "functional_evidence:\n"
+        "  service_id: home_telephone\n"
+        "  registration: test-registration\n"
+    )
+
+    stale_runtime_file = (
+        runtime_group_vars
+        / "stale-runtime.yml"
+    )
+
+    stale_runtime_file.write_text(
+        "stale: true\n"
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "add",
+            "inventory/group_vars",
+        ],
+        cwd=project,
+        check=True,
+    )
+
+    subprocess.run(
+        [
+            "git",
+            "commit",
+            "-q",
+            "-m",
+            "update Git-managed group variables",
+        ],
+        cwd=project,
+        check=True,
+    )
+
+    result = _run_deployment(
+        project,
+        deploy_root,
+        systemd_root,
+        bin_dir,
+    )
+
+    assert (
+        "Preserving persistent runtime host inventory."
+        in result.stdout
+    )
+
+    assert (
+        "Inventory group variables synchronized from Git."
+        in result.stdout
+    )
+
+    assert runtime_hosts.read_text() == expected_hosts
+
+    assert (
+        runtime_group_vars
+        / "infrastructure.yml"
+    ).read_text() == (
+        source_group_vars
+        / "infrastructure.yml"
+    ).read_text()
+
+    assert (
+        runtime_group_vars
+        / "telephony.yml"
+    ).read_text() == (
+        source_group_vars
+        / "telephony.yml"
+    ).read_text()
+
+    assert not stale_runtime_file.exists()
