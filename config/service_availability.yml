@@ -1,0 +1,21 @@
+---
+# HIMP Service Availability Policies
+#
+# This file contains reviewed deployment-specific service availability
+# policy. Provider membership must be explicit and authoritative.
+#
+# This file does not contain health state, credentials, recovery actions,
+# or inferred inventory relationships.
+#
+# minimum_available defines how many explicitly listed providers must have
+# suitable functional availability evidence for the service requirement
+# to be satisfied.
+
+services:
+  - service_type: service
+    service_id: home_telephone
+    display_name: Home Telephone
+    minimum_available: 1
+    providers:
+      - entity_type: host
+        entity_id: freepbx

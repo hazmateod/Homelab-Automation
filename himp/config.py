@@ -14,6 +14,7 @@ class Config:
     report_playbook: str
     dashboard_playbook: str
     infrastructure_relationships: str
+    service_availability: str
 
     def validate(self):
 
@@ -24,6 +25,7 @@ class Config:
             self.report_playbook,
             self.dashboard_playbook,
             self.infrastructure_relationships,
+            self.service_availability,
         ]
 
         for filename in required:
@@ -41,6 +43,9 @@ def load():
         dashboard_playbook="playbooks/dashboard.yml",
         infrastructure_relationships=(
             "config/infrastructure_relationships.yml"
+        ),
+        service_availability=(
+            "config/service_availability.yml"
         ),
     )
 

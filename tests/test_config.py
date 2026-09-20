@@ -26,6 +26,10 @@ def make_config(tmp_path):
             tmp_path
             / "infrastructure_relationships.yml"
         ),
+        service_availability=str(
+            tmp_path
+            / "service_availability.yml"
+        ),
     )
 
 
@@ -37,6 +41,7 @@ def required_paths(config):
         config.report_playbook,
         config.dashboard_playbook,
         config.infrastructure_relationships,
+        config.service_availability,
     ]
 
 
@@ -62,6 +67,7 @@ def test_config_validate_accepts_all_required_paths(
         "report_playbook",
         "dashboard_playbook",
         "infrastructure_relationships",
+        "service_availability",
     ],
 )
 def test_config_validate_rejects_missing_required_path(
