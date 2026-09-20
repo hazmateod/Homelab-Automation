@@ -1,0 +1,30 @@
+---
+name: freepbx
+
+display_name: FreePBX
+
+version: 1.0.0
+
+author: Homelab Infrastructure Management Platform
+
+description: >
+  Collects discovery, health, reporting, and functional
+  service evidence for FreePBX and Asterisk telephony.
+
+entrypoint: tasks/main.yml
+
+inventory_group: telephony
+
+supports:
+  discovery: true
+  health: true
+  reporting: true
+  functional_evidence: true
+
+artifacts:
+  - asterisk_cli
+  - pjsip_registrations
+  - plugins.freepbx
+
+requirements:
+  - asterisk

@@ -1,0 +1,65 @@
+---
+###############################################################################
+# FreePBX / Asterisk Discovery
+###############################################################################
+
+- name: Check Asterisk executable
+  ansible.builtin.stat:
+    path: /usr/sbin/asterisk
+  register: freepbx_asterisk_binary
+
+- name: Probe Asterisk CLI
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/asterisk
+      - -rx
+      - core show uptime
+  register: freepbx_asterisk_cli
+  changed_when: false
+  failed_when: false
+  when:
+    - freepbx_asterisk_binary.stat.exists
+      | default(false)
+
+- name: Build FreePBX discovery data
+  ansible.builtin.set_fact:
+    freepbx_plugin:
+      installed: >-
+        {{
+          freepbx_asterisk_binary.stat.exists
+          | default(false)
+        }}
+      asterisk_binary: >-
+        {{
+          '/usr/sbin/asterisk'
+          if (
+            freepbx_asterisk_binary.stat.exists
+            | default(false)
+          )
+          else ''
+        }}
+      asterisk_cli:
+        responsive: >-
+          {{
+            freepbx_asterisk_cli.rc
+            | default(1)
+            == 0
+          }}
+        output: >-
+          {{
+            freepbx_asterisk_cli.stdout
+            | default('')
+            | trim
+          }}
+
+- name: Store FreePBX discovery data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'freepbx': freepbx_plugin
+          }
+        }, recursive=True)
+      }}

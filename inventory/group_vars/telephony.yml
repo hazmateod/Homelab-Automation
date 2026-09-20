@@ -12,3 +12,11 @@ vendor: "FreePBX"
 priority: "Critical"
 
 icon: "☎️"
+
+plugin: "freepbx"
+
+functional_evidence:
+  service_id: "home_telephone"
+  evidence_type: "sip_registration"
+  registration: "555820_home"
+  fresh_for_seconds: 600

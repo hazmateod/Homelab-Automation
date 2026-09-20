@@ -1,0 +1,29 @@
+---
+###############################################################################
+# FreePBX Report
+###############################################################################
+
+- name: Add FreePBX health to report data
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'freepbx': {
+              'health':
+                freepbx_health.status
+                | default('UNKNOWN'),
+              'health_score':
+                freepbx_health.earned
+                | default(0),
+              'health_possible':
+                freepbx_health.possible
+                | default(0),
+              'asterisk_cli':
+                homelab_report.plugins.freepbx.asterisk_cli
+                | default({})
+            }
+          }
+        }, recursive=True)
+      }}

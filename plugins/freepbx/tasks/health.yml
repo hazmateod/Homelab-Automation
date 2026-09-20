@@ -1,0 +1,99 @@
+---
+###############################################################################
+# FreePBX Health
+#
+# This health result describes local PBX/Asterisk health only.
+# It does not assert end-to-end telephone service availability.
+###############################################################################
+
+- name: Initialize FreePBX health result
+  ansible.builtin.set_fact:
+    freepbx_health:
+      name: FreePBX
+      earned: 0
+      possible: 10
+      status: CRITICAL
+      issues: []
+
+- name: Add Asterisk installation health
+  ansible.builtin.set_fact:
+    freepbx_health: >-
+      {{
+        freepbx_health |
+        combine({
+          'earned':
+            freepbx_health.earned + 4
+        })
+      }}
+  when:
+    - homelab_report.plugins.freepbx.installed | default(false)
+
+- name: Add Asterisk CLI health
+  ansible.builtin.set_fact:
+    freepbx_health: >-
+      {{
+        freepbx_health |
+        combine({
+          'earned':
+            freepbx_health.earned + 6
+        })
+      }}
+  when:
+    - homelab_report.plugins.freepbx.asterisk_cli.responsive
+      | default(false)
+
+- name: Calculate FreePBX health status
+  ansible.builtin.set_fact:
+    freepbx_health: >-
+      {{
+        freepbx_health |
+        combine({
+          'status':
+            'HEALTHY'
+            if freepbx_health.earned >= 8
+            else
+            'WARNING'
+        })
+      }}
+
+- name: Record Asterisk CLI issue
+  ansible.builtin.set_fact:
+    freepbx_health: >-
+      {{
+        freepbx_health |
+        combine({
+          'issues':
+            freepbx_health.issues +
+            ['Asterisk CLI is not responsive']
+        })
+      }}
+  when:
+    - not (
+        homelab_report.plugins.freepbx.asterisk_cli.responsive
+        | default(false)
+      )
+
+- name: Store FreePBX health
+  ansible.builtin.set_fact:
+    homelab_report: >-
+      {{
+        homelab_report |
+        combine({
+          'plugins': {
+            'freepbx': (
+              homelab_report.plugins.freepbx |
+              combine({
+                'health': freepbx_health
+              })
+            )
+          }
+        }, recursive=True)
+      }}
+
+- name: Add FreePBX health contributor
+  ansible.builtin.set_fact:
+    health_contributors: >-
+      {{
+        health_contributors | default([]) +
+        [ freepbx_health ]
+      }}

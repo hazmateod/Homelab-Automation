@@ -1,0 +1,16 @@
+---
+###############################################################################
+# FreePBX Plugin Lifecycle Controller
+###############################################################################
+
+- name: Run FreePBX discovery
+  ansible.builtin.include_tasks:
+    file: discovery.yml
+
+- name: Run FreePBX health checks
+  ansible.builtin.include_tasks:
+    file: health.yml
+
+- name: Run FreePBX report tasks
+  ansible.builtin.include_tasks:
+    file: report.yml

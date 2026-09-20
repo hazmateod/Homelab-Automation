@@ -55,6 +55,11 @@ class Plugin:
     def supports_health(self):
         return self.supports_capability("health")
 
+    def supports_functional_evidence(self):
+        return self.supports_capability(
+            "functional_evidence"
+        )
+
     def supports_reporting(self):
         return self.supports_capability("reporting")
 
@@ -113,6 +118,16 @@ class Plugin:
             return None
         return self.directory / "tasks" / "health.yml"
 
+    @property
+    def functional_evidence_path(self):
+        if self.directory is None:
+            return None
+        return (
+            self.directory
+            / "tasks"
+            / "functional_evidence.yml"
+        )
+
     def has_discovery(self):
         return (
             self.discovery_path is not None
@@ -125,11 +140,24 @@ class Plugin:
             and self.health_path.exists()
         )
 
+    def has_functional_evidence(self):
+        return (
+            self.functional_evidence_path
+            is not None
+            and self.functional_evidence_path.exists()
+        )
+
     def health_ready(self):
         return (
             self.supports_health()
             and self.has_discovery()
             and self.has_health()
+        )
+
+    def functional_evidence_ready(self):
+        return (
+            self.supports_functional_evidence()
+            and self.has_functional_evidence()
         )
 
     def summary(self):

@@ -1,0 +1,75 @@
+---
+- name: Probe Asterisk CLI for functional evidence
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/asterisk
+      - -rx
+      - core show uptime
+  register: freepbx_evidence_asterisk
+  changed_when: false
+  failed_when: false
+
+- name: Query configured PJSIP registration
+  ansible.builtin.command:
+    argv:
+      - /usr/sbin/asterisk
+      - -rx
+      - >-
+        pjsip show registration
+        {{ functional_evidence.registration }}
+  register: freepbx_evidence_registration
+  changed_when: false
+  failed_when: false
+  when:
+    - functional_evidence is defined
+    - functional_evidence.registration is defined
+
+- name: Build HIMP functional evidence observation
+  ansible.builtin.set_fact:
+    himp_functional_evidence_observation:
+      service_id: >-
+        {{
+          functional_evidence.service_id
+          | default('')
+        }}
+      evidence_type: >-
+        {{
+          functional_evidence.evidence_type
+          | default('sip_registration')
+        }}
+      fresh_for_seconds: >-
+        {{
+          functional_evidence.fresh_for_seconds
+          | default(600)
+        }}
+      asterisk_cli:
+        successful: >-
+          {{
+            freepbx_evidence_asterisk.rc
+            | default(1)
+            == 0
+          }}
+        output: >-
+          {{
+            freepbx_evidence_asterisk.stdout
+            | default('')
+            | trim
+          }}
+      registration:
+        id: >-
+          {{
+            functional_evidence.registration
+            | default('')
+          }}
+        successful: >-
+          {{
+            freepbx_evidence_registration.rc
+            | default(1)
+            == 0
+          }}
+        output: >-
+          {{
+            freepbx_evidence_registration.stdout
+            | default('')
+            | trim
+          }}
