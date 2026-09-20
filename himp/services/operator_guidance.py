@@ -268,21 +268,28 @@ class OperatorGuidanceService:
             [],
         )
 
-        if not isinstance(
-            affected_hosts,
-            list,
+        if (
+            not isinstance(
+                affected_hosts,
+                list,
+            )
+            or not affected_hosts
+            or not all(
+                isinstance(host, dict)
+                and isinstance(
+                    host.get("group"),
+                    str,
+                )
+                and host["group"].strip()
+                for host in affected_hosts
+            )
         ):
             return None
 
         affected_groups = {
-            host.get("group")
+            host["group"].strip()
             for host in affected_hosts
-            if isinstance(host, dict)
-            and host.get("group")
         }
-
-        if not affected_groups:
-            return None
 
         for domain, groups in (
             cls.HOST_GUIDANCE_DOMAINS.items()

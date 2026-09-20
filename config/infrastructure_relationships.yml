@@ -31,3 +31,10 @@ relationships:
     relationship_type: runs_on
     target_type: host
     target_id: himpdb01.server.arpa
+
+  # Household telephone service is provided by the FreePBX host.
+  - source_type: service
+    source_id: home_telephone
+    relationship_type: runs_on
+    target_type: host
+    target_id: freepbx

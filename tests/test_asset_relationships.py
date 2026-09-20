@@ -515,3 +515,33 @@ def test_service_reconciliation_is_idempotent(
     assert second["removed"] == 0
     assert second["unchanged"] == 1
     assert second["total"] == 1
+
+
+def test_production_relationships_include_home_telephone():
+    service = AssetRelationshipService(
+        config_path=(
+            "config/"
+            "infrastructure_relationships.yml"
+        )
+    )
+
+    relationships = service.load_desired()
+
+    actual = {
+        (
+            item.source_type,
+            item.source_id,
+            item.relationship_type,
+            item.target_type,
+            item.target_id,
+        )
+        for item in relationships
+    }
+
+    assert (
+        "service",
+        "home_telephone",
+        "runs_on",
+        "host",
+        "freepbx",
+    ) in actual

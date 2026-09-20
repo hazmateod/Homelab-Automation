@@ -715,3 +715,74 @@ def test_telephony_warning_uses_telephony_guidance():
         result["urgency"]
         == "ACTION_RECOMMENDED"
     )
+
+
+def test_host_guidance_domain_rejects_partially_missing_group_evidence():
+    assert (
+        OperatorGuidanceService._host_guidance_domain(
+            {
+                "affected_hosts": [
+                    {
+                        "hostname": "dns1009",
+                        "group": "technitium",
+                    },
+                    {
+                        "hostname": "unknown-host",
+                    },
+                ],
+            }
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    "malformed_host",
+    [
+        None,
+        "unbound108",
+        42,
+    ],
+)
+def test_host_guidance_domain_rejects_malformed_host_entries(
+    malformed_host,
+):
+    assert (
+        OperatorGuidanceService._host_guidance_domain(
+            {
+                "affected_hosts": [
+                    {
+                        "hostname": "dns1009",
+                        "group": "technitium",
+                    },
+                    malformed_host,
+                ],
+            }
+        )
+        is None
+    )
+
+
+def test_partially_malformed_host_evidence_uses_generic_guidance():
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Host Connectivity",
+            "severity": "FAIL",
+            "affected_hosts": [
+                {
+                    "hostname": "dns1009",
+                    "group": "technitium",
+                    "ip": "10.10.37.9",
+                },
+                {
+                    "hostname": "unknown-host",
+                },
+            ],
+        }
+    )
+
+    assert result["id"] == "host_connectivity_failed"

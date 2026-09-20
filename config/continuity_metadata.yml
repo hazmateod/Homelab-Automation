@@ -1,0 +1,105 @@
+---
+# HIMP continuity metadata.
+#
+# This file contains deployment-specific, reviewed operational meaning
+# for entities known to HIMP.
+#
+# It must not contain credentials, secrets, recovery commands, or
+# inferred infrastructure topology.
+#
+# Infrastructure topology belongs in:
+#   config/infrastructure_relationships.yml
+#
+# Operator instructions belong in:
+#   config/operator_guidance.yml
+
+entities:
+
+  # HIMP provides infrastructure visibility, operational intelligence,
+  # automation management, and continuity guidance.
+  - entity_type: application
+    entity_id: himp
+    display_name: HIMP
+    continuity_role: management_and_guidance
+    criticality: important
+    household_impact: >-
+      HIMP monitoring, management, and continuity guidance may be
+      unavailable. This does not automatically mean that the home
+      systems monitored by HIMP have stopped working.
+    recovery_authority: technical_only
+    can_wait: >-
+      Usually, if essential household services such as Internet access,
+      DNS, telephone service, and storage are still working.
+
+  # HIMP production database.
+  - entity_type: database
+    entity_id: himp
+    display_name: HIMP Database
+    continuity_role: management_data
+    criticality: important
+    household_impact: >-
+      HIMP may be unable to display or update operational information.
+      This does not automatically mean that the home systems monitored
+      by HIMP have stopped working.
+    recovery_authority: technical_only
+    can_wait: >-
+      Usually, if essential household services are still working and
+      HIMP recovery can be handled by technical support.
+
+  # HIMP application host.
+  - entity_type: host
+    entity_id: automation.server.arpa
+    display_name: HIMP Automation Server
+    continuity_role: management_infrastructure
+    criticality: important
+    household_impact: >-
+      HIMP and automation functions running on this server may be
+      unavailable. Other household systems may continue to operate.
+    recovery_authority: technical_only
+    can_wait: >-
+      Usually, if essential household services are still working and
+      no other critical impact is reported.
+
+  # HIMP PostgreSQL host.
+  - entity_type: host
+    entity_id: himpdb01.server.arpa
+    display_name: HIMP Database Server
+    continuity_role: management_infrastructure
+    criticality: important
+    household_impact: >-
+      HIMP may lose access to its production database and become
+      unavailable or unable to update operational information. Other
+      household systems may continue to operate.
+    recovery_authority: technical_only
+    can_wait: >-
+      Usually, if essential household services are still working and
+      technical support can recover HIMP later.
+
+  # Household telephone service.
+  - entity_type: service
+    entity_id: home_telephone
+    display_name: Home Telephone
+    continuity_role: essential_household_service
+    criticality: critical
+    household_impact: >-
+      Home telephone calling may be unavailable, including the ability
+      to make or receive calls through the household FreePBX system.
+    recovery_authority: technical_only
+    can_wait: >-
+      No if household telephone service is needed and normal inbound
+      or outbound calling is unavailable.
+
+  # FreePBX host providing household telephone service.
+  - entity_type: host
+    entity_id: freepbx
+    display_name: Home Telephone Server
+    continuity_role: essential_service_infrastructure
+    criticality: critical
+    household_impact: >-
+      The household telephone service may be unavailable because the
+      FreePBX system provides home telephone calling.
+    recovery_authority: technical_only
+    can_wait: >-
+      No if household telephone service is unavailable. Get technical
+      help rather than changing FreePBX trunks, extensions, routes, or
+      SIP configuration.
