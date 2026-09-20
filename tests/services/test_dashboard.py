@@ -761,3 +761,77 @@ def test_summary_exposes_operational_dashboard_data():
     assert result["operational"]["status"] == "PASS"
     assert "attention" in result["operational"]
     assert "recent_activity" in result
+
+
+def test_operational_summary_preserves_affected_host_evidence():
+    dashboard = make_dashboard()
+
+    dashboard.scheduler = FakeSchedulerService()
+
+    class HostEvidenceHealthService:
+        def summary(self):
+            return {
+                "score": 50,
+                "passed": 1,
+                "warnings": 1,
+                "failed": 1,
+                "unknown": 0,
+                "hosts": [
+                    {
+                        "hostname": "dns1009",
+                        "group": "technitium",
+                        "ip": "10.10.37.9",
+                        "status": "FAIL",
+                    },
+                    {
+                        "hostname": "plex",
+                        "group": "media",
+                        "ip": "192.168.10.50",
+                        "status": "WARNING",
+                    },
+                    {
+                        "hostname": "unbound108",
+                        "group": "unbound",
+                        "ip": "10.10.37.8",
+                        "status": "PASS",
+                    },
+                ],
+            }
+
+    dashboard.host_health = HostEvidenceHealthService()
+
+    result = dashboard.operational_summary()
+
+    failed = next(
+        item
+        for item in result["attention"]
+        if (
+            item["category"] == "Host Connectivity"
+            and item["severity"] == "FAIL"
+        )
+    )
+
+    warning = next(
+        item
+        for item in result["attention"]
+        if (
+            item["category"] == "Host Connectivity"
+            and item["severity"] == "WARNING"
+        )
+    )
+
+    assert failed["affected_hosts"] == [
+        {
+            "hostname": "dns1009",
+            "group": "technitium",
+            "ip": "10.10.37.9",
+        }
+    ]
+
+    assert warning["affected_hosts"] == [
+        {
+            "hostname": "plex",
+            "group": "media",
+            "ip": "192.168.10.50",
+        }
+    ]

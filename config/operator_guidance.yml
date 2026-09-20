@@ -181,3 +181,273 @@ guidance:
       the proposed change until an authorized operator reviews it.
     resolved_when: The proposal is appropriately reviewed and no longer requires confirmation,
       or the underlying condition clears without the proposed remediation being needed.
+  dns_connectivity_failed:
+    category: Host Connectivity
+    severity: FAIL
+    title: A DNS system is not responding
+    urgency: ACTION_RECOMMENDED
+    summary: HIMP could not successfully communicate with one or more systems that provide DNS services for the home network.
+    meaning: DNS helps devices find services by name. The home has multiple DNS components, so one failed DNS system does not automatically mean internet access or the entire network is down.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected DNS system.
+    - Check whether websites and normal internet access still work from a phone or computer.
+    - Check whether other DNS systems shown by HIMP remain healthy.
+    - If the affected system may be restarting, wait a few minutes and check HIMP again.
+    can_wait: Usually yes when normal internet access still works and other DNS systems remain healthy. Get technical help sooner if multiple DNS systems fail or devices can no longer reach normal websites by name.
+    do_not:
+    - Do not change DNS addresses on the router, firewall, computers, phones, or other devices.
+    - Do not change router, firewall, VLAN, or network settings.
+    - Do not restart all DNS systems at the same time.
+    - Do not disable DNS filtering or recursive DNS services just to clear the alert.
+    - Do not repeatedly power-cycle the affected system.
+    escalation: Get technical help if multiple DNS systems are unavailable, normal websites stop resolving by name, the failure persists, or you are unsure whether an action is safe.
+    detail_href: /health
+    affects: This affects part of the home's DNS infrastructure. Because DNS services are redundant, other DNS systems may continue providing normal name resolution.
+    resolved_when: The affected DNS system returns to a healthy connectivity state in HIMP and the DNS-related Host Connectivity attention condition clears.
+
+  dns_connectivity_warning:
+    category: Host Connectivity
+    severity: WARNING
+    title: A DNS system may need attention
+    urgency: CHECK_WHEN_CONVENIENT
+    summary: HIMP detected a connectivity warning for one or more systems that provide DNS services for the home network.
+    meaning: A DNS system may be responding inconsistently or HIMP may not have enough information to consider it fully healthy. Other DNS systems may still be operating normally.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the DNS system reporting the warning.
+    - Confirm that normal websites and household internet access are still working.
+    - Check whether the other DNS systems shown by HIMP remain healthy.
+    - Check HIMP again later to see whether the warning clears.
+    can_wait: Usually yes when internet access and name resolution are working normally and other DNS systems remain healthy.
+    do_not:
+    - Do not change DNS addresses on the router, firewall, computers, phones, or other devices.
+    - Do not restart DNS systems solely because of this warning.
+    - Do not change router, firewall, VLAN, or network settings.
+    - Do not disable DNS filtering or recursive DNS services to clear the warning.
+    escalation: Get technical help if the warning becomes a failure, multiple DNS systems develop problems, websites stop resolving by name, or the warning persists.
+    detail_href: /health
+    affects: This warning affects part of the home's DNS infrastructure but does not necessarily mean DNS or internet access is unavailable.
+    resolved_when: The affected DNS system returns to a healthy state in HIMP and the DNS-related Host Connectivity warning clears.
+
+  backup_connectivity_failed:
+    category: Host Connectivity
+    severity: FAIL
+    title: A backup system is not responding
+    urgency: ACTION_RECOMMENDED
+    summary: HIMP could not successfully communicate with one or more systems that provide backup services.
+    meaning: A backup server may be powered off, restarting, disconnected, or experiencing a problem. Existing household services may continue working even though new backups could be delayed or missed.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected backup system.
+    - Confirm that the systems and household services you normally use are still working.
+    - Wait a few minutes and check HIMP again if the backup system may be restarting.
+    - Get technical help if the backup system remains unavailable.
+    can_wait: Usually for a short period when the rest of the infrastructure is healthy, but prolonged backup outages should receive technical attention because new recovery points may not be created.
+    do_not:
+    - Do not delete old backups to try to clear this condition.
+    - Do not reformat, initialize, or repair backup storage.
+    - Do not change backup datastore or retention settings.
+    - Do not restore virtual machines or containers simply because the backup server is unavailable.
+    - Do not repeatedly power-cycle the backup server.
+    escalation: Get technical help if the backup system remains unavailable, more than one backup system is affected, storage errors are visible, or an important system also stops working.
+    detail_href: /health
+    affects: This primarily affects the ability to create or access backups. It does not automatically mean the protected systems themselves are unavailable.
+    resolved_when: The affected backup system returns to a healthy connectivity state in HIMP and the backup-related Host Connectivity condition clears.
+
+  backup_connectivity_warning:
+    category: Host Connectivity
+    severity: WARNING
+    title: A backup system may need attention
+    urgency: CHECK_WHEN_CONVENIENT
+    summary: HIMP detected a connectivity warning for one or more systems that provide backup services.
+    meaning: A backup system may be responding inconsistently or HIMP may not have enough information to consider it fully healthy.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected backup system.
+    - Confirm that normal household services are still working.
+    - Check HIMP again later to see whether the warning clears.
+    can_wait: Usually yes for a short period when protected systems remain healthy and this is only a warning.
+    do_not:
+    - Do not delete backups.
+    - Do not change retention or datastore settings.
+    - Do not initialize or repair storage solely because of this warning.
+    - Do not restart unrelated systems.
+    escalation: Get technical help if the warning becomes a failure, continues for an extended period, or backup storage errors appear.
+    detail_href: /health
+    affects: This warning affects backup infrastructure and does not automatically mean protected household services are unavailable.
+    resolved_when: The backup system returns to a healthy state in HIMP and the backup-related warning clears.
+
+  virtualization_connectivity_failed:
+    category: Host Connectivity
+    severity: FAIL
+    title: A virtualization server is not responding
+    urgency: GET_TECHNICAL_HELP
+    summary: HIMP could not successfully communicate with one or more Proxmox virtualization servers.
+    meaning: A virtualization server runs virtual machines or containers that may provide other household services. Some services may continue working on other systems, while services hosted by the affected server may be unavailable.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected virtualization server.
+    - Check which household services are actually unavailable before taking action.
+    - If everything you need is working, leave the infrastructure unchanged and get technical help.
+    can_wait: It may wait briefly when all important household services are still working, but a failed virtualization server should receive technical review because multiple services may depend on it.
+    do_not:
+    - Do not delete, restore, migrate, or recreate virtual machines or containers.
+    - Do not change cluster, quorum, storage, or networking settings.
+    - Do not remove a server from the Proxmox cluster.
+    - Do not repeatedly reboot or power-cycle virtualization servers.
+    - Do not start changing other servers simply because one Proxmox host is unavailable.
+    escalation: Get technical help if a virtualization server is unavailable, especially when multiple household services are also unavailable or more than one virtualization server is affected.
+    detail_href: /health
+    affects: This affects a server that may host multiple virtual machines or containers. The actual household impact depends on which workloads were running there.
+    resolved_when: The affected virtualization server returns to a healthy connectivity state in HIMP and its dependent services are confirmed healthy.
+
+  virtualization_connectivity_warning:
+    category: Host Connectivity
+    severity: WARNING
+    title: A virtualization server may need attention
+    urgency: ACTION_RECOMMENDED
+    summary: HIMP detected a connectivity warning for one or more Proxmox virtualization servers.
+    meaning: The server may be responding inconsistently or HIMP may not have enough information to consider its connectivity fully healthy.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected virtualization server.
+    - Confirm that the household services you normally use are still working.
+    - Check HIMP again later to determine whether the warning clears or becomes a failure.
+    can_wait: Usually for a short period when household services remain healthy, but persistent virtualization warnings should receive technical review.
+    do_not:
+    - Do not migrate or delete virtual machines or containers because of this warning.
+    - Do not change cluster, storage, quorum, or network configuration.
+    - Do not reboot virtualization servers solely to clear the warning.
+    escalation: Get technical help if the warning persists, becomes a failure, multiple virtualization servers are affected, or household services stop working.
+    detail_href: /health
+    affects: This warning affects a virtualization server and may eventually affect workloads hosted by that server if the condition becomes more serious.
+    resolved_when: The virtualization server returns to a healthy state in HIMP and the virtualization-related warning clears.
+
+  media_connectivity_failed:
+    category: Host Connectivity
+    severity: FAIL
+    title: A media system is not responding
+    urgency: CHECK_WHEN_CONVENIENT
+    summary: HIMP could not successfully communicate with one or more systems used for household media services.
+    meaning: A media server may be powered off, restarting, disconnected, or experiencing a problem. This normally affects entertainment services rather than core network, DNS, backup, or virtualization functions.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected media system.
+    - Check whether the media service you want to use is actually unavailable.
+    - Wait a few minutes and check HIMP again if the system may be restarting.
+    can_wait: Yes in most cases. A media-system outage normally does not require immediate action when core household services remain healthy.
+    do_not:
+    - Do not restart unrelated servers.
+    - Do not change DNS, router, firewall, storage, or virtualization settings.
+    - Do not delete media libraries or application data.
+    - Do not repeatedly power-cycle the affected system.
+    escalation: Get technical help if the media service is needed and remains unavailable, or if the outage occurs together with failures in other infrastructure.
+    detail_href: /health
+    affects: This primarily affects media and entertainment services associated with the unavailable system.
+    resolved_when: The affected media system returns to a healthy connectivity state in HIMP and the media service is available again.
+
+  media_connectivity_warning:
+    category: Host Connectivity
+    severity: WARNING
+    title: A media system may need attention
+    urgency: CHECK_WHEN_CONVENIENT
+    summary: HIMP detected a connectivity warning for one or more household media systems.
+    meaning: A media system may be responding inconsistently, but the media service may still be usable.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected media system.
+    - Check whether the media service is still working.
+    - Check HIMP again later to see whether the warning clears.
+    can_wait: Yes in most cases when media services remain usable and core household services are healthy.
+    do_not:
+    - Do not restart unrelated infrastructure.
+    - Do not change network or DNS settings.
+    - Do not delete media or application data.
+    escalation: Get technical help if the warning becomes a failure or the media service remains unavailable when it is needed.
+    detail_href: /health
+    affects: This warning primarily concerns household media services and normally does not affect core network services.
+    resolved_when: The affected media system returns to a healthy state in HIMP and the warning clears.
+
+  vpn_connectivity_failed:
+    category: Host Connectivity
+    severity: FAIL
+    title: A remote-access VPN system is not responding
+    urgency: ACTION_RECOMMENDED
+    summary: HIMP could not successfully communicate with one or more systems used for remote VPN access.
+    meaning: Remote access to the home network may be unavailable through the affected VPN system. Devices already at home may continue working normally.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected VPN system.
+    - If you are at home, confirm that normal local internet and household services still work.
+    - Leave VPN and firewall configuration unchanged and get technical help if remote access is needed.
+    can_wait: Usually yes when you are at home and normal household services work. Get technical help sooner when remote access is required.
+    do_not:
+    - Do not change firewall or port-forwarding rules.
+    - Do not expose new services to the internet as a workaround.
+    - Do not change VPN keys, credentials, routes, or peer configuration.
+    - Do not disable firewall protections.
+    escalation: Get technical help if remote access is required, multiple VPN systems are unavailable, or the problem occurs together with a wider network outage.
+    detail_href: /health
+    affects: This primarily affects remote access to the home network through the unavailable VPN system. Local household services may continue working normally.
+    resolved_when: The affected VPN system returns to a healthy connectivity state in HIMP and authorized remote access works normally again.
+
+  vpn_connectivity_warning:
+    category: Host Connectivity
+    severity: WARNING
+    title: A remote-access VPN system may need attention
+    urgency: CHECK_WHEN_CONVENIENT
+    summary: HIMP detected a connectivity warning for one or more systems used for remote VPN access.
+    meaning: Remote VPN access may be inconsistent even though local household services continue working normally.
+    safe_actions:
+    - Check the Infrastructure Health page to identify the affected VPN system.
+    - If you are at home, confirm that normal local services continue working.
+    - Check HIMP again later to see whether the warning clears.
+    can_wait: Usually yes when remote access is not currently needed and local household services remain healthy.
+    do_not:
+    - Do not change firewall rules or expose services to the internet.
+    - Do not regenerate VPN keys or credentials.
+    - Do not change routes or peer configuration solely because of this warning.
+    escalation: Get technical help if remote access is required and unreliable, the warning becomes a failure, or multiple VPN systems are affected.
+    detail_href: /health
+    affects: This warning primarily concerns remote VPN access and normally does not affect devices already using the home network locally.
+    resolved_when: The affected VPN system returns to a healthy state in HIMP and remote access operates normally.
+
+  telephony_connectivity_failed:
+    category: Host Connectivity
+    severity: FAIL
+    title: The home phone system is not responding
+    urgency: GET_TECHNICAL_HELP
+    summary: HIMP could not successfully communicate with the FreePBX system that provides home telephone service.
+    meaning: Home telephone service may be unavailable or unreliable. This does not automatically mean internet access or other household network services are unavailable.
+    safe_actions:
+    - Check the Infrastructure Health page to confirm that the telephone system is the affected system.
+    - Check whether a home phone has a dial tone.
+    - If practical, make a normal test call without changing any phone-system settings.
+    - Use a working cell phone or another available communication method if telephone service is needed immediately.
+    - Get technical help if home telephone service is unavailable.
+    can_wait: Only when home telephone service is not currently needed and another reliable way to make and receive calls is available.
+    do_not:
+    - Do not change FreePBX extensions, trunks, inbound routes, outbound routes, or SIP settings.
+    - Do not change firewall, NAT, port-forwarding, or router settings.
+    - Do not delete or recreate the telephone provider account or trunk.
+    - Do not repeatedly reboot or power-cycle the telephone system.
+    - Do not change emergency calling configuration.
+    escalation: Get technical help when home telephone service is unavailable, calls cannot be made or received, the system remains unreachable, or there is no reliable alternate way to communicate.
+    detail_href: /health
+    affects: This may affect home telephone calling, including the ability to make or receive calls through the FreePBX system.
+    resolved_when: The FreePBX system returns to a healthy connectivity state in HIMP and normal inbound and outbound telephone service is confirmed.
+
+  telephony_connectivity_warning:
+    category: Host Connectivity
+    severity: WARNING
+    title: The home phone system may need attention
+    urgency: ACTION_RECOMMENDED
+    summary: HIMP detected a connectivity warning for the FreePBX system that provides home telephone service.
+    meaning: The telephone system may be responding inconsistently even though calls may still work normally.
+    safe_actions:
+    - Check the Infrastructure Health page to confirm that the telephone system is reporting the warning.
+    - Check whether a home phone has a dial tone.
+    - If practical, confirm that normal calling still works without changing configuration.
+    - Check HIMP again later to determine whether the warning clears.
+    can_wait: Usually for a short period when normal calling works and another communication method is available.
+    do_not:
+    - Do not change FreePBX extensions, trunks, routes, or SIP configuration.
+    - Do not change firewall, NAT, port-forwarding, or router settings.
+    - Do not reboot the telephone system solely to clear the warning.
+    - Do not change emergency calling configuration.
+    escalation: Get technical help if calls stop working, the warning becomes a failure, the warning persists, or the telephone system is needed and appears unreliable.
+    detail_href: /health
+    affects: This warning concerns the home telephone system and may affect calling if the condition becomes more serious.
+    resolved_when: The FreePBX system returns to a healthy state in HIMP and normal telephone service continues without the warning.

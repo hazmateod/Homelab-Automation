@@ -223,6 +223,77 @@ class OperatorGuidanceService:
             entry_id
         )
 
+    HOST_GUIDANCE_DOMAINS = {
+        "dns": frozenset(
+            {
+                "pihole",
+                "technitium",
+                "unbound",
+            }
+        ),
+        "backup": frozenset(
+            {
+                "backup",
+            }
+        ),
+        "virtualization": frozenset(
+            {
+                "proxmox",
+            }
+        ),
+        "media": frozenset(
+            {
+                "media",
+            }
+        ),
+        "vpn": frozenset(
+            {
+                "vpn",
+            }
+        ),
+        "telephony": frozenset(
+            {
+                "telephony",
+            }
+        ),
+    }
+
+    @classmethod
+    def _host_guidance_domain(
+        cls,
+        attention,
+    ):
+        affected_hosts = attention.get(
+            "affected_hosts",
+            [],
+        )
+
+        if not isinstance(
+            affected_hosts,
+            list,
+        ):
+            return None
+
+        affected_groups = {
+            host.get("group")
+            for host in affected_hosts
+            if isinstance(host, dict)
+            and host.get("group")
+        }
+
+        if not affected_groups:
+            return None
+
+        for domain, groups in (
+            cls.HOST_GUIDANCE_DOMAINS.items()
+        ):
+            if affected_groups.issubset(
+                groups
+            ):
+                return domain
+
+        return None
+
     def for_attention(
         self,
         attention,
@@ -234,6 +305,73 @@ class OperatorGuidanceService:
         severity = attention.get(
             "severity"
         )
+
+        if category == "Host Connectivity":
+            domain = self._host_guidance_domain(
+                attention
+            )
+
+            if domain is not None:
+                guidance_id = {
+                    (
+                        "dns",
+                        "FAIL",
+                    ): "dns_connectivity_failed",
+                    (
+                        "dns",
+                        "WARNING",
+                    ): "dns_connectivity_warning",
+                    (
+                        "backup",
+                        "FAIL",
+                    ): "backup_connectivity_failed",
+                    (
+                        "backup",
+                        "WARNING",
+                    ): "backup_connectivity_warning",
+                    (
+                        "virtualization",
+                        "FAIL",
+                    ): "virtualization_connectivity_failed",
+                    (
+                        "virtualization",
+                        "WARNING",
+                    ): "virtualization_connectivity_warning",
+                    (
+                        "media",
+                        "FAIL",
+                    ): "media_connectivity_failed",
+                    (
+                        "media",
+                        "WARNING",
+                    ): "media_connectivity_warning",
+                    (
+                        "vpn",
+                        "FAIL",
+                    ): "vpn_connectivity_failed",
+                    (
+                        "vpn",
+                        "WARNING",
+                    ): "vpn_connectivity_warning",
+                    (
+                        "telephony",
+                        "FAIL",
+                    ): "telephony_connectivity_failed",
+                    (
+                        "telephony",
+                        "WARNING",
+                    ): "telephony_connectivity_warning",
+                }.get(
+                    (
+                        domain,
+                        severity,
+                    )
+                )
+
+                if guidance_id is not None:
+                    return self.get(
+                        guidance_id
+                    )
 
         guidance_id = {
             (

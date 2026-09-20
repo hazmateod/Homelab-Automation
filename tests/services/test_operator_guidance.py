@@ -353,3 +353,365 @@ def test_strict_lookup_still_rejects_missing_catalog(
                 "severity": "FAIL",
             }
         )
+
+
+@pytest.mark.parametrize(
+    "group",
+    [
+        "technitium",
+        "unbound",
+        "pihole",
+    ],
+)
+def test_failed_dns_host_uses_dns_guidance(
+    group,
+):
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Host Connectivity",
+            "severity": "FAIL",
+            "affected_hosts": [
+                {
+                    "hostname": "dns-host",
+                    "group": group,
+                    "ip": "192.0.2.10",
+                },
+            ],
+        }
+    )
+
+    assert result["id"] == "dns_connectivity_failed"
+    assert result["urgency"] == "ACTION_RECOMMENDED"
+
+
+def test_warning_dns_host_uses_dns_guidance():
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Host Connectivity",
+            "severity": "WARNING",
+            "affected_hosts": [
+                {
+                    "hostname": "unbound108",
+                    "group": "unbound",
+                    "ip": "10.10.37.8",
+                },
+            ],
+        }
+    )
+
+    assert result["id"] == "dns_connectivity_warning"
+    assert result["urgency"] == "CHECK_WHEN_CONVENIENT"
+
+
+def test_multiple_dns_groups_use_dns_guidance():
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Host Connectivity",
+            "severity": "FAIL",
+            "affected_hosts": [
+                {
+                    "hostname": "dns1009",
+                    "group": "technitium",
+                    "ip": "10.10.37.9",
+                },
+                {
+                    "hostname": "unbound108",
+                    "group": "unbound",
+                    "ip": "10.10.37.8",
+                },
+            ],
+        }
+    )
+
+    assert result["id"] == "dns_connectivity_failed"
+
+
+def test_mixed_host_groups_use_generic_connectivity_guidance():
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Host Connectivity",
+            "severity": "FAIL",
+            "affected_hosts": [
+                {
+                    "hostname": "dns1009",
+                    "group": "technitium",
+                    "ip": "10.10.37.9",
+                },
+                {
+                    "hostname": "plex",
+                    "group": "media",
+                    "ip": "192.168.10.50",
+                },
+            ],
+        }
+    )
+
+    assert result["id"] == "host_connectivity_failed"
+
+
+def test_missing_host_evidence_uses_generic_connectivity_guidance():
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Host Connectivity",
+            "severity": "FAIL",
+        }
+    )
+
+    assert result["id"] == "host_connectivity_failed"
+
+
+def test_host_guidance_domain_identifies_dns_groups():
+    assert (
+        OperatorGuidanceService._host_guidance_domain(
+            {
+                "affected_hosts": [
+                    {
+                        "hostname": "dns1009",
+                        "group": "technitium",
+                    },
+                    {
+                        "hostname": "unbound108",
+                        "group": "unbound",
+                    },
+                ],
+            }
+        )
+        == "dns"
+    )
+
+
+def test_host_guidance_domain_rejects_mixed_domains():
+    assert (
+        OperatorGuidanceService._host_guidance_domain(
+            {
+                "affected_hosts": [
+                    {
+                        "hostname": "dns1009",
+                        "group": "technitium",
+                    },
+                    {
+                        "hostname": "plex",
+                        "group": "media",
+                    },
+                ],
+            }
+        )
+        is None
+    )
+
+
+def test_host_guidance_domain_rejects_missing_evidence():
+    assert (
+        OperatorGuidanceService._host_guidance_domain(
+            {}
+        )
+        is None
+    )
+
+
+def test_host_guidance_domain_rejects_malformed_evidence():
+    assert (
+        OperatorGuidanceService._host_guidance_domain(
+            {
+                "affected_hosts": "dns1009",
+            }
+        )
+        is None
+    )
+
+
+@pytest.mark.parametrize(
+    (
+        "group",
+        "domain",
+        "fail_id",
+        "warning_id",
+    ),
+    [
+        (
+            "backup",
+            "backup",
+            "backup_connectivity_failed",
+            "backup_connectivity_warning",
+        ),
+        (
+            "proxmox",
+            "virtualization",
+            "virtualization_connectivity_failed",
+            "virtualization_connectivity_warning",
+        ),
+        (
+            "media",
+            "media",
+            "media_connectivity_failed",
+            "media_connectivity_warning",
+        ),
+        (
+            "vpn",
+            "vpn",
+            "vpn_connectivity_failed",
+            "vpn_connectivity_warning",
+        ),
+    ],
+)
+def test_inventory_domain_guidance_mapping(
+    group,
+    domain,
+    fail_id,
+    warning_id,
+):
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    attention = {
+        "category": "Host Connectivity",
+        "affected_hosts": [
+            {
+                "hostname": "example-host",
+                "group": group,
+                "ip": "192.0.2.20",
+            },
+        ],
+    }
+
+    assert (
+        service._host_guidance_domain(
+            attention
+        )
+        == domain
+    )
+
+    attention["severity"] = "FAIL"
+
+    assert (
+        service.for_attention(
+            attention
+        )["id"]
+        == fail_id
+    )
+
+    attention["severity"] = "WARNING"
+
+    assert (
+        service.for_attention(
+            attention
+        )["id"]
+        == warning_id
+    )
+
+
+def test_different_inventory_domains_fall_back_to_generic_guidance():
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Host Connectivity",
+            "severity": "FAIL",
+            "affected_hosts": [
+                {
+                    "hostname": "pbs01",
+                    "group": "backup",
+                    "ip": "10.10.37.52",
+                },
+                {
+                    "hostname": "pve01",
+                    "group": "proxmox",
+                    "ip": "10.10.37.50",
+                },
+            ],
+        }
+    )
+
+    assert result["id"] == "host_connectivity_failed"
+
+
+def test_telephony_fail_uses_critical_continuity_guidance():
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    attention = {
+        "category": "Host Connectivity",
+        "severity": "FAIL",
+        "affected_hosts": [
+            {
+                "hostname": "freepbx",
+                "group": "telephony",
+                "ip": "10.10.37.70",
+            },
+        ],
+    }
+
+    assert (
+        service._host_guidance_domain(
+            attention
+        )
+        == "telephony"
+    )
+
+    result = service.for_attention(
+        attention
+    )
+
+    assert (
+        result["id"]
+        == "telephony_connectivity_failed"
+    )
+
+    assert (
+        result["urgency"]
+        == "GET_TECHNICAL_HELP"
+    )
+
+
+def test_telephony_warning_uses_telephony_guidance():
+    service = OperatorGuidanceService(
+        "config/operator_guidance.yml"
+    )
+
+    result = service.for_attention(
+        {
+            "category": "Host Connectivity",
+            "severity": "WARNING",
+            "affected_hosts": [
+                {
+                    "hostname": "freepbx",
+                    "group": "telephony",
+                    "ip": "10.10.37.70",
+                },
+            ],
+        }
+    )
+
+    assert (
+        result["id"]
+        == "telephony_connectivity_warning"
+    )
+
+    assert (
+        result["urgency"]
+        == "ACTION_RECOMMENDED"
+    )

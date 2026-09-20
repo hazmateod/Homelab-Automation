@@ -233,6 +233,18 @@ class DashboardService:
                         "failed connectivity checks."
                     ),
                     "href": "/health",
+                    "affected_hosts": [
+                        {
+                            "hostname": host["hostname"],
+                            "group": host["group"],
+                            "ip": host["ip"],
+                        }
+                        for host in health.get(
+                            "hosts",
+                            [],
+                        )
+                        if host.get("status") == "FAIL"
+                    ],
                 }
             )
 
@@ -246,6 +258,18 @@ class DashboardService:
                         "have connectivity warnings."
                     ),
                     "href": "/health",
+                    "affected_hosts": [
+                        {
+                            "hostname": host["hostname"],
+                            "group": host["group"],
+                            "ip": host["ip"],
+                        }
+                        for host in health.get(
+                            "hosts",
+                            [],
+                        )
+                        if host.get("status") == "WARNING"
+                    ],
                 }
             )
 
