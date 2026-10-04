@@ -8,7 +8,7 @@
     infrastructure_health:
       name: Infrastructure Services
       earned: 0
-      possible: 8
+      possible: 4
       status: CRITICAL
       issues: []
 
@@ -90,6 +90,17 @@
     - infrastructure_role == "mailarchiver"
 
 
+- name: Add required service possible health
+  ansible.builtin.set_fact:
+    infrastructure_health:
+      "{{ infrastructure_health | combine({
+        'possible':
+          infrastructure_health.possible + 4
+      }) }}"
+  when:
+    - required_service is defined
+
+
 - name: Check required service
   ansible.builtin.set_fact:
     infrastructure_service_status:
@@ -153,7 +164,8 @@
       "{{ infrastructure_health | combine({
         'status':
           'HEALTHY'
-          if infrastructure_health.earned >= 8
+          if infrastructure_health.earned
+          >= infrastructure_health.possible
           else
           'WARNING'
       }) }}"

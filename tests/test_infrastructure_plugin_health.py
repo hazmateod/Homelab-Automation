@@ -100,3 +100,74 @@ def test_postgres_role_requires_postgresql_service():
         'infrastructure_role == "postgres"'
         in postgres
     )
+
+
+def test_generic_role_uses_only_applicable_health_points():
+    source = HEALTH.read_text()
+
+    initialization = source.split(
+        "- name: Initialize infrastructure health",
+        1,
+    )[1].split(
+        "- name: Add host connectivity",
+        1,
+    )[0]
+
+    assert "possible: 4" in initialization
+
+
+def test_required_service_adds_four_possible_points():
+    source = HEALTH.read_text()
+
+    task = source.split(
+        "- name: Add required service possible health",
+        1,
+    )[1].split(
+        "- name: Check required service",
+        1,
+    )[0]
+
+    assert "infrastructure_health.possible + 4" in task
+    assert "required_service is defined" in task
+
+
+def test_final_status_uses_applicable_possible_score():
+    source = HEALTH.read_text()
+
+    final_scoring = source.split(
+        "- name: Calculate infrastructure status",
+        1,
+    )[1].split(
+        "- name: Store infrastructure health",
+        1,
+    )[0]
+
+    assert (
+        ">= infrastructure_health.possible"
+        in final_scoring
+    )
+    assert "earned >= 8" not in final_scoring
+
+
+def test_failed_required_service_keeps_service_points_possible():
+    source = HEALTH.read_text()
+
+    possible_task = source.split(
+        "- name: Add required service possible health",
+        1,
+    )[1].split(
+        "- name: Check required service",
+        1,
+    )[0]
+
+    earned_task = source.split(
+        "- name: Add required service health",
+        1,
+    )[1].split(
+        "- name: Add service issue",
+        1,
+    )[0]
+
+    assert "infrastructure_health.possible + 4" in possible_task
+    assert "required_service is defined" in possible_task
+    assert "infrastructure_health.earned + 4" in earned_task
