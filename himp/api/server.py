@@ -35,6 +35,7 @@ from himp.api.dashboard import router as dashboard_router
 from himp.api.discovery import router as discovery_router
 from himp.api.execution import router as execution_router
 from himp.api.inventory import router as inventory_router
+from himp.api.host_automation_policies import router as host_automation_policies_router
 from himp.api.update import router as update_router
 from himp.api.users import router as users_router
 from himp.api.health import router as health_router
@@ -122,6 +123,10 @@ app.include_router(
     execution_router,
     prefix="/api",
     dependencies=[Depends(require_session)],
+)
+
+app.include_router(
+    host_automation_policies_router,
 )
 
 app.include_router(
@@ -393,6 +398,10 @@ def inventory(
     context["inventory"] = himp.inventory.summary()
 
     context["vulnerability_scan_admin"] = (
+        session.role == "admin"
+    )
+
+    context["automation_policy_admin"] = (
         session.role == "admin"
     )
 

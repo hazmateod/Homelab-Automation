@@ -36,6 +36,10 @@
             Score
         </th>
 
+        <th>
+            Automation
+        </th>
+
         </tr>
 
         </thead>
@@ -89,6 +93,24 @@
 
         <td>
             {{ host.health_earned }}/{{ host.health_possible }}
+        </td>
+
+        <td>
+            <div
+                class="host-automation-control"
+                data-hostname="{{ host.hostname|e }}"
+            >
+                <span class="badge bg-secondary automation-status">
+                    Loading
+                </span>
+                <button
+                    type="button"
+                    class="btn btn-sm btn-outline-light automation-toggle"
+                    disabled
+                >
+                    Manage
+                </button>
+            </div>
         </td>
 
         </tr>
