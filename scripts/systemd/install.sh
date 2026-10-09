@@ -46,6 +46,14 @@ for unit in "${UNITS[@]}"; do
     fi
 done
 
+# Capture scheduler installation state before modifying unit files.
+# Existing installations must retain their operator-selected enabled state.
+SCHEDULER_TIMER_PREEXISTING=false
+
+if [[ -f "$SYSTEMD_TARGET_ROOT/himp-scheduler.timer" ]]; then
+    SCHEDULER_TIMER_PREEXISTING=true
+fi
+
 SYSTEMD_CHANGED=false
 TIMER_CHANGED=false
 
@@ -86,8 +94,12 @@ systemctl disable --now \
     2>/dev/null || true
 
 echo
-echo "Enabling scheduler timer..."
-systemctl enable himp-scheduler.timer
+if [[ "$SCHEDULER_TIMER_PREEXISTING" == "false" ]]; then
+    echo "Fresh installation: enabling scheduler timer..."
+    systemctl enable himp-scheduler.timer
+else
+    echo "Existing scheduler timer: preserving enabled/disabled state."
+fi
 
 echo
 if [[ "${HIMP_START_SCHEDULER_TIMER:-0}" == "1" ]]; then
