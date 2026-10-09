@@ -521,6 +521,9 @@
                     <th>Become</th>
                     <th>Health</th>
                     <th>Score</th>
+                    {% if automation_policy_admin %}
+                    <th>Automation</th>
+                    {% endif %}
                     <th>Update</th>
                 </tr>
             </thead>
@@ -589,6 +592,26 @@
                     <td>
                         {{ host.health_earned }}/{{ host.health_possible }}
                     </td>
+
+                    {% if automation_policy_admin %}
+                    <td>
+                        <div
+                            class="host-automation-control"
+                            data-hostname="{{ host.hostname|e }}"
+                        >
+                            <span class="badge bg-secondary automation-status">
+                                Loading
+                            </span>
+                            <button
+                                type="button"
+                                class="btn btn-sm btn-outline-light automation-toggle"
+                                disabled
+                            >
+                                Loading
+                            </button>
+                        </div>
+                    </td>
+                    {% endif %}
 
                     <td>
                         <button
