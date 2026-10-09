@@ -104,7 +104,7 @@ def test_scheduler_run_executes_due_task_and_records_run(
     ]
 
 
-def test_scheduler_run_does_not_record_failed_result(
+def test_scheduler_run_records_failed_result(
     monkeypatch,
 ):
     class FakeAutomation:
@@ -169,7 +169,7 @@ def test_scheduler_run_does_not_record_failed_result(
     assert himp.automation.calls == [
         "health_check",
     ]
-    assert scheduler.recorded == []
+    assert scheduler.recorded == ["health_check"]
 
 
 def test_scheduler_run_handles_automation_exception(
@@ -230,7 +230,7 @@ def test_scheduler_run_handles_automation_exception(
     assert himp.automation.calls == [
         "health_check",
     ]
-    assert scheduler.recorded == []
+    assert scheduler.recorded == ["health_check"]
 
 
 def test_scheduler_run_continues_after_failed_task(
@@ -306,9 +306,72 @@ def test_scheduler_run_continues_after_failed_task(
         "inventory_refresh",
     ]
     assert scheduler.recorded == [
+        "health_check",
         "inventory_refresh",
     ]
 
+
+
+@pytest.mark.parametrize(
+    "outcome",
+    ["success", "failure", "exception"],
+)
+def test_scheduler_recording_failure_is_not_retried(
+    monkeypatch,
+    outcome,
+):
+    class FakeAutomation:
+        def __init__(self):
+            self.calls = []
+
+        def run(self, task_id):
+            self.calls.append(task_id)
+
+            if outcome == "exception":
+                raise RuntimeError("dispatch failed")
+
+            return {
+                "task": task_id,
+                "executed_at": "2026-08-11T03:00:00",
+                "result": {
+                    "success": outcome == "success",
+                },
+            }
+
+    class FakeHIMP:
+        def __init__(self):
+            self.automation = FakeAutomation()
+
+    class FakeScheduler:
+        def __init__(self):
+            self.record_calls = []
+
+        def due_tasks(self, now):
+            return [{"task_id": "health_check"}]
+
+        def record_run(self, task_id):
+            self.record_calls.append(task_id)
+            raise RuntimeError("schedule database unavailable")
+
+    himp = FakeHIMP()
+    scheduler = FakeScheduler()
+
+    monkeypatch.setattr(
+        scheduler_run,
+        "HIMP",
+        lambda: himp,
+    )
+    monkeypatch.setattr(
+        scheduler_run,
+        "SchedulerService",
+        lambda: scheduler,
+    )
+
+    result = scheduler_run.run(Args())
+
+    assert result == 1
+    assert himp.automation.calls == ["health_check"]
+    assert scheduler.record_calls == ["health_check"]
 
 def test_scheduler_run_returns_zero_when_no_tasks_are_due(
     monkeypatch,
@@ -856,7 +919,7 @@ def test_scheduler_run_fails_closed_for_missing_remediation_configuration(
     )
 
     assert result == 1
-    assert scheduler.recorded == []
+    assert scheduler.recorded == ["remediation_operations"]
 
 
 def test_scheduler_run_closes_postgresql_pools(monkeypatch):

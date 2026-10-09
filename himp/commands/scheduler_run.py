@@ -231,10 +231,14 @@ def run(args):
 
                 continue
 
+            dispatch_completed = False
+            recording_attempted = False
+
             try:
                 result = dispatcher.dispatch(
                     task_id
                 )
+                dispatch_completed = True
 
                 task_result = result.get(
                     "result",
@@ -276,8 +280,14 @@ def run(args):
                         file=sys.stderr,
                     )
 
+                    recording_attempted = True
+                    scheduler.record_run(
+                        task_id
+                    )
+
                     continue
 
+                recording_attempted = True
                 scheduler.record_run(
                     task_id
                 )
@@ -305,6 +315,21 @@ def run(args):
                     f"{exc}",
                     file=sys.stderr,
                 )
+
+                if recording_attempted:
+                    continue
+
+                if not dispatch_completed:
+                    try:
+                        scheduler.record_run(
+                            task_id
+                        )
+                    except Exception as record_error:
+                        print(
+                            "Failed to record scheduled attempt: "
+                            f"{record_error}",
+                            file=sys.stderr,
+                        )
 
         # -------------------------------------------------------------
         # Phase 13.3 one-time approved remediation schedules
