@@ -6,6 +6,7 @@ Provides a shared, policy-enforced service for maintenance updates.
 
 from himp.config import config
 from himp.lib.ansible import run_playbook
+from himp.lib.ansible_recap import parse_play_recap
 from himp.services.host_maintenance_eligibility import (
     HostMaintenanceEligibility,
 )
@@ -63,6 +64,7 @@ class UpdateService:
                     "Maintenance skipped: no eligible hosts"
                 ),
                 "stderr": "",
+                "host_results": {},
                 "eligible_hosts": [],
                 "excluded_hosts": excluded,
             }
@@ -87,6 +89,7 @@ class UpdateService:
             "elapsed": round(result.elapsed, 3),
             "stdout": result.stdout,
             "stderr": result.stderr,
+            "host_results": parse_play_recap(result.stdout),
             "eligible_hosts": eligible,
             "excluded_hosts": excluded,
         }
