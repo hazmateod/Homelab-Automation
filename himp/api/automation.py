@@ -12,6 +12,7 @@ from fastapi import APIRouter, HTTPException, Query
 from fastapi.responses import JSONResponse
 
 from himp.app import HIMP
+from himp.database.automation_progress import AutomationProgressRepository
 from himp.services.automation import (
     AutomationAlreadyRunningError,
     AutomationConfirmationRequiredError,
@@ -89,6 +90,85 @@ def automation_execution_status(
             status_code=404,
             detail=str(error),
         )
+
+
+
+def _serialize_automation_progress(record):
+    """Return an explicit public allowlist of progress fields."""
+    if record is None:
+        return None
+
+    return {
+        "run_id": record["run_id"],
+        "task_id": record["task_id"],
+        "attempt": record["attempt"],
+        "status": record["status"],
+        "revision": record["revision"],
+        "started_at": record["started_at"],
+        "updated_at": record["updated_at"],
+        "finished_at": record["finished_at"],
+        "host_results": {
+            str(hostname): {
+                key: host_data[key]
+                for key in (
+                    "host",
+                    "status",
+                    "last_task",
+                    "last_event",
+                    "updated_at",
+                    "ok",
+                    "changed",
+                    "failed",
+                    "unreachable",
+                    "skipped",
+                )
+                if key in host_data
+            }
+            for hostname, host_data in record["host_results"].items()
+            if isinstance(host_data, dict)
+        },
+        "completed_execution_id": record["completed_execution_id"],
+    }
+
+
+@router.get("/automation/{task_id}/progress")
+def automation_active_progress(task_id: str):
+    """Return active progress for a maintenance task."""
+    if task_id not in {
+        "scheduled_updates",
+        "update_host",
+        "update_group",
+    }:
+        raise HTTPException(
+            status_code=404,
+            detail="Maintenance task not found",
+        )
+
+    repository = AutomationProgressRepository()
+    record = repository.latest_running(task_id)
+
+    return JSONResponse({
+        "task_id": task_id,
+        "active": record is not None,
+        "progress": _serialize_automation_progress(record),
+    })
+
+
+@router.get("/automation/progress/{run_id}")
+def automation_progress_detail(run_id: str):
+    """Return progress for a specific maintenance attempt."""
+    repository = AutomationProgressRepository()
+    record = repository.get(run_id)
+
+    if record is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Automation progress run not found",
+        )
+
+    return JSONResponse(
+        _serialize_automation_progress(record)
+    )
 
 
 @router.get("/automation/executions")

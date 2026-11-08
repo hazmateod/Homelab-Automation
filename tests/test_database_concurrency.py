@@ -248,9 +248,12 @@ def test_concurrent_lock_acquisition_has_single_winner():
         task_id = "concurrent_test_task"
 
         def acquire_lock():
+            from uuid import uuid4
+
             return repository.acquire(
                 task_id,
                 lease_seconds=300,
+                execution_token=str(uuid4()),
             )
 
         with ThreadPoolExecutor(
@@ -294,20 +297,24 @@ def test_lock_can_be_reacquired_after_release():
         assert repository.acquire(
             "release_test",
             lease_seconds=300,
+            execution_token="concurrency-test-owner",
         ) is True
 
         assert repository.acquire(
             "release_test",
             lease_seconds=300,
+            execution_token="concurrency-test-owner",
         ) is False
 
         repository.release(
-            "release_test"
+            "release_test",
+            execution_token="concurrency-test-owner",
         )
 
         assert repository.acquire(
             "release_test",
             lease_seconds=300,
+            execution_token="concurrency-test-owner",
         ) is True
 
     finally:

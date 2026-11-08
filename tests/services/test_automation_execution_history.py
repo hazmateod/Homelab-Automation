@@ -12,10 +12,11 @@ class FakeLockRepository:
         self,
         task_id,
         lease_seconds=None,
+        execution_token=None,
     ):
         return True
 
-    def release(self, task_id):
+    def release(self, task_id, execution_token=None):
         return None
 
 

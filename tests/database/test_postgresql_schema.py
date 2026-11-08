@@ -9,6 +9,7 @@ EXPECTED_TABLES = {
     "asset_relationships",
     "automation_dependencies",
     "automation_executions",
+    "automation_execution_progress",
     "automation_locks",
     "automation_schedules",
     "discovery",
@@ -58,7 +59,7 @@ def test_schema_defines_every_himp_table_once():
         for statement in statements
     ]
 
-    assert len(statements) == 29
+    assert len(statements) == 30
 
     assert "vulnerability_reports" in names
     assert "vulnerability_findings" in names
@@ -83,6 +84,7 @@ def test_generated_primary_keys_use_postgresql_identity():
     }
 
     identity_tables = EXPECTED_TABLES - {
+        "automation_execution_progress",
         "automation_locks",
         "remediation_operations",
         "users",
@@ -100,6 +102,11 @@ def test_singleton_and_natural_primary_keys_are_preserved():
         table_name(statement): statement.upper()
         for statement in schema_statements()
     }
+
+    assert (
+        "RUN_ID TEXT PRIMARY KEY"
+        in statements["automation_execution_progress"]
+    )
 
     assert (
         "TASK_ID TEXT PRIMARY KEY"

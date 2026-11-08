@@ -316,7 +316,9 @@ class FakeLockRepository:
         self,
         task_id,
         lease_seconds=None,
+        execution_token=None,
     ):
+        self.execution_token = execution_token
         self.acquire_calls.append(
             {
                 "task_id": task_id,
@@ -325,7 +327,8 @@ class FakeLockRepository:
         )
         return self.acquire_result
 
-    def release(self, task_id):
+    def release(self, task_id, execution_token=None):
+        assert execution_token == self.execution_token
         self.release_calls.append(task_id)
 
 
@@ -1436,7 +1439,7 @@ def test_update_host_uses_automation_execution_persistence():
     service.lock_repository = lock
 
     class FakeUpdates:
-        def update(self, target, limit=None, timeout=None):
+        def update(self, target, limit=None, timeout=None, on_event=None, on_hosts_resolved=None):
             return {
                 "target": target,
                 "limit": limit,
@@ -1567,7 +1570,7 @@ def test_update_group_uses_automation_execution_persistence():
     service.lock_repository = lock
 
     class FakeUpdates:
-        def update(self, target, limit=None, timeout=None):
+        def update(self, target, limit=None, timeout=None, on_event=None, on_hosts_resolved=None):
             return {
                 "target": target,
                 "limit": limit,

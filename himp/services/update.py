@@ -5,7 +5,7 @@ Provides a shared, policy-enforced service for maintenance updates.
 """
 
 from himp.config import config
-from himp.lib.ansible import run_playbook
+from himp.lib.ansible import run_playbook, run_playbook_streaming
 from himp.lib.ansible_recap import parse_play_recap
 from himp.services.host_maintenance_eligibility import (
     HostMaintenanceEligibility,
@@ -27,6 +27,9 @@ class UpdateService:
         target,
         limit=None,
         timeout=None,
+        *,
+        on_event=None,
+        on_hosts_resolved=None,
     ):
         if target == "maintenance":
             mode = "scheduled"
@@ -53,6 +56,12 @@ class UpdateService:
         eligible = selection["eligible_hosts"]
         excluded = selection["excluded_hosts"]
 
+        if on_hosts_resolved is not None:
+            on_hosts_resolved(
+                list(eligible),
+                list(excluded),
+            )
+
         if not eligible:
             return {
                 "target": target,
@@ -75,11 +84,20 @@ class UpdateService:
         # Never pass an empty --limit to Ansible.
         safe_limit = ",".join(eligible)
 
-        result = run_playbook(
-            config.maintenance_playbook,
-            safe_limit,
-            timeout=timeout,
-        )
+        if on_event is None:
+            result = run_playbook(
+                config.maintenance_playbook,
+                safe_limit,
+                timeout=timeout,
+            )
+        else:
+            result = run_playbook_streaming(
+                config.maintenance_playbook,
+                safe_limit,
+                timeout=timeout,
+                on_event=on_event,
+                structured_events=True,
+            )
 
         return {
             "target": target,

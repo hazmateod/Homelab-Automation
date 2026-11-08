@@ -1740,6 +1740,121 @@ document.addEventListener("DOMContentLoaded", () => {
         return `${remainingSeconds}s`;
     };
 
+    const updateHostProgress = async element => {
+        const panel = element.querySelector(
+            ".automation-host-progress"
+        );
+
+        if (!panel) {
+            return;
+        }
+
+        const taskId = element.dataset.taskId;
+
+        try {
+            const response = await fetch(
+                `/api/automation/${encodeURIComponent(taskId)}/progress`,
+                {
+                    headers: {
+                        "Accept": "application/json"
+                    },
+                    cache: "no-store"
+                }
+            );
+
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+
+            const result = await response.json();
+
+            if (!result.active || !result.progress) {
+                panel.hidden = true;
+                return;
+            }
+
+            const progress = result.progress;
+            const hosts = Object.values(
+                progress.host_results || {}
+            );
+
+            const completed = hosts.filter(host =>
+                ["succeeded", "failed", "unreachable", "skipped"]
+                    .includes(host.status)
+            ).length;
+
+            const total = hosts.length;
+
+            const percent = total > 0
+                ? Math.round((completed / total) * 100)
+                : 0;
+
+            panel.hidden = false;
+
+            const summary = panel.querySelector(
+                ".automation-progress-summary"
+            );
+
+            summary.textContent =
+                `${completed} of ${total} hosts completed` +
+                ` — Attempt ${progress.attempt}`;
+
+            const bar = panel.querySelector(
+                ".automation-progress-bar"
+            );
+
+            bar.style.width = `${percent}%`;
+            bar.setAttribute(
+                "aria-valuenow",
+                String(percent)
+            );
+
+            const hostContainer = panel.querySelector(
+                ".automation-progress-hosts"
+            );
+
+            hostContainer.replaceChildren();
+
+            hosts.sort((a, b) =>
+                String(a.host).localeCompare(String(b.host))
+            );
+
+            for (const host of hosts) {
+                const row = document.createElement("div");
+                row.className = "mb-1";
+
+                const name = document.createElement("strong");
+                name.textContent = String(host.host || "Unknown");
+
+                const status = document.createElement("span");
+                status.className = "ms-2";
+                status.textContent = String(
+                    host.status || "pending"
+                );
+
+                row.append(name, status);
+
+                if (host.last_task) {
+                    const task = document.createElement("div");
+                    task.className = "text-secondary";
+                    task.textContent = String(host.last_task);
+                    row.append(task);
+                }
+
+                hostContainer.append(row);
+            }
+
+        } catch (error) {
+            console.error(
+                `Unable to load host progress for ${taskId}:`,
+                error
+            );
+
+            // Do not present stale progress as current.
+            panel.hidden = true;
+        }
+    };
+
     const updateTaskStatus = async element => {
         const taskId = element.dataset.taskId;
 
@@ -1837,9 +1952,10 @@ document.addEventListener("DOMContentLoaded", () => {
     };
 
     const refreshStatuses = () => {
-        statusElements.forEach(
-            element => updateTaskStatus(element)
-        );
+        statusElements.forEach(element => {
+            updateTaskStatus(element);
+            updateHostProgress(element);
+        });
     };
 
     refreshStatuses();

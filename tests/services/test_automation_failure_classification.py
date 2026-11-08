@@ -82,10 +82,11 @@ def test_non_retryable_failure_is_not_retried():
             self,
             task_id,
             lease_seconds=None,
+            execution_token=None,
         ):
             return True
 
-        def release(self, task_id):
+        def release(self, task_id, execution_token=None):
             return None
 
     class FakeExecutionRepository:

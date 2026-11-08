@@ -27,17 +27,36 @@ class AutomationLockRepository:
             CREATE TABLE IF NOT EXISTS automation_locks
             (
                 task_id TEXT PRIMARY KEY,
+                execution_token TEXT,
                 locked_at TIMESTAMP NOT NULL,
                 expires_at TIMESTAMP NOT NULL
             )
             """
         )
 
+        columns = self.database.table_columns(
+            "automation_locks"
+        )
+
+        if "execution_token" not in columns:
+            self.database.execute(
+                """
+                ALTER TABLE automation_locks
+                ADD COLUMN execution_token TEXT
+                """
+            )
+
     def acquire(
         self,
         task_id,
         lease_seconds=None,
+        execution_token=None,
     ):
+        if not isinstance(execution_token, str) or not execution_token.strip():
+            raise ValueError(
+                "Non-empty execution token required to acquire automation lock"
+            )
+
         if lease_seconds is None:
             lease_seconds = (
                 self.DEFAULT_LEASE_SECONDS
@@ -72,13 +91,15 @@ class AutomationLockRepository:
                     INSERT INTO automation_locks
                     (
                         task_id,
+                        execution_token,
                         locked_at,
                         expires_at
                     )
-                    VALUES (?, ?, ?)
+                    VALUES (?, ?, ?, ?)
                     """,
                     (
                         task_id,
+                        execution_token,
                         now,
                         expires_at,
                     ),
@@ -92,13 +113,20 @@ class AutomationLockRepository:
     def release(
         self,
         task_id,
+        execution_token=None,
     ):
-        self.database.execute(
+        if execution_token is None:
+            raise ValueError(
+                "Execution token required to release automation lock"
+            )
+
+        return self.database.execute_affected(
             """
             DELETE FROM automation_locks
             WHERE task_id=?
+              AND execution_token=?
             """,
-            (task_id,),
+            (task_id, execution_token),
         )
 
     def get(

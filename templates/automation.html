@@ -286,6 +286,36 @@ No execution data
     <div
         class="small text-secondary automation-current-elapsed"
     ></div>
+
+    {% if task.id in ["scheduled_updates", "update_host", "update_group"] %}
+    <div
+        class="automation-host-progress mt-2"
+        hidden
+    >
+        <div
+            class="small fw-semibold automation-progress-summary"
+        ></div>
+
+        <div
+            class="progress mt-1"
+            style="height: 8px;"
+        >
+            <div
+                class="progress-bar automation-progress-bar"
+                role="progressbar"
+                aria-label="Maintenance host completion"
+                aria-valuemin="0"
+                aria-valuemax="100"
+                aria-valuenow="0"
+                style="width: 0%;"
+            ></div>
+        </div>
+
+        <div
+            class="small mt-2 automation-progress-hosts"
+        ></div>
+    </div>
+    {% endif %}
 </div>
 </td>
 

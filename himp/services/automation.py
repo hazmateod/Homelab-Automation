@@ -1,3 +1,4 @@
+from uuid import uuid4
 from himp.services.vulnerability_onboarding import (
     VulnerabilityOnboardingService,
 )
@@ -23,6 +24,12 @@ from himp.database.automation_executions import (
 )
 from himp.database.automation_locks import (
     AutomationLockRepository,
+)
+from himp.database.automation_progress import (
+    AutomationProgressRepository,
+)
+from himp.services.automation_progress_lifecycle import (
+    AutomationProgressLifecycle,
 )
 
 
@@ -714,11 +721,68 @@ class AutomationService:
         }
 
 
+    @staticmethod
+    def _finalize_progress_safely(
+        lifecycle,
+        success,
+        execution_id,
+    ):
+        """Prevent progress finalization from affecting maintenance."""
+        if lifecycle is None:
+            return False
+
+        try:
+            return bool(
+                lifecycle.finalize_safely(
+                    success=success,
+                    execution_id=execution_id,
+                )
+            )
+        except Exception:
+            logger.exception(
+                "Automation progress finalization callback failed"
+            )
+            return False
+
+    def _create_progress_lifecycle(
+        self,
+        task_id,
+        attempt,
+        execution_token,
+    ):
+        """Create optional maintenance progress tracking."""
+        if task_id not in {
+            "scheduled_updates",
+            "update_host",
+            "update_group",
+        }:
+            return None
+
+        try:
+            repository = AutomationProgressRepository()
+
+            return AutomationProgressLifecycle(
+                repository,
+                task_id=task_id,
+                attempt=attempt,
+                execution_token=execution_token,
+            )
+
+        except Exception:
+            logger.exception(
+                "Automation progress repository initialization failed: "
+                "task=%s attempt=%s",
+                task_id,
+                attempt,
+            )
+            return None
+
     def _execute_task(
         self,
         task_id,
         limit=None,
         timeout=None,
+        progress_lifecycle=None,
     ):
         if task_id == "host_health_check":
 
@@ -836,10 +900,22 @@ class AutomationService:
                     "Update service not configured"
                 )
 
+            kwargs = {
+                "limit": limit,
+                "timeout": timeout,
+            }
+
+            if progress_lifecycle is not None:
+                kwargs["on_hosts_resolved"] = (
+                    progress_lifecycle.start_safely
+                )
+                kwargs["on_event"] = (
+                    progress_lifecycle.handle_event_safely
+                )
+
             return self.updates.update(
                 "maintenance",
-                limit=limit,
-                timeout=timeout,
+                **kwargs,
             )
 
         if task_id == "update_host":
@@ -854,10 +930,22 @@ class AutomationService:
                     "Host update requires a hostname"
                 )
 
+            kwargs = {
+                "limit": limit,
+                "timeout": timeout,
+            }
+
+            if progress_lifecycle is not None:
+                kwargs["on_hosts_resolved"] = (
+                    progress_lifecycle.start_safely
+                )
+                kwargs["on_event"] = (
+                    progress_lifecycle.handle_event_safely
+                )
+
             return self.updates.update(
                 "update_host",
-                limit=limit,
-                timeout=timeout,
+                **kwargs,
             )
 
         if task_id == "update_group":
@@ -872,10 +960,22 @@ class AutomationService:
                     "Group update requires a group name"
                 )
 
+            kwargs = {
+                "limit": limit,
+                "timeout": timeout,
+            }
+
+            if progress_lifecycle is not None:
+                kwargs["on_hosts_resolved"] = (
+                    progress_lifecycle.start_safely
+                )
+                kwargs["on_event"] = (
+                    progress_lifecycle.handle_event_safely
+                )
+
             return self.updates.update(
                 "update_group",
-                limit=limit,
-                timeout=timeout,
+                **kwargs,
             )
 
         raise ValueError(
@@ -997,9 +1097,12 @@ class AutomationService:
                 + 60
             )
 
+        execution_token = str(uuid4())
+
         if not self.lock_repository.acquire(
             task_id,
             lease_seconds=lease_seconds,
+            execution_token=execution_token,
         ):
             raise AutomationAlreadyRunningError(
                 f"Automation task is already running: {task_id}"
@@ -1038,12 +1141,29 @@ class AutomationService:
                     ).isoformat()
                 )
 
+                progress_lifecycle = (
+                    self._create_progress_lifecycle(
+                        task_id,
+                        attempt,
+                        execution_token,
+                    )
+                )
+
                 try:
+
+                    execution_kwargs = {
+                        "limit": limit,
+                        "timeout": policy["timeout_seconds"],
+                    }
+
+                    if progress_lifecycle is not None:
+                        execution_kwargs["progress_lifecycle"] = (
+                            progress_lifecycle
+                        )
 
                     result = self._execute_task(
                         task_id,
-                        limit=limit,
-                        timeout=policy["timeout_seconds"],
+                        **execution_kwargs,
                     )
 
                     result = self._normalize_result(
@@ -1088,6 +1208,12 @@ class AutomationService:
                     )
 
                     execution["id"] = execution_id
+
+                    self._finalize_progress_safely(
+                        progress_lifecycle,
+                        success=success,
+                        execution_id=execution_id,
+                    )
 
                     if success:
                         return execution
@@ -1171,6 +1297,12 @@ class AutomationService:
 
                     failure["id"] = execution_id
 
+                    self._finalize_progress_safely(
+                        progress_lifecycle,
+                        success=False,
+                        execution_id=execution_id,
+                    )
+
                     last_error = error
 
                     if not classification["retryable"]:
@@ -1199,5 +1331,6 @@ class AutomationService:
 
         finally:
             self.lock_repository.release(
-                task_id
+                task_id,
+                execution_token=execution_token,
             )
