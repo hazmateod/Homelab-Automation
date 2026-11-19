@@ -194,8 +194,11 @@ class InventoryService:
             return self.repository.find_host(hostname, include_inactive=True)
 
     def sync(self):
-        with self._publication().locked():
-            return self._sync_locked()
+        publication = self._publication()
+        with publication.locked():
+            result = self._sync_locked()
+            publication.reconcile_identities()
+            return result
 
     def _sync_locked(self):
         hosts = self.collector.hosts()

@@ -1,5 +1,8 @@
+import pytest
+
 from himp.database.host_identity import HostIdentityRepository
 from himp.database.inventory import InventoryRepository
+from himp.services.inventory_publication import InventoryPublication
 
 
 def host(name, ip):
@@ -36,3 +39,33 @@ def test_repeatable_backfill_preserves_identity_through_retirement_and_restore(m
     assert identities.record_rebuild(original["host_id"], 1) == 2
     assert identities.record_rebuild(original["host_id"], 1) is None
     assert [record["incarnation"] for record in identities.history(original["host_id"])] == [1, 2]
+
+
+def test_pending_publication_recovers_identity_after_failed_backfill(monkeypatch, tmp_path):
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "host-identity.db"))
+    inventory = InventoryRepository()
+    filename = tmp_path / "hosts.yml"
+    filename.write_text("all:\n  children:\n    fixture:\n      hosts: {}\n")
+    publication = InventoryPublication(filename, inventory)
+    new_host = host("current", "192.0.2.1")
+
+    def fail_backfill(self):
+        raise RuntimeError("identity write failed")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(HostIdentityRepository, "backfill", fail_backfill)
+        with publication.locked(), publication.stage() as (writer, original):
+            writer.filename.write_text(
+                "all:\n  children:\n    fixture:\n      hosts:\n"
+                "        current:\n          ansible_host: 192.0.2.1\n"
+            )
+            with pytest.raises(RuntimeError, match="identity write failed"):
+                publication.publish(writer, original, "save_host", new_host)
+
+    assert publication.journal.exists()
+    assert inventory.find_host("current")["hostname"] == "current"
+    with publication.locked():
+        current, = HostIdentityRepository(inventory).current()
+        assert current["hostname"] == "current"
+    assert not publication.journal.exists()
+    assert HostIdentityRepository(inventory).backfill() == 0

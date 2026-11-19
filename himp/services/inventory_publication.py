@@ -9,6 +9,7 @@ from pathlib import Path
 import stat
 from tempfile import NamedTemporaryFile
 
+from himp.database.host_identity import HostIdentityRepository
 from himp.services.inventory_writer import InventoryFileWriter
 
 
@@ -70,8 +71,12 @@ class InventoryPublication:
             "rename_group": self.repository.rename_group,
         }
         actions[pending["operation"]](*pending["arguments"])
+        self.reconcile_identities()
         self.journal.unlink()
         _sync_directory(self.journal.parent)
+
+    def reconcile_identities(self):
+        return HostIdentityRepository(self.repository).backfill()
 
     @contextmanager
     def stage(self):
