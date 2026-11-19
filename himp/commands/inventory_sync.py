@@ -38,6 +38,9 @@ def run(args):
             f"{result['recent_changes']}"
         )
 
+        if "membership_drift_count" in result:
+            print(f"Membership drift : {result['membership_drift_count']}")
+
         return 0
 
     except Exception as exc:

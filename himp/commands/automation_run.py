@@ -21,11 +21,17 @@ def run(args):
 
     task_result = result["result"]
 
-    print("Automation task completed successfully.")
+    failed = task_result.get("success") is False
+    if failed:
+        print("Automation task failed.", file=sys.stderr)
+    elif task_result.get("skipped"):
+        print("Automation task skipped.")
+    else:
+        print("Automation task completed successfully.")
     print(f"Task       : {result['task']}")
     print(f"Executed   : {result['executed_at']}")
     print(f"Target     : {task_result.get('target', 'n/a')}")
     print(f"Success    : {task_result.get('success', 'n/a')}")
     print(f"Elapsed    : {task_result.get('elapsed', 'n/a')}")
 
-    return 0
+    return int(failed)

@@ -187,6 +187,33 @@ class InventoryRepository:
             ),
         )
 
+    def rename_group(self, group, new_group):
+        if group == new_group:
+            return
+
+        with self.database.transaction() as connection:
+            renamed_hosts = self.database.execute_transaction(
+                connection,
+                """
+                UPDATE inventory_hosts
+                SET group_name=?
+                WHERE group_name=?
+                RETURNING hostname
+                """,
+                (new_group, group),
+            ).fetchall()
+
+            for host in renamed_hosts:
+                self.database.execute_transaction(
+                    connection,
+                    """
+                    INSERT INTO inventory_changes
+                    (hostname, change_type, field, old_value, new_value)
+                    VALUES (?, 'UPDATED', 'group_name', ?, ?)
+                    """,
+                    (host["hostname"], group, new_group),
+                )
+
     def mark_removed(
         self,
         hostname,
