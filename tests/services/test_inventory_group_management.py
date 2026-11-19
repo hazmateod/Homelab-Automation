@@ -1,3 +1,5 @@
+import pytest
+
 from himp.services.inventory import InventoryService
 from himp.services.inventory_writer import InventoryFileWriter
 
@@ -47,7 +49,9 @@ def test_rename_group_preserves_inactive_state(tmp_path, monkeypatch):
 def test_sync_counts_membership_drift_before_reconciliation(tmp_path, monkeypatch):
     monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "inventory.db"))
     service = InventoryService()
-    save_host(service.repository, "removed", "old")
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text("all: {}\n")
+    service.writer = InventoryFileWriter(inventory)
     host = {
         "hostname": "added",
         "group": "new",
@@ -59,6 +63,12 @@ def test_sync_counts_membership_drift_before_reconciliation(tmp_path, monkeypatc
 
     result = service.sync()
 
-    assert result["membership_drift_count"] == 2
+    assert result["membership_drift_count"] == 1
     assert result["active_hosts"] == 1
     assert service.sync()["membership_drift_count"] == 0
+
+
+    monkeypatch.setattr(service.collector, "hosts", lambda: [])
+    with pytest.raises(ValueError, match="omitted 1 active host"):
+        service.sync()
+    assert service.find_host("added") is not None

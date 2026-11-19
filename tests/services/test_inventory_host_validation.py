@@ -6,66 +6,27 @@ from himp.config import config
 from himp.services.inventory import InventoryService
 
 
-class FakeRepository:
-    def __init__(self, existing=None):
-        self.existing = existing
-        self.saved = []
-
-    def find_host(self, hostname, include_inactive=False):
-        if self.existing is None:
-            return None
-
-        if hostname == self.existing["hostname"]:
-            return self.existing
-
-        return None
-
-    def save_host(self, host):
-        self.saved.append(host)
-        self.existing = {
-            "hostname": host["hostname"],
-            "group_name": host["group"],
-            "ip": host["ip"],
-            "ansible_user": host["user"],
-            "become": bool(host["become"]),
-        }
+from himp.services.inventory_writer import InventoryFileWriter
 
 
-class FakeWriter:
-    def __init__(self):
-        self.added = []
-        self.updated = []
-        self.removed = []
-
-    def add_host(self, **kwargs):
-        self.added.append(kwargs)
-        return {
-            "hostname": kwargs["hostname"],
-            "group": kwargs["group"],
-            "ip": kwargs["ip"],
-            "user": kwargs["user"],
-            "become": kwargs["become"],
-        }
-
-    def update_host(self, **kwargs):
-        self.updated.append(kwargs)
-        return {
-            "hostname": kwargs["hostname"],
-            "group": kwargs["group"],
-            "ip": kwargs["ip"],
-            "user": kwargs["user"],
-            "become": kwargs["become"],
-        }
-
-    def remove_host(self, **kwargs):
-        self.removed.append(kwargs)
-        return None
+def make_service():
+    return InventoryService.__new__(InventoryService)
 
 
-def make_service(existing=None):
-    service = InventoryService.__new__(InventoryService)
-    service.repository = FakeRepository(existing)
-    service.writer = FakeWriter()
+@pytest.fixture
+def inventory_service(tmp_path, monkeypatch):
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "inventory.db"))
+    service = InventoryService()
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text(
+        "all:\n  children:\n    infrastructure:\n      hosts:\n"
+        "        existing:\n          ansible_host: 192.0.2.1\n"
+    )
+    service.writer = InventoryFileWriter(inventory)
+    service.repository.save_host({
+        "hostname": "existing", "group": "infrastructure",
+        "ip": "192.0.2.1", "user": "operator", "become": False,
+    })
     return service
 
 
@@ -212,143 +173,74 @@ def test_validate_inventory_host_rejects_failed_ping(
         )
 
 
-def test_add_host_rolls_back_inventory_when_validation_fails(
-    monkeypatch,
+@pytest.mark.parametrize(("operation", "hostname"), [
+    ("add_host", "new"), ("update_host", "existing"),
+])
+def test_rejected_candidate_never_changes_runtime_inventory(
+    inventory_service, monkeypatch, operation, hostname,
 ):
-    service = make_service()
+    service = inventory_service
+    original = service.writer.filename.read_bytes()
 
-    def fail_validation(*args, **kwargs):
+    def reject_candidate(**arguments):
+        assert arguments["inventory_path"] != service.writer.filename
+        assert "192.0.2.99" in arguments["inventory_path"].read_text()
+        assert service.writer.filename.read_bytes() == original
         raise ValueError("validation failed")
 
-    monkeypatch.setattr(
-        service,
-        "_validate_inventory_host",
-        fail_validation,
-    )
+    monkeypatch.setattr(service, "_validate_inventory_host", reject_candidate)
+    with pytest.raises(ValueError, match="validation failed"):
+        getattr(service, operation)(hostname, "infrastructure", "192.0.2.99", "operator")
 
-    with pytest.raises(
-        ValueError,
-        match="validation failed",
-    ):
-        service.add_host(
-            hostname="newhost.server.arpa",
-            group="infrastructure",
-            ip="10.10.37.99",
-            user="root",
-        )
-
-    assert service.writer.removed == [
-        {"hostname": "newhost.server.arpa"}
-    ]
-    assert service.repository.saved == []
+    assert service.writer.filename.read_bytes() == original
+    assert service.find_host("existing")["ip"] == "192.0.2.1"
+    assert service.find_host("new") is None
 
 
-def test_add_host_saves_cmdb_only_after_validation(
-    monkeypatch,
-):
-    service = make_service()
+@pytest.mark.parametrize(("operation", "hostname"), [
+    ("add_host", "new"), ("update_host", "existing"),
+])
+def test_accepted_candidate_is_published(inventory_service, monkeypatch, operation, hostname):
+    service = inventory_service
+    monkeypatch.setattr(service, "_validate_inventory_host", lambda **kwargs: None)
 
-    monkeypatch.setattr(
-        service,
-        "_validate_inventory_host",
-        lambda **kwargs: {
-            "ansible_host": kwargs["expected_ip"]
-        },
-    )
+    host = getattr(service, operation)(hostname, "infrastructure", "192.0.2.99", "operator")
 
-    result = service.add_host(
-        hostname="newhost.server.arpa",
-        group="infrastructure",
-        ip="10.10.37.99",
-        user="root",
-    )
-
-    assert result["hostname"] == "newhost.server.arpa"
-    assert len(service.repository.saved) == 1
-    assert service.writer.removed == []
+    assert host["ip"] == "192.0.2.99"
+    assert "192.0.2.99" in service.writer.filename.read_text()
+    assert not service._publication().journal.exists()
 
 
-def test_update_host_restores_previous_inventory_when_validation_fails(
-    monkeypatch,
-):
-    existing = {
-        "hostname": "himpdb01.server.arpa",
-        "group_name": "infrastructure",
-        "ip": "10.10.37.57",
-        "ansible_user": "root",
-        "become": 0,
-    }
+def test_recovery_replays_database_operation(inventory_service, monkeypatch):
+    service = inventory_service
+    mark_removed = service.repository.mark_removed
 
-    service = make_service(existing)
+    def fail_write(hostname):
+        raise RuntimeError("database unavailable")
 
-    def fail_validation(*args, **kwargs):
-        raise ValueError("validation failed")
+    monkeypatch.setattr(service.repository, "mark_removed", fail_write)
+    with pytest.raises(RuntimeError, match="database unavailable"):
+        service.remove_host("existing")
 
-    monkeypatch.setattr(
-        service,
-        "_validate_inventory_host",
-        fail_validation,
-    )
-
-    with pytest.raises(
-        ValueError,
-        match="validation failed",
-    ):
-        service.update_host(
-            hostname="himpdb01.server.arpa",
-            group="infrastructure",
-            ip="10.10.37.99",
-            user="root",
-        )
-
-    assert service.writer.updated == [
-        {
-            "hostname": "himpdb01.server.arpa",
-            "group": "infrastructure",
-            "ip": "10.10.37.99",
-            "user": "root",
-            "become": False,
-        },
-        {
-            "hostname": "himpdb01.server.arpa",
-            "group": "infrastructure",
-            "ip": "10.10.37.57",
-            "user": "root",
-            "become": False,
-        },
-    ]
-    assert service.repository.saved == []
+    assert service._publication().journal.exists()
+    assert service.find_host("existing") is not None
+    monkeypatch.setattr(service.repository, "mark_removed", mark_removed)
+    with service._publication().locked():
+        assert service.find_host("existing") is None
+    assert not service._publication().journal.exists()
 
 
-def test_update_host_saves_cmdb_only_after_validation(
-    monkeypatch,
-):
-    existing = {
-        "hostname": "himpdb01.server.arpa",
-        "group_name": "infrastructure",
-        "ip": "10.10.37.57",
-        "ansible_user": "root",
-        "become": 0,
-    }
+def test_external_edit_is_preserved(inventory_service, monkeypatch):
+    service = inventory_service
+    external = "all: {}\n"
 
-    service = make_service(existing)
+    def edit_during_validation(**arguments):
+        service.writer.filename.write_text(external)
 
-    monkeypatch.setattr(
-        service,
-        "_validate_inventory_host",
-        lambda **kwargs: {
-            "ansible_host": kwargs["expected_ip"]
-        },
-    )
+    monkeypatch.setattr(service, "_validate_inventory_host", edit_during_validation)
+    with pytest.raises(RuntimeError, match="changed while the edit"):
+        service.add_host("new", "infrastructure", "192.0.2.99", "operator")
 
-    result = service.update_host(
-        hostname="himpdb01.server.arpa",
-        group="infrastructure",
-        ip="10.10.37.99",
-        user="root",
-    )
-
-    assert result["hostname"] == "himpdb01.server.arpa"
-    assert len(service.repository.saved) == 1
-    assert service.writer.removed == []
-    assert len(service.writer.updated) == 1
+    assert service.writer.filename.read_text() == external
+    assert service.find_host("new") is None
+    assert not service._publication().journal.exists()

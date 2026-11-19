@@ -24,3 +24,9 @@ __pycache__/
 .DS_Store
 Thumbs.db
 himp.log
+
+# Runtime inventory staging and recovery files
+inventory/.himp-stage-*
+inventory/.himp-publish-*
+inventory/.hosts.yml.lock
+inventory/.hosts.yml.pending
