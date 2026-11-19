@@ -24,9 +24,39 @@
   delegate_to: localhost
   become: false
 
+- name: Archive previous canonical JSON before replacing its incarnation
+  vars:
+    prior_path: "{{ cmdb_json_directory }}/{{ inventory_hostname }}.json"
+    prior_report: "{{ lookup('file', prior_path, errors='ignore') | default('{}', true) | from_json }}"
+    prior_identity: "{{ prior_report.host_identity | default({}) }}"
+    prior_directory: >-
+      {{ playbook_dir }}/../reports/history/cmdb/{{ prior_identity.host_id }}/{{ prior_identity.incarnation }}
+  when:
+    - cmdb_report_identity | length > 0
+    - prior_identity is mapping
+    - prior_identity.host_id | default('') is match('^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$')
+    - prior_identity.incarnation is defined and prior_identity.incarnation is integer and prior_identity.incarnation > 0
+    - prior_identity != cmdb_report_identity
+  block:
+    - name: Create previous incarnation archive directory
+      ansible.builtin.file:
+        path: "{{ prior_directory }}"
+        state: directory
+        mode: "0755"
+
+    - name: Save previous canonical JSON
+      ansible.builtin.copy:
+        src: "{{ prior_path }}"
+        dest: "{{ prior_directory }}/report.json"
+        remote_src: true
+        mode: "0644"
+  delegate_to: localhost
+  become: false
+
 - name: Export CMDB as JSON
   ansible.builtin.copy:
     dest: "{{ cmdb_json_directory }}/{{ inventory_hostname }}.json"
+    backup: "{{ cmdb_report_identity | length > 0 }}"
     content: "{{ (cmdb | combine({'host_identity': cmdb_report_identity} if cmdb_report_identity else {})) | to_nice_json }}"
     mode: "0644"
   delegate_to: localhost

@@ -444,3 +444,40 @@ def test_ssh_user_mismatch_blocks_maintenance_before_report_changes(monkeypatch,
     with pytest.raises(ValueError, match="Maintenance SSH user differs"):
         service.update("maintenance")
     assert report.read_text() == '{"host_identity":{"host_id":"verified","incarnation":1}}'
+
+
+def test_contention_after_dispatch_preserves_partial_outcomes(monkeypatch, tmp_path):
+    from contextlib import contextmanager
+
+    from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
+    from himp.services.inventory_publication import InventoryBusyError
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "outcomes.db"))
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text("all: {}\n")
+    monkeypatch.setattr(update_module.config, "inventory", str(inventory))
+    hosts = ["fixture-first", "fixture-second", "fixture-third"]
+    calls = []
+
+    @contextmanager
+    def admission(_path):
+        if calls:
+            raise InventoryBusyError("Fixture lock is busy")
+        yield
+
+    def runner(playbook, host, **kwargs):
+        calls.append(host)
+        return SimpleNamespace(
+            success=True, return_code=0, elapsed=0.1, stderr="",
+            stdout=f"PLAY RECAP\n{host} : ok=1 changed=1 unreachable=0 failed=0",
+        )
+
+    monkeypatch.setattr(update_module, "inventory_admission", admission)
+    monkeypatch.setattr(update_module, "run_playbook", runner)
+    result = update_module.UpdateService(eligibility=FakeEligibility(hosts)).update("maintenance")
+    assert result["status"] == "partial"
+    assert calls == hosts[:1]
+    assert result["host_results"][hosts[0]]["status"] == "succeeded"
+    for host in hosts[1:]:
+        assert result["host_results"][host]["reason"] == "inventory_busy_after_dispatch"
+    assert MaintenanceOutcomeRepository().find(result["target_plan_id"]) == result["host_results"]

@@ -43,3 +43,10 @@ and `reports/current/cmdb/unverified`. A report run cannot replace a canonical
 report without a matching binding. The dashboard and host exports use unverified
 output as a fallback when canonical output is absent. The verified comparison
 view reads canonical JSON and checks the current host incarnation.
+
+Current exports and dashboard reports require a matching stable host ID and
+incarnation once identity is assigned. Generate a fresh report for a new
+incarnation. Historical Markdown and JSON for a known host are available at
+`GET /api/reports/host/{hostname}/history/{incarnation}`, with `?format=json`
+for JSON. Older Markdown without identity metadata remains in the file inventory
+and in writer backups after replacement.

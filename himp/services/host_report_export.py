@@ -7,8 +7,10 @@ existing generated host report data.
 
 import csv
 import io
+import json
 from html import escape
 from pathlib import Path
+from uuid import UUID
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -22,6 +24,7 @@ from reportlab.platypus import (
 )
 
 from himp.database.inventory import InventoryRepository
+from himp.database.host_identity import HostIdentityRepository
 
 
 class HostReportExportService:
@@ -29,6 +32,7 @@ class HostReportExportService:
     def __init__(self):
         self.root = Path("reports")
         self.inventory = InventoryRepository()
+        self.identities = HostIdentityRepository(self.inventory)
 
     def report(self, hostname):
         host = self.inventory.find_host(hostname)
@@ -45,22 +49,40 @@ class HostReportExportService:
             / f"{hostname}.md"
         )
 
-        if not filename.exists():
-            filename = filename.parent / "unverified" / filename.name
-        if not filename.exists():
-            raise FileNotFoundError(
-                f"Host report not found: {hostname}"
-            )
-
-        content = filename.read_text(
-            encoding="utf-8"
-        )
+        bindings = self.identities.report_bindings()
+        for candidate in (filename, filename.parent / "unverified" / filename.name):
+            if not candidate.is_file():
+                continue
+            content = candidate.read_text(encoding="utf-8")
+            first_line, _, remainder = content.partition("\n")
+            identity = None
+            prefix = "<!-- himp-host-identity: "
+            if first_line.startswith(prefix):
+                try:
+                    identity = json.loads(first_line.removeprefix(prefix).removesuffix(" -->"))
+                except ValueError:
+                    continue
+                if not isinstance(identity, dict):
+                    continue
+                content = remainder
+            if HostIdentityRepository.report_matches(bindings, hostname, identity):
+                break
+        else:
+            raise FileNotFoundError(f"Host report not found: {hostname}")
 
         return {
             "hostname": hostname,
             "content": content,
             "rows": self._parse(content),
         }
+
+    def history(self, hostname, incarnation, extension="md"):
+        host = self.inventory.find_host(hostname, include_inactive=True)
+        host_id = self.identities.identifier(host["id"]) if host else None
+        if host_id is None or incarnation < 1 or extension not in {"md", "json"}:
+            raise FileNotFoundError(f"Historical host report not found: {hostname}")
+        directory = self.root / "history" / "cmdb" / str(UUID(host_id)) / str(incarnation)
+        return (directory / f"report.{extension}").read_text(encoding="utf-8")
 
     def txt(self, hostname):
         return self.report(hostname)["content"].encode(

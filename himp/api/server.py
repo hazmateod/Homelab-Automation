@@ -1569,7 +1569,10 @@ def host_report_pdf_api(hostname: str):
         HostReportExportService,
     )
 
-    pdf = HostReportExportService().pdf(hostname)
+    try:
+        pdf = HostReportExportService().pdf(hostname)
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Current host report unavailable") from error
 
     return Response(
         content=pdf,
@@ -1590,7 +1593,10 @@ def host_report_txt_api(hostname: str):
         HostReportExportService,
     )
 
-    content = HostReportExportService().txt(hostname)
+    try:
+        content = HostReportExportService().txt(hostname)
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Current host report unavailable") from error
 
     return Response(
         content=content,
@@ -1611,7 +1617,10 @@ def host_report_csv_api(hostname: str):
         HostReportExportService,
     )
 
-    content = HostReportExportService().csv(hostname)
+    try:
+        content = HostReportExportService().csv(hostname)
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Current host report unavailable") from error
 
     return Response(
         content=content,
@@ -1622,6 +1631,20 @@ def host_report_csv_api(hostname: str):
             ),
         },
     )
+
+
+@app.get("/api/reports/host/{hostname}/history/{incarnation}", dependencies=[Depends(require_session)])
+def host_report_history_api(hostname: str, incarnation: int, format: str = "md"):
+    from fastapi.responses import PlainTextResponse
+    from himp.services.host_report_export import HostReportExportService
+
+    try:
+        content = HostReportExportService().history(hostname, incarnation, format)
+        return PlainTextResponse(
+            content, media_type="application/json" if format == "json" else "text/plain"
+        )
+    except (FileNotFoundError, ValueError) as error:
+        raise HTTPException(status_code=404, detail="Historical host report unavailable") from error
 
 
 @app.get("/api/reports/pdf", dependencies=[Depends(require_session)])

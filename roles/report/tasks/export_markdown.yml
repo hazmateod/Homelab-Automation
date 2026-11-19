@@ -21,7 +21,11 @@
   ansible.builtin.copy:
     dest: "{{ cmdb_markdown_directory }}/{{ inventory_hostname }}.md"
     mode: "0644"
+    backup: "{{ cmdb_report_identity | length > 0 }}"
     content: |
+      {% if cmdb_report_identity %}
+      <!-- himp-host-identity: {{ cmdb_report_identity | to_json }} -->
+      {% endif %}
       # {{ inventory_hostname }} Infrastructure Report
 
       Generated:

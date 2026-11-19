@@ -19,12 +19,18 @@
     patterns: "*.json"
   register: dashboard_json
 
-- name: Initialize dashboard host list
+- name: Read current report bindings
   run_once: true
   delegate_to: localhost
   become: false
-  ansible.builtin.set_fact:
-    dashboard_hosts: []
+  changed_when: false
+  ansible.builtin.command:
+    argv:
+      - "{{ ansible_playbook_python }}"
+      - "-c"
+      - "import json; from himp.database.host_identity import HostIdentityRepository; print(json.dumps(HostIdentityRepository().report_bindings()))"
+    chdir: "{{ playbook_dir }}/.."
+  register: dashboard_report_bindings
 
 - name: Read JSON reports
   run_once: true
@@ -33,17 +39,14 @@
   ansible.builtin.set_fact:
     dashboard_hosts: >-
       {{
-        dashboard_hosts
-        + [
-            lookup(
-              'file',
-              item.path
-            )
-            | from_json
-          ]
+        dashboard_hosts | default([])
+        + [candidate]
       }}
   loop: "{{ dashboard_json.files }}"
   vars:
+    bindings: "{{ dashboard_report_bindings.stdout | from_json }}"
+    hostname: "{{ item.path | basename | splitext | first }}"
+    candidate: "{{ lookup('file', item.path) | from_json }}"
     canonical_names: >-
       {{
         dashboard_json.files
@@ -51,7 +54,10 @@
         | map(attribute='path') | map('basename') | list
       }}
   when:
-    - (item.path | basename | splitext | first) in groups['all']
+    - hostname in groups['all']
+    - >-
+      (hostname not in bindings and candidate.host_identity is not defined)
+      or (bindings.get(hostname) is not none and candidate.host_identity | default(none) == bindings[hostname])
     - (item.path | dirname | basename) != 'unverified' or (item.path | basename) not in canonical_names
 
 - name: Generate dashboard JSON
@@ -93,4 +99,4 @@
   ansible.builtin.debug:
     msg:
       - "Dashboard generated."
-      - "Hosts: {{ dashboard_hosts | length }}"
+      - "Hosts: {{ dashboard_hosts | default([]) | length }}"

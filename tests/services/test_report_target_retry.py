@@ -117,7 +117,7 @@ def test_unverified_report_exports_leave_verified_json_and_markdown_intact(tmp_p
     )
     json_dir = tmp_path / "reports" / "json"
     markdown_dir = tmp_path / "reports" / "current" / "cmdb"
-    identity = {"host_id": "verified", "incarnation": 1}
+    identity = {"host_id": "00000000-0000-4000-8000-000000000001", "incarnation": 1}
     bound = run_playbook(str(playbook), "fixture", timeout=15, inventory_path=inventory, extra_vars={
         "himp_host_bindings": {"fixture": {**identity, "ip": "192.0.2.1", "user": "fixture"}},
     })
@@ -132,3 +132,15 @@ def test_unverified_report_exports_leave_verified_json_and_markdown_intact(tmp_p
         assert (markdown_dir / "fixture.md").read_bytes() == verified_markdown
         assert "host_identity" not in json.loads((json_dir / "unverified" / "fixture.json").read_bytes())
         assert (markdown_dir / "unverified" / "fixture.md").is_file()
+
+    replacement = {**identity, "incarnation": 2}
+    regenerated = run_playbook(
+        str(playbook), "fixture", timeout=15, inventory_path=inventory,
+        extra_vars={"himp_host_bindings": {"fixture": {
+            **replacement, "ip": "192.0.2.1", "user": "fixture",
+        }}},
+    )
+    assert regenerated.success, regenerated.stdout + regenerated.stderr
+    archive = tmp_path / "reports" / "history" / "cmdb" / identity["host_id"] / "1"
+    assert (archive / "report.json").read_bytes() == verified_json
+    assert json.loads((json_dir / "fixture.json").read_bytes())["host_identity"] == replacement

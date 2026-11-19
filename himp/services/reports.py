@@ -192,7 +192,7 @@ class ReportService:
             return None
 
         dashboard = Dashboard.load(
-            str(filename)
+            str(filename), bindings=HostIdentityRepository().report_bindings()
         )
 
         return {

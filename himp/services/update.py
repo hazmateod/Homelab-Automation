@@ -4,6 +4,7 @@ Update Service.
 Provides a shared, policy-enforced service for maintenance updates.
 """
 
+from contextlib import ExitStack
 from hashlib import sha256
 from pathlib import Path
 from tempfile import NamedTemporaryFile
@@ -18,7 +19,7 @@ from himp.lib.ansible_recap import parse_play_recap
 from himp.services.host_maintenance_eligibility import (
     HostMaintenanceEligibility,
 )
-from himp.services.inventory_publication import inventory_admission
+from himp.services.inventory_publication import InventoryBusyError, inventory_admission
 
 
 class UpdateService:
@@ -155,8 +156,20 @@ class UpdateService:
         elapsed = 0.0
         return_code = 0
         deadline = None if timeout is None else monotonic() + timeout
+        dispatched = False
         for index, host in enumerate(eligible):
-            with inventory_admission(source):
+            with ExitStack() as admission:
+                try:
+                    admission.enter_context(inventory_admission(source))
+                except InventoryBusyError:
+                    if not dispatched:
+                        raise
+                    results.update({
+                        skipped: {"host": skipped, "status": "unstarted",
+                                  "reason": "inventory_busy_after_dispatch"}
+                        for skipped in eligible[index:]
+                    })
+                    break
                 identity = targets.get(host)
                 host_id = identity["host_id"] if identity else None
                 aliases = {
@@ -192,6 +205,7 @@ class UpdateService:
                         "user": identity["ansible_user"],
                     }}}
                 outcomes.start(plan_id, host, host_id=host_id)
+                dispatched = True
                 try:
                     if on_event is None:
                         result = run_playbook(

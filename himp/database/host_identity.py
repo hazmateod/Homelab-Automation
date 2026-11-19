@@ -221,6 +221,33 @@ class HostIdentityRepository:
             if row["ip"] and row["ansible_user"] and not row["endpoint_review_required"]
         }
 
+    def identifier(self, inventory_id):
+        rows = self.database.query(
+            "SELECT host_id FROM host_identities WHERE inventory_id=?", (inventory_id,)
+        )
+        return rows[0]["host_id"] if rows else None
+
+    def report_bindings(self):
+        """Current report identity by hostname, including pending hosts as null."""
+        return {
+            row["hostname"]: (
+                None if row["endpoint_review_required"] else
+                {"host_id": row["host_id"], "incarnation": row["current_incarnation"]}
+            )
+            for row in self.current()
+        }
+
+    @staticmethod
+    def report_matches(bindings, hostname, identity):
+        if hostname not in bindings:
+            return identity is None
+        return (
+            bindings[hostname] is not None
+            and isinstance(identity, dict)
+            and type(identity.get("incarnation")) is int
+            and identity == bindings[hostname]
+        )
+
     def current_hostnames(self):
         """Index verified current incarnations by their stable identity."""
         return {

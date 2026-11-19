@@ -25,7 +25,7 @@
     scored_hosts=0
 ) %}
 
-{% for host in dashboard_hosts %}
+{% for host in dashboard_hosts | default([]) %}
 
     {% set status = host.health.overall.status | default('UNKNOWN') %}
 
@@ -47,7 +47,7 @@
 <section class="summary">
 
 <div class="card">
-<h2>{{ dashboard_hosts | length }}</h2>
+<h2>{{ dashboard_hosts | default([]) | length }}</h2>
 <p>🖥 Total Hosts</p>
 </div>
 
@@ -99,7 +99,7 @@
 
 <tbody>
 
-{% for host in dashboard_hosts | sort(attribute='metadata.hostname') %}
+{% for host in dashboard_hosts | default([]) | sort(attribute='metadata.hostname') %}
 
 <tr>
 
