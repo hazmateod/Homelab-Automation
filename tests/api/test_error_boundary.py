@@ -65,7 +65,7 @@ def test_http_exception_behavior_remains_unchanged():
 
 
 def test_automation_endpoint_hides_unexpected_exception():
-    from himp.api.dependencies import require_session
+    from himp.api.dependencies import require_admin, require_session
 
     class FakeAutomation:
         def run(self, task_id, confirmed=False):
@@ -81,12 +81,11 @@ def test_automation_endpoint_hides_unexpected_exception():
 
     original_himp = automation.himp
 
-    server.app.dependency_overrides[
-        require_session
-    ] = lambda: {
-        "username": "admin",
-        "role": "admin",
-    }
+    def admin_session():
+        return {"username": "admin", "role": "admin"}
+
+    server.app.dependency_overrides[require_session] = admin_session
+    server.app.dependency_overrides[require_admin] = admin_session
 
     automation.himp = FakeHIMP()
 

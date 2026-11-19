@@ -336,3 +336,35 @@ def test_reconcile_preserves_interruption_and_clears_only_selected_marker():
     assert outcomes.reconcile("fixture-plan-two", host, "Confirmed no remote process remained")
     assert not outcomes.requires_reconciliation(host)
     assert outcomes.find("fixture-plan-one")[host]["status"] == "interrupted"
+
+
+@pytest.mark.parametrize("terminal", ["failed", "unreachable"])
+def test_mutated_failure_requires_reconciliation_before_next_dispatch(monkeypatch, tmp_path, terminal):
+    from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
+    from himp.services.inventory_publication import InventoryBusyError, inventory_admission
+
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text("all: {}\n")
+    monkeypatch.setattr(update_module.config, "inventory", str(inventory))
+    hostname = f"fixture-mutated-{terminal}"
+    calls = []
+
+    def runner(playbook, host, **kwargs):
+        calls.append(host)
+        with pytest.raises(InventoryBusyError):
+            with inventory_admission(inventory):
+                pytest.fail("A concurrent inventory writer was admitted")
+        return SimpleNamespace(
+            success=False, return_code=2, elapsed=0.1, stderr="",
+            stdout=f"PLAY RECAP\n{host} : ok=4 changed=1 {terminal}=1",
+        )
+
+    monkeypatch.setattr(update_module, "run_playbook", runner)
+    service = update_module.UpdateService(eligibility=FakeEligibility([hostname]))
+    first = service.update("maintenance")
+    assert first["host_results"][hostname]["status"] == terminal
+    assert service.update("maintenance")["host_results"][hostname]["reason"] == "prior_mutation_unverified"
+    assert calls == [hostname]
+    repository = MaintenanceOutcomeRepository()
+    assert repository.reconcile(first["target_plan_id"], hostname, "Verified state")
+    assert not repository.requires_reconciliation(hostname)

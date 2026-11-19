@@ -69,8 +69,20 @@ class MaintenanceOutcomeRepository:
             "SELECT outcome FROM maintenance_host_outcomes WHERE host=?", (host,)
         )
         return any(
-            outcome["status"] == "interrupted" and "reconciliation" not in outcome
+            self.needs_reconciliation(outcome)
             for outcome in (json.loads(row["outcome"]) for row in rows)
+        )
+
+    @staticmethod
+    def needs_reconciliation(outcome):
+        if "reconciliation" in outcome:
+            return False
+        return (
+            outcome["status"] in {"interrupted", "failed"}
+            or (
+                outcome["status"] == "unreachable"
+                and bool(outcome.get("ok") or outcome.get("changed"))
+            )
         )
 
     def reconcile(self, plan_id, host, note):
@@ -87,7 +99,7 @@ class MaintenanceOutcomeRepository:
 
         original = rows[0]["outcome"]
         outcome = json.loads(original)
-        if outcome["status"] != "interrupted" or "reconciliation" in outcome:
+        if not self.needs_reconciliation(outcome):
             return False
 
         outcome["reconciliation"] = {

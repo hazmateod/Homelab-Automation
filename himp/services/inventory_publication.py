@@ -39,17 +39,33 @@ def _digest(content):
     return hashlib.sha256(content).hexdigest()
 
 
+class InventoryBusyError(RuntimeError):
+    """Inventory is being edited or used by a maintenance dispatch."""
+
+
+@contextmanager
+def inventory_admission(filename):
+    """Serialize inventory and policy changes with host maintenance."""
+    filename = Path(filename).resolve()
+    lock = filename.with_name(f".{filename.name}.lock")
+    fd = os.open(lock, os.O_CREAT | os.O_RDONLY | os.O_NOFOLLOW, 0o644)
+    with os.fdopen(fd) as stream:
+        try:
+            fcntl.flock(stream, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as error:
+            raise InventoryBusyError("Inventory is busy. Retry after the current operation.") from error
+        yield
+
+
 class InventoryPublication:
     def __init__(self, filename, repository):
         self.filename = Path(filename).resolve()
         self.repository = repository
         self.journal = self.filename.with_name(f".{self.filename.name}.pending")
-        self.lock = self.filename.with_name(f".{self.filename.name}.lock")
 
     @contextmanager
     def locked(self):
-        with self.lock.open("a") as stream:
-            fcntl.flock(stream, fcntl.LOCK_EX)
+        with inventory_admission(self.filename):
             self.recover()
             yield
 

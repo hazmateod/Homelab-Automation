@@ -8,9 +8,10 @@ from dataclasses import asdict, is_dataclass
 
 from pydantic import BaseModel
 
-from fastapi import APIRouter, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import JSONResponse
 
+from himp.api.dependencies import require_admin
 from himp.app import HIMP
 from himp.database.automation_progress import AutomationProgressRepository
 from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
@@ -396,7 +397,7 @@ class AutomationRunRequest(BaseModel):
     confirmed: bool = False
 
 
-@router.post("/automation/{task_id}/run")
+@router.post("/automation/{task_id}/run", dependencies=[Depends(require_admin)])
 def run_automation(
     task_id: str,
     request: AutomationRunRequest | None = None,

@@ -11,6 +11,7 @@ Describe the purpose of the Inventory API.
 | Method | Path | Description |
 |---------|------|-------------|
 | GET | /inventory | Retrieve Inventory information |
+| POST | /api/inventory/sync | Synchronize inventory. Administrator access required. |
 | GET | /api/inventory/identity/current | Compare active inventory with verified identities, plugin health, and report generation times |
 | POST | /api/inventory/hosts/{hostname}/rename | Rename an active host with `new_hostname`. Administrator access required. |
 | POST | /api/inventory/hosts/{hostname}/verified-rebuild | Record an operator-verified replacement using `host_id`, `expected_incarnation`, and `replacement_verified: true`. Administrator access required. |

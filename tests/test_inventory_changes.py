@@ -1,3 +1,4 @@
+from contextlib import contextmanager
 import sqlite3
 
 from himp.database.inventory import InventoryRepository
@@ -7,6 +8,15 @@ class TemporaryDatabase:
     def __init__(self):
         self.connection = sqlite3.connect(":memory:")
         self.connection.row_factory = sqlite3.Row
+
+    @contextmanager
+    def transaction(self):
+        with self.connection:
+            yield self.connection
+
+    @staticmethod
+    def execute_transaction(connection, sql, parameters=()):
+        return connection.execute(sql, parameters)
 
     def execute(self, sql, parameters=()):
         cursor = self.connection.cursor()
@@ -183,3 +193,17 @@ def test_removed_host_returning_records_restored_change():
         "REMOVED",
         "ADDED",
     ]
+
+
+def test_lifecycle_replay_records_each_real_transition_once():
+    repository = make_repository()
+    item = host()
+    repository.save_host(item)
+    for _ in range(2):
+        repository.mark_removed(item["hostname"])
+        repository.mark_removed(item["hostname"])
+        repository.restore_host(item["hostname"])
+        repository.restore_host(item["hostname"])
+    events = [row["change_type"] for row in repository.changes()]
+    assert events.count("REMOVED") == 2
+    assert events.count("RESTORED") == 2

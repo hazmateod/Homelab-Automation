@@ -118,7 +118,7 @@ async def verified_inventory_evidence():
     }
 
 
-@router.put("/groups/{group}")
+@router.put("/groups/{group}", dependencies=[Depends(require_admin)])
 async def update_inventory_group(
     group: str,
     request: InventoryGroupUpdate,
@@ -154,7 +154,7 @@ async def update_inventory_group(
     }
 
 
-@router.post("/hosts")
+@router.post("/hosts", dependencies=[Depends(require_admin)])
 async def create_inventory_host(
     request: InventoryHostCreate,
 ):
@@ -182,7 +182,7 @@ async def create_inventory_host(
     }
 
 
-@router.put("/hosts/{hostname}")
+@router.put("/hosts/{hostname}", dependencies=[Depends(require_admin)])
 async def update_inventory_host(
     hostname: str,
     request: InventoryHostUpdate,
@@ -218,7 +218,7 @@ async def update_inventory_host(
     }
 
 
-@router.delete("/hosts/{hostname}")
+@router.delete("/hosts/{hostname}", dependencies=[Depends(require_admin)])
 async def delete_inventory_host(
     hostname: str,
 ):
@@ -268,7 +268,7 @@ async def record_verified_host_rebuild(hostname: str, request: VerifiedHostRebui
         raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
 
 
-@router.post("/hosts/{hostname}/restore")
+@router.post("/hosts/{hostname}/restore", dependencies=[Depends(require_admin)])
 async def restore_inventory_host(
     hostname: str,
 ):
@@ -440,7 +440,7 @@ async def changes():
     }
 
 
-@router.get("/sync")
+@router.post("/sync", dependencies=[Depends(require_admin)])
 async def sync_inventory():
     return service.sync()
 

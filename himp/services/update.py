@@ -17,6 +17,7 @@ from himp.lib.ansible_recap import parse_play_recap
 from himp.services.host_maintenance_eligibility import (
     HostMaintenanceEligibility,
 )
+from himp.services.inventory_publication import inventory_admission
 
 
 class UpdateService:
@@ -103,13 +104,13 @@ class UpdateService:
 
                 return self._run_plan(
                     target, selection, plan_id, snapshot.name, timeout, on_event,
-                    validate,
+                    validate, source,
                 )
             except Exception as error:
                 error.target_plan_id = plan_id
                 raise
 
-    def _run_plan(self, target, selection, plan_id, snapshot, timeout, on_event, validate):
+    def _run_plan(self, target, selection, plan_id, snapshot, timeout, on_event, validate, source):
         eligible = selection["eligible_hosts"]
         excluded = selection["excluded_hosts"]
 
@@ -139,52 +140,53 @@ class UpdateService:
         return_code = 0
         deadline = None if timeout is None else monotonic() + timeout
         for index, host in enumerate(eligible):
-            if outcomes.requires_reconciliation(host):
-                results[host] = {"host": host, "status": "unstarted",
-                                 "reason": "prior_mutation_unverified"}
-                continue
-            if index and not validate():
-                results[host] = {"host": host, "status": "unstarted",
-                                 "reason": "target_plan_changed"}
-                continue
-            remaining = timeout
-            if deadline is not None and index:
-                remaining = deadline - monotonic()
-            if remaining is not None and remaining <= 0:
-                results[host] = {"host": host, "status": "unstarted",
-                                 "reason": "run_timeout"}
-                continue
+            with inventory_admission(source):
+                if outcomes.requires_reconciliation(host):
+                    results[host] = {"host": host, "status": "unstarted",
+                                     "reason": "prior_mutation_unverified"}
+                    continue
+                if not validate():
+                    results[host] = {"host": host, "status": "unstarted",
+                                     "reason": "target_plan_changed"}
+                    continue
+                remaining = timeout
+                if deadline is not None and index:
+                    remaining = deadline - monotonic()
+                if remaining is not None and remaining <= 0:
+                    results[host] = {"host": host, "status": "unstarted",
+                                     "reason": "run_timeout"}
+                    continue
 
-            outcomes.start(plan_id, host)
-            try:
-                if on_event is None:
-                    result = run_playbook(
-                        config.maintenance_playbook, host,
-                        timeout=remaining, inventory_path=snapshot,
-                    )
-                else:
-                    result = run_playbook_streaming(
-                        config.maintenance_playbook, host, timeout=remaining,
-                        inventory_path=snapshot, on_event=on_event,
-                        structured_events=True,
-                    )
-            except Exception:
-                results[host] = {"host": host, "status": "interrupted",
-                                 "reason": "completion_unverified"}
-                continue
+                outcomes.start(plan_id, host)
+                try:
+                    if on_event is None:
+                        result = run_playbook(
+                            config.maintenance_playbook, host,
+                            timeout=remaining, inventory_path=snapshot,
+                        )
+                    else:
+                        result = run_playbook_streaming(
+                            config.maintenance_playbook, host, timeout=remaining,
+                            inventory_path=snapshot, on_event=on_event,
+                            structured_events=True,
+                        )
+                except Exception:
+                    results[host] = {"host": host, "status": "interrupted",
+                                     "reason": "completion_unverified"}
+                    continue
 
-            stdout.append(result.stdout)
-            stderr.append(result.stderr)
-            elapsed += result.elapsed
-            return_code = return_code or result.return_code
-            outcome = parse_play_recap(result.stdout).get(host)
-            if outcome is None or (
-                not result.success and outcome["status"] in {"succeeded", "skipped"}
-            ):
-                outcome = {"host": host, "status": "interrupted",
-                           "reason": "completion_unverified"}
-            outcomes.finish(plan_id, host, outcome)
-            results[host] = outcome
+                stdout.append(result.stdout)
+                stderr.append(result.stderr)
+                elapsed += result.elapsed
+                return_code = return_code or result.return_code
+                outcome = parse_play_recap(result.stdout).get(host)
+                if outcome is None or (
+                    not result.success and outcome["status"] in {"succeeded", "skipped"}
+                ):
+                    outcome = {"host": host, "status": "interrupted",
+                               "reason": "completion_unverified"}
+                outcomes.finish(plan_id, host, outcome)
+                results[host] = outcome
 
         for host, outcome in results.items():
             if outcome["status"] == "unstarted":

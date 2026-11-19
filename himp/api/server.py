@@ -15,6 +15,7 @@ from fastapi.responses import JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+from himp.services.inventory_publication import InventoryBusyError
 from himp.lib.logging_config import configure_logging
 
 configure_logging()
@@ -78,6 +79,11 @@ app = FastAPI(
     version="1.0.1",
     lifespan=application_lifespan,
 )
+
+
+@app.exception_handler(InventoryBusyError)
+async def inventory_busy_handler(request: Request, error: InventoryBusyError):
+    return JSONResponse(status_code=409, content={"detail": str(error)})
 
 
 async def unhandled_exception_handler(

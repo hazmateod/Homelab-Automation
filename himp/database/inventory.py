@@ -214,59 +214,33 @@ class InventoryRepository:
                     (host["hostname"], group, new_group),
                 )
 
-    def mark_removed(
-        self,
-        hostname,
-    ):
+    def _set_active(self, hostname, active):
+        """Commit a lifecycle transition and its audit event together."""
+        with self.database.transaction() as connection:
+            updated = self.database.execute_transaction(
+                connection,
+                """
+                UPDATE inventory_hosts
+                SET active=?, last_seen=CASE WHEN ?=1 THEN ? ELSE last_seen END
+                WHERE hostname=? AND active<>?
+                RETURNING id
+                """,
+                (int(active), int(active), datetime.now(timezone.utc).replace(tzinfo=None),
+                 hostname, int(active)),
+            ).fetchone()
+            if updated is not None:
+                self.database.execute_transaction(
+                    connection,
+                    "INSERT INTO inventory_changes (hostname, change_type) VALUES (?, ?)",
+                    (hostname, "RESTORED" if active else "REMOVED"),
+                )
 
-        self.database.execute(
-            """
-            UPDATE inventory_hosts
-            SET active=0
-            WHERE hostname=?
-            """,
-            (
-                hostname,
-            ),
-        )
+    def mark_removed(self, hostname):
+        self._set_active(hostname, False)
 
-        self.record_change(
-            hostname,
-            "REMOVED",
-            None,
-            None,
-            None,
-        )
-
-    def restore_host(
-        self,
-        hostname,
-    ):
-        self.database.execute(
-            """
-            UPDATE inventory_hosts
-            SET active=1,
-                last_seen=?
-            WHERE hostname=?
-            """,
-            (
-                datetime.now(timezone.utc).replace(tzinfo=None),
-                hostname,
-            ),
-        )
-
-        self.record_change(
-            hostname,
-            "RESTORED",
-            None,
-            None,
-            None,
-        )
-
-        return self.find_host(
-            hostname,
-            include_inactive=True,
-        )
+    def restore_host(self, hostname):
+        self._set_active(hostname, True)
+        return self.find_host(hostname, include_inactive=True)
 
     def detect_changes(
         self,

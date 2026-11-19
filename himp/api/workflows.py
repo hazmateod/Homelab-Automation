@@ -382,7 +382,8 @@ def workflow_history_run(
 
 
 @router.post(
-    "/workflows/{workflow_id}/execute"
+    "/workflows/{workflow_id}/execute",
+    dependencies=[Depends(require_admin)],
 )
 def execute_workflow(
     workflow_id: int,

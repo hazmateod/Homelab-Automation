@@ -118,3 +118,30 @@ def test_update_host_missing_inventory_host_returns_404(
         "error": "Host not found",
         "hostname": "missing.server.arpa",
     }
+
+
+def test_non_admin_cannot_mutate_inventory_or_dispatch_maintenance(monkeypatch):
+    from types import SimpleNamespace
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from himp.api import automation, dependencies, inventory, update, workflows
+
+    monkeypatch.setattr(dependencies, "require_session", lambda request: SimpleNamespace(
+        role="viewer", username="fixture",
+    ))
+    monkeypatch.setattr(dependencies, "log_security_event", lambda *args, **kwargs: None)
+    app = FastAPI()
+    for module in (automation, inventory, update, workflows):
+        app.include_router(module.router)
+    with TestClient(app) as client:
+        for method, path in (
+            ("POST", "/inventory/hosts"),
+            ("POST", "/inventory/sync"),
+            ("POST", "/update/host/fixture"),
+            ("POST", "/update/group/fixture"),
+            ("POST", "/automation/update_host/run"),
+            ("POST", "/workflows/1/execute"),
+        ):
+            assert client.request(method, path).status_code == 403, path

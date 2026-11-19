@@ -4,9 +4,10 @@ Scheduler API.
 Provides automation schedule configuration operations.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from himp.api.dependencies import require_admin
 from himp.services.scheduler import SchedulerService
 
 
@@ -88,7 +89,7 @@ async def scheduler_task(
     return result
 
 
-@router.put("/{task_id}")
+@router.put("/{task_id}", dependencies=[Depends(require_admin)])
 async def update_scheduler_task(
     task_id: str,
     request: SchedulerUpdate,
@@ -127,7 +128,7 @@ async def update_scheduler_task(
     }
 
 
-@router.post("/{task_id}/record-run")
+@router.post("/{task_id}/record-run", dependencies=[Depends(require_admin)])
 async def record_scheduler_run(
     task_id: str,
 ):

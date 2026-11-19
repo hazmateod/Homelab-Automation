@@ -4,8 +4,9 @@ Update API.
 Provides host and group maintenance/update execution.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from himp.api.dependencies import require_admin
 from himp.app import HIMP
 from himp.services.inventory import InventoryService
 from himp.services.automation import AutomationAlreadyRunningError
@@ -23,7 +24,7 @@ updates = UpdateService()
 himp = HIMP()
 
 
-@router.post("/host/{hostname}")
+@router.post("/host/{hostname}", dependencies=[Depends(require_admin)])
 async def update_host(hostname: str):
     host = inventory.find_host(hostname)
 
@@ -42,7 +43,7 @@ async def update_host(hostname: str):
         raise HTTPException(status_code=409, detail=str(error)) from error
 
 
-@router.post("/group/{group}")
+@router.post("/group/{group}", dependencies=[Depends(require_admin)])
 async def update_group(group: str):
     summary = inventory.summary()
 
