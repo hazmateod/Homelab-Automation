@@ -1249,7 +1249,7 @@ class AutomationService:
                         return execution
 
                     last_error = None
-                    if task_id == "generate_reports" and limit:
+                    if task_id == "generate_reports":
                         expected_target_plan_id = result.get("target_plan_id")
                         if expected_target_plan_id is None:
                             break
@@ -1346,7 +1346,7 @@ class AutomationService:
 
                     if not classification["retryable"]:
                         break
-                    if task_id == "generate_reports" and limit:
+                    if task_id == "generate_reports":
                         expected_target_plan_id = plan_id
                         if expected_target_plan_id is None:
                             break

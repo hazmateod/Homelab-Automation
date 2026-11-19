@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 
 from himp.app import HIMP
 from himp.database.postgresql import PostgreSQLDatabase
+from himp.services.automation import AutomationAlreadyRunningError
 from himp.services.operational_dispatcher import (
     OperationalDispatcher,
 )
@@ -306,6 +307,10 @@ def run(args):
                     f"Executed   : "
                     f"{result['executed_at']}"
                 )
+
+            except AutomationAlreadyRunningError as exc:
+                print(f"Automation task deferred: {task_id}: {exc}")
+                continue
 
             except Exception as exc:
                 failed = True

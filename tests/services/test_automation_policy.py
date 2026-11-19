@@ -1638,3 +1638,29 @@ def test_maintenance_contention_releases_only_the_task_lock(monkeypatch):
         service.run("scheduled_updates")
 
     assert lock.release_calls == ["scheduled_updates"]
+
+
+@pytest.mark.parametrize("times_out", [False, True])
+def test_fleet_report_failure_does_not_retry_without_target_plan(times_out):
+    service = AutomationService()
+    service.find_task("generate_reports")["retry_attempts"] = 2
+    service.lock_repository = FakeLockRepository()
+    history = RecordingExecutionRepository()
+    service.execution_repository = history
+    calls = []
+
+    def execute(task_id, **kwargs):
+        calls.append(task_id)
+        if times_out:
+            raise TimeoutError("Report timed out")
+        return {"success": False}
+
+    service._execute_task = execute
+    if times_out:
+        with pytest.raises(TimeoutError, match="Report timed out"):
+            service.run("generate_reports")
+    else:
+        assert service.run("generate_reports")["result"]["success"] is False
+
+    assert calls == ["generate_reports"]
+    assert len(history.saved) == 1

@@ -956,3 +956,24 @@ def test_scheduler_run_closes_postgresql_pools(monkeypatch):
 
     assert result == 0
     assert calls == ["close_pools"]
+
+
+def test_busy_maintenance_stays_due_and_other_tasks_continue(monkeypatch, capsys):
+    class BusyAutomation(FakeAutomation):
+        def run(self, task_id):
+            if task_id == "scheduled_updates":
+                raise scheduler_run.AutomationAlreadyRunningError("Maintenance is busy")
+            return super().run(task_id)
+
+    automation = BusyAutomation()
+    scheduler = FakeScheduler()
+    monkeypatch.setattr(scheduler, "due_tasks", lambda now: [
+        {"task_id": "scheduled_updates"}, {"task_id": "health_check"},
+    ])
+    monkeypatch.setattr(scheduler_run, "HIMP", lambda: FakeHIMP(automation))
+    monkeypatch.setattr(scheduler_run, "SchedulerService", lambda: scheduler)
+
+    assert scheduler_run.run(Args()) == 0
+    assert scheduler.recorded == ["health_check"]
+    assert automation.calls == ["health_check"]
+    assert "Automation task deferred: scheduled_updates" in capsys.readouterr().out

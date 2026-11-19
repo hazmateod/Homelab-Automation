@@ -117,6 +117,8 @@ class InventoryFileWriter:
         self,
         content,
         hostname,
+        *,
+        group=None,
     ):
         lines = content.splitlines(keepends=True)
 
@@ -126,7 +128,12 @@ class InventoryFileWriter:
 
         host_index = None
 
-        for index, line in enumerate(lines):
+        start, stop = 0, len(lines)
+        if group is not None:
+            _, _, start, stop = self._find_group_hosts_block(content, group)
+
+        for index in range(start, stop):
+            line = lines[index]
             if host_pattern.match(line):
                 host_index = index
                 break
@@ -138,7 +145,7 @@ class InventoryFileWriter:
 
         block_end = host_index + 1
 
-        while block_end < len(lines):
+        while block_end < stop:
             line = lines[block_end]
 
             if line.startswith("          "):
@@ -230,7 +237,7 @@ class InventoryFileWriter:
                 f"Inventory group cannot contain hosts: {group}"
             )
 
-        hosts = group_data["hosts"]
+        hosts = group_data["hosts"] or {}
 
         if hostname in hosts:
             raise ValueError(
@@ -472,40 +479,29 @@ class InventoryFileWriter:
 
         inventory = self._load(content)
 
-        children = self._children(inventory)
+        groups = [
+            name for name, data in self._children(inventory).items()
+            if hostname in (data.get("hosts") or {})
+        ]
+        if not groups:
+            raise ValueError(f"Inventory host does not exist: {hostname}")
 
-        existing_group = None
+        updated = content
+        for group in groups:
+            lines, host_index, block_end = self._find_host_block(
+                updated, hostname, group=group
+            )
+            del lines[host_index:block_end]
+            updated = "".join(lines)
 
-        for group_name, data in children.items():
-            hosts = data.get("hosts")
-
-            if hosts and hostname in hosts:
-                existing_group = group_name
-                break
-
-        if existing_group is None:
-            raise ValueError(
-                f"Inventory host does not exist: {hostname}"
+        def contains_host(group):
+            return hostname in (group.get("hosts") or {}) or any(
+                contains_host(child or {})
+                for child in (group.get("children") or {}).values()
             )
 
-        (
-            lines,
-            host_index,
-            block_end,
-        ) = self._find_host_block(
-            content,
-            hostname,
-        )
-
-        del lines[host_index:block_end]
-
-        updated = "".join(lines)
-
-        yaml.safe_load(updated)
+        if any(contains_host(group or {}) for group in self._load(updated).values()):
+            raise ValueError(f"Inventory host still has an unsupported membership: {hostname}")
 
         self.filename.write_text(updated)
-
-        return {
-            "hostname": hostname,
-            "group": existing_group,
-        }
+        return {"hostname": hostname, "group": groups[0]}
