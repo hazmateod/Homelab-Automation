@@ -197,15 +197,28 @@ class InventoryService:
             )
             return self.repository.find_host(new_hostname)
 
-    def record_verified_rebuild(self, hostname, host_id, expected_incarnation):
+    def record_verified_rebuild(self, hostname, host_id, expected_incarnation, *, endpoint=None):
+        return self._verify_host_binding(hostname, host_id, expected_incarnation, endpoint, rebuild=True)
+
+    def record_verified_move(self, hostname, host_id, expected_incarnation, *, endpoint):
+        return self._verify_host_binding(hostname, host_id, expected_incarnation, endpoint, rebuild=False)
+
+    def _verify_host_binding(self, hostname, host_id, expected_incarnation, endpoint, *, rebuild):
         with self._publication().locked():
             host = self.repository.find_host(hostname)
             if host is None:
                 raise ValueError(f"Inventory host does not exist: {hostname}")
             identities = HostIdentityRepository(self.repository)
-            current = identities.current_host(host["id"], hostname, host["ip"], host["ansible_user"])
+            target = (host["id"], hostname, host["ip"], host["ansible_user"])
+            current = identities.current_host(*target, include_pending=True)
             if current != {"host_id": host_id, "incarnation": expected_incarnation}:
                 raise ValueError("The inventory host incarnation has changed")
+            if (endpoint is not None or identities.current_host(*target) is None) and endpoint != target[2:]:
+                raise ValueError("Verify the current inventory address and SSH user")
+            if not rebuild:
+                if not identities.confirm_endpoint_move(host["id"]):
+                    raise ValueError("The host has no pending endpoint review")
+                return current
             incarnation = identities.record_rebuild(host_id, expected_incarnation)
             if incarnation is None:
                 raise ValueError("The inventory host incarnation has changed")

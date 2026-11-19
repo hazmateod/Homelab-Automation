@@ -11,6 +11,7 @@ from time import monotonic
 
 from himp.config import config
 from himp.database.automation_target_plans import AutomationTargetPlanRepository
+from himp.database.host_identity import HostIdentityRepository
 from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
 from himp.lib.ansible import run_playbook, run_playbook_streaming
 from himp.lib.ansible_recap import parse_play_recap
@@ -72,6 +73,16 @@ class UpdateService:
             selection = self.eligibility.resolve(
                 requested, mode=mode, inventory_path=snapshot.name
             )
+            identities = HostIdentityRepository()
+            identities.backfill()
+
+            def current_targets():
+                return {
+                    row["hostname"]: dict(row) for row in identities.current()
+                    if row["hostname"] in selection["eligible_hosts"]
+                }
+
+            targets = current_targets()
             plan_id = self.plans.save({
                 "task": target,
                 "outcome_schema": 1,
@@ -81,6 +92,10 @@ class UpdateService:
                 "eligible_hosts": selection["eligible_hosts"],
                 "excluded_hosts": selection["excluded_hosts"],
                 "target_fingerprints": selection["target_fingerprints"],
+                "host_incarnations": {
+                    name: {"host_id": row["host_id"], "incarnation": row["current_incarnation"]}
+                    for name, row in targets.items()
+                },
             })
             try:
                 if on_hosts_resolved is not None:
@@ -95,6 +110,7 @@ class UpdateService:
                     )
                     return (
                         latest == selection
+                        and current_targets() == targets
                         and not pending.exists()
                         and sha256(source.read_bytes()).hexdigest() == revision
                     )
@@ -104,13 +120,13 @@ class UpdateService:
 
                 return self._run_plan(
                     target, selection, plan_id, snapshot.name, timeout, on_event,
-                    validate, source,
+                    validate, source, identities, targets,
                 )
             except Exception as error:
                 error.target_plan_id = plan_id
                 raise
 
-    def _run_plan(self, target, selection, plan_id, snapshot, timeout, on_event, validate, source):
+    def _run_plan(self, target, selection, plan_id, snapshot, timeout, on_event, validate, source, identities, targets):
         eligible = selection["eligible_hosts"]
         excluded = selection["excluded_hosts"]
 
@@ -141,13 +157,23 @@ class UpdateService:
         deadline = None if timeout is None else monotonic() + timeout
         for index, host in enumerate(eligible):
             with inventory_admission(source):
-                if outcomes.requires_reconciliation(host):
+                identity = targets.get(host)
+                host_id = identity["host_id"] if identity else None
+                aliases = {
+                    name for alias in identities.aliases(host_id)
+                    for name in (alias["old_hostname"], alias["new_hostname"])
+                } if host_id else ()
+                if outcomes.requires_reconciliation(host, host_id=host_id, aliases=aliases):
                     results[host] = {"host": host, "status": "unstarted",
                                      "reason": "prior_mutation_unverified"}
                     continue
                 if not validate():
                     results[host] = {"host": host, "status": "unstarted",
                                      "reason": "target_plan_changed"}
+                    continue
+                if identity and identity["endpoint_review_required"]:
+                    results[host] = {"host": host, "status": "unstarted",
+                                     "reason": "endpoint_review_required"}
                     continue
                 remaining = timeout
                 if deadline is not None and index:
@@ -157,18 +183,25 @@ class UpdateService:
                                      "reason": "run_timeout"}
                     continue
 
-                outcomes.start(plan_id, host)
+                options = {"timeout": remaining, "inventory_path": snapshot}
+                if identity:
+                    options["extra_vars"] = {"himp_host_bindings": {host: {
+                        "host_id": host_id,
+                        "incarnation": identity["current_incarnation"],
+                        "ip": identity["ip"],
+                        "user": identity["ansible_user"],
+                    }}}
+                outcomes.start(plan_id, host, host_id=host_id)
                 try:
                     if on_event is None:
                         result = run_playbook(
                             config.maintenance_playbook, host,
-                            timeout=remaining, inventory_path=snapshot,
+                            **options,
                         )
                     else:
                         result = run_playbook_streaming(
-                            config.maintenance_playbook, host, timeout=remaining,
-                            inventory_path=snapshot, on_event=on_event,
-                            structured_events=True,
+                            config.maintenance_playbook, host, on_event=on_event,
+                            structured_events=True, **options,
                         )
                 except Exception:
                     results[host] = {"host": host, "status": "interrupted",
@@ -185,6 +218,8 @@ class UpdateService:
                 ):
                     outcome = {"host": host, "status": "interrupted",
                                "reason": "completion_unverified"}
+                if host_id is not None:
+                    outcome["host_id"] = host_id
                 outcomes.finish(plan_id, host, outcome)
                 results[host] = outcome
 

@@ -98,14 +98,17 @@ class HostIdentityRepository:
             (host_id,),
         )
 
-    def current_host(self, inventory_id, hostname, ip, user):
+    def current_host(self, inventory_id, hostname, ip, user, *, include_pending=False):
         rows = self.database.query(
             """
             SELECT host_id, current_incarnation AS incarnation
             FROM host_identities JOIN inventory_hosts ON inventory_id=inventory_hosts.id
             WHERE active=1 AND inventory_hosts.id=? AND hostname=? AND ip=? AND ansible_user=?
+              AND (?=1 OR NOT EXISTS (
+                  SELECT 1 FROM inventory_endpoint_reviews WHERE inventory_id=inventory_hosts.id
+              ))
             """,
-            (inventory_id, hostname, ip, user),
+            (inventory_id, hostname, ip, user, int(include_pending)),
         )
         return dict(rows[0]) if rows else None
 
@@ -170,7 +173,22 @@ class HostIdentityRepository:
                 return None
             incarnation = updated["current_incarnation"]
             self._record_incarnation(connection, host_id, incarnation, "verified_rebuild")
+            self.database.execute_transaction(
+                connection,
+                """
+                DELETE FROM inventory_endpoint_reviews WHERE inventory_id=(
+                    SELECT inventory_id FROM host_identities WHERE host_id=?
+                )
+                """,
+                (host_id,),
+            )
             return incarnation
+
+    def confirm_endpoint_move(self, inventory_id):
+        return self.database.execute_affected(
+            "DELETE FROM inventory_endpoint_reviews WHERE inventory_id=?",
+            (inventory_id,),
+        ) == 1
 
     def current(self):
         """Return the active inventory projection in one query."""
@@ -178,7 +196,11 @@ class HostIdentityRepository:
             """
             SELECT host_identities.host_id, host_identities.current_incarnation,
                    inventory_hosts.hostname, inventory_hosts.group_name, inventory_hosts.ip,
-                   inventory_hosts.ansible_user
+                   inventory_hosts.ansible_user,
+                   EXISTS (
+                       SELECT 1 FROM inventory_endpoint_reviews
+                       WHERE inventory_endpoint_reviews.inventory_id=inventory_hosts.id
+                   ) AS endpoint_review_required
             FROM host_identities
             JOIN inventory_hosts ON inventory_hosts.id=host_identities.inventory_id
             WHERE inventory_hosts.active=1
@@ -196,7 +218,7 @@ class HostIdentityRepository:
                 "user": row["ansible_user"],
             }
             for row in self.current()
-            if row["ip"] and row["ansible_user"]
+            if row["ip"] and row["ansible_user"] and not row["endpoint_review_required"]
         }
 
     def current_hostnames(self):
@@ -204,6 +226,7 @@ class HostIdentityRepository:
         return {
             (row["host_id"], row["current_incarnation"]): row["hostname"]
             for row in self.current()
+            if not row["endpoint_review_required"]
         }
 
     @staticmethod

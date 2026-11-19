@@ -86,6 +86,7 @@ def run_playbook_streaming(
     structured_events=False,
     *,
     inventory_path=None,
+    extra_vars=None,
 ):
     """Run Ansible with incremental stdout callbacks."""
     import json
@@ -109,6 +110,9 @@ def run_playbook_streaming(
 
     if limit:
         cmd.extend(["--limit", limit])
+
+    if extra_vars:
+        cmd.extend(["--extra-vars", json.dumps(extra_vars)])
 
     started = time.monotonic()
     deadline = (

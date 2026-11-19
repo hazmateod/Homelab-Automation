@@ -368,3 +368,47 @@ def test_mutated_failure_requires_reconciliation_before_next_dispatch(monkeypatc
     repository = MaintenanceOutcomeRepository()
     assert repository.reconcile(first["target_plan_id"], hostname, "Verified state")
     assert not repository.requires_reconciliation(hostname)
+
+
+@pytest.mark.parametrize("streaming", [False, True])
+def test_renamed_host_preserves_holds_and_dispatches_verified_report_binding(
+    monkeypatch, tmp_path, streaming,
+):
+    from himp.database.host_identity import HostIdentityRepository
+    from himp.database.inventory import InventoryRepository
+    from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "inventory.db"))
+    path = tmp_path / "hosts.yml"
+    path.write_text("all: {}\n")
+    monkeypatch.setattr(update_module.config, "inventory", str(path))
+    inventory = InventoryRepository()
+    inventory.save_host({
+        "hostname": "old", "group": "test", "ip": "192.0.2.1", "user": "fixture", "become": False,
+    })
+    identities = HostIdentityRepository(inventory)
+    identities.backfill()
+    host_id = identities.current()[0]["host_id"]
+    outcomes = MaintenanceOutcomeRepository()
+    outcomes.start("legacy-plan", "old")
+    outcomes.start("bound-plan", "old", host_id=host_id)
+    identities.rename(inventory.find_host("old")["id"], "old", "new", "fixture-op")
+    calls = []
+
+    def runner(playbook, host, **options):
+        calls.append(options["extra_vars"]["himp_host_bindings"][host])
+        return SimpleNamespace(
+            success=True, return_code=0, elapsed=0.1, stderr="",
+            stdout=f"PLAY RECAP\n{host} : ok=1 changed=0 unreachable=0 failed=0",
+        )
+
+    monkeypatch.setattr(update_module, "run_playbook_streaming" if streaming else "run_playbook", runner)
+    service = update_module.UpdateService(eligibility=FakeEligibility(["new"]))
+    kwargs = {"on_event": lambda event: None} if streaming else {}
+    assert outcomes.reconcile("bound-plan", "old", "Fixture verified")
+    assert service.update("maintenance", **kwargs)["host_results"]["new"]["reason"] == "prior_mutation_unverified"
+    assert not calls
+    assert outcomes.reconcile("legacy-plan", "old", "Fixture verified")
+    result = service.update("maintenance", **kwargs)
+    assert calls == [{"host_id": host_id, "incarnation": 1, "ip": "192.0.2.1", "user": "fixture"}]
+    assert outcomes.find(result["target_plan_id"])["new"]["host_id"] == host_id

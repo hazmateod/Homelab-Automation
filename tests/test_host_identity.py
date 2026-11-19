@@ -146,3 +146,33 @@ def test_host_health_binds_only_when_incarnation_stays_stable(monkeypatch, tmp_p
     monkeypatch.setattr(service.ssh, "test", respond_after_rebuild)
     assert service.check_host("current").host_identity is None
     assert "host_identity" not in service.latest("current")["details"]
+
+
+def test_endpoint_change_hides_old_evidence_until_review(monkeypatch, tmp_path):
+    import pytest
+
+    from himp.services.inventory import InventoryService
+    from himp.services.inventory_writer import InventoryFileWriter
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "inventory.db"))
+    service = InventoryService()
+    service.writer = InventoryFileWriter(tmp_path / "hosts.yml")
+    service.repository.save_host(host("fixture", "192.0.2.1"))
+    identities = HostIdentityRepository(service.repository)
+    identities.backfill()
+    host_id = identities.current()[0]["host_id"]
+    service.repository.save_host(host("fixture", "192.0.2.2"))
+    assert identities.current_hostnames() == {}
+    assert identities.execution_bindings() == {}
+    with pytest.raises(ValueError, match="Verify the current inventory"):
+        service.record_verified_move("fixture", host_id, 1, endpoint=("192.0.2.1", "synthetic"))
+    assert service.record_verified_move("fixture", host_id, 1, endpoint=("192.0.2.2", "synthetic")) == {
+        "host_id": host_id, "incarnation": 1,
+    }
+    assert identities.current_hostnames() == {(host_id, 1): "fixture"}
+
+    service.repository.save_host(host("fixture", "192.0.2.3"))
+    assert service.record_verified_rebuild(
+        "fixture", host_id, 1, endpoint=("192.0.2.3", "synthetic")
+    ) == {"host_id": host_id, "incarnation": 2}
+    assert identities.current_hostnames() == {(host_id, 2): "fixture"}

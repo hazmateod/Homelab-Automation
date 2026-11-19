@@ -68,6 +68,14 @@ class InventoryRepository:
             """
         )
 
+        self.database.execute(
+            """
+            CREATE TABLE IF NOT EXISTS inventory_endpoint_reviews (
+                inventory_id BIGINT PRIMARY KEY REFERENCES inventory_hosts(id)
+            )
+            """
+        )
+
         columns = self.database.table_columns(
             "inventory_hosts"
         )
@@ -110,82 +118,69 @@ class InventoryRepository:
                     record["hostname"]
                 )
 
-    def save_host(
-        self,
-        host,
-    ):
-
-        existing = self.find_host(
-            host["hostname"],
-            include_inactive=True,
-        )
-
-        if existing:
-
-            if not existing["active"]:
-
-                self.restore_host(
-                    host["hostname"]
-                )
-
+    def save_host(self, host):
+        with self.database.transaction() as connection:
+            execute = self.database.execute_transaction
+            existing = execute(
+                connection, "SELECT * FROM inventory_hosts WHERE hostname=?", (host["hostname"],)
+            ).fetchone()
+            if existing is None:
+                self.record_change(host["hostname"], "ADDED", None, None, None, connection=connection)
             else:
-
-                self.detect_changes(
-                    existing,
-                    host,
+                if not existing["active"]:
+                    self.record_change(host["hostname"], "RESTORED", None, None, None, connection=connection)
+                self.detect_changes(existing, host, connection=connection)
+                if existing["ip"] != host["ip"] or existing["ansible_user"] != host["user"]:
+                    execute(
+                        connection,
+                        """
+                        INSERT INTO inventory_endpoint_reviews (inventory_id) VALUES (?)
+                        ON CONFLICT (inventory_id) DO NOTHING
+                        """,
+                        (existing["id"],),
+                    )
+            execute(
+                connection,
+                """
+                INSERT INTO inventory_hosts
+                (
+                    hostname,
+                    group_name,
+                    ip,
+                    ansible_user,
+                    become,
+                    active,
+                    last_seen
                 )
+                VALUES
+                (
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    ?,
+                    1,
+                    ?
+                )
+                ON CONFLICT(hostname)
+                DO UPDATE SET
 
-        else:
-
-            self.record_change(
-                host["hostname"],
-                "ADDED",
-                None,
-                None,
-                None,
+                    group_name=excluded.group_name,
+                    ip=excluded.ip,
+                    ansible_user=excluded.ansible_user,
+                    become=excluded.become,
+                    active=1,
+                    last_seen=excluded.last_seen
+                """,
+                (
+                    host["hostname"],
+                    host["group"],
+                    host["ip"],
+                    host["user"],
+                    int(host["become"]),
+                    datetime.now(timezone.utc).replace(tzinfo=None),
+                ),
             )
-
-        self.database.execute(
-            """
-            INSERT INTO inventory_hosts
-            (
-                hostname,
-                group_name,
-                ip,
-                ansible_user,
-                become,
-                active,
-                last_seen
-            )
-            VALUES
-            (
-                ?,
-                ?,
-                ?,
-                ?,
-                ?,
-                1,
-                ?
-            )
-            ON CONFLICT(hostname)
-            DO UPDATE SET
-
-                group_name=excluded.group_name,
-                ip=excluded.ip,
-                ansible_user=excluded.ansible_user,
-                become=excluded.become,
-                active=1,
-                last_seen=excluded.last_seen
-            """,
-            (
-                host["hostname"],
-                host["group"],
-                host["ip"],
-                host["user"],
-                int(host["become"]),
-                datetime.now(timezone.utc).replace(tzinfo=None),
-            ),
-        )
 
     def rename_group(self, group, new_group):
         if group == new_group:
@@ -246,6 +241,8 @@ class InventoryRepository:
         self,
         old,
         new,
+        *,
+        connection,
     ):
 
         fields = [
@@ -268,6 +265,7 @@ class InventoryRepository:
                     database_field,
                     old_value,
                     new_value,
+                    connection=connection,
                 )
 
         old_become = bool(
@@ -286,6 +284,7 @@ class InventoryRepository:
                 "become",
                 old_become,
                 new_become,
+                connection=connection,
             )
 
     def record_change(
@@ -295,7 +294,15 @@ class InventoryRepository:
         field,
         old_value,
         new_value,
+        *,
+        connection=None,
     ):
+
+        if connection is None:
+            with self.database.transaction() as transaction:
+                return self.record_change(
+                    hostname, change_type, field, old_value, new_value, connection=transaction
+                )
 
         def normalize_change_value(value):
             if value is None:
@@ -314,7 +321,8 @@ class InventoryRepository:
             new_value
         )
 
-        existing = self.database.query(
+        existing = self.database.execute_transaction(
+            connection,
             """
             SELECT *
             FROM inventory_changes
@@ -332,13 +340,14 @@ class InventoryRepository:
                 old_value,
                 new_value,
             ),
-        )
+        ).fetchone()
 
         if existing:
 
             return
 
-        self.database.execute(
+        self.database.execute_transaction(
+            connection,
             """
             INSERT INTO inventory_changes
             (

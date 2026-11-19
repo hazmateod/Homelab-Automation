@@ -207,3 +207,17 @@ def test_lifecycle_replay_records_each_real_transition_once():
     events = [row["change_type"] for row in repository.changes()]
     assert events.count("REMOVED") == 2
     assert events.count("RESTORED") == 2
+
+
+def test_failed_inventory_insert_does_not_record_audit():
+    import pytest
+
+    repository = make_repository()
+    repository.database.execute(
+        "CREATE TRIGGER reject_host BEFORE INSERT ON inventory_hosts "
+        "BEGIN SELECT RAISE(ABORT, 'fixture failure'); END"
+    )
+    with pytest.raises(sqlite3.IntegrityError, match="fixture failure"):
+        repository.save_host(host())
+    assert repository.all_hosts() == []
+    assert repository.changes() == []

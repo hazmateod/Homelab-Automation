@@ -49,6 +49,16 @@ class VerifiedHostRebuild(BaseModel):
     host_id: str
     expected_incarnation: int
     replacement_verified: Literal[True]
+    expected_ip: str | None = None
+    expected_user: str | None = None
+
+
+class VerifiedHostMove(BaseModel):
+    host_id: str
+    expected_incarnation: int
+    expected_ip: str
+    expected_user: str
+    continuity_verified: Literal[True]
 
 
 router = APIRouter(
@@ -98,7 +108,12 @@ async def inventory_hosts():
 @router.get("/identity/current")
 async def verified_inventory_evidence():
     """Expose a shadow comparison before changing dashboard reads."""
-    current = HostIdentityRepository(repository).current_hostnames()
+    identities = HostIdentityRepository(repository)
+    rows = identities.current()
+    current = {
+        (row["host_id"], row["current_incarnation"]): row["hostname"]
+        for row in rows if not row["endpoint_review_required"]
+    }
     health = HealthRepository()
     reports = ReportService()
     return {
@@ -106,6 +121,13 @@ async def verified_inventory_evidence():
         "verified_inventory": [
             {"host_id": host_id, "incarnation": incarnation, "hostname": hostname}
             for (host_id, incarnation), hostname in current.items()
+        ],
+        "pending_endpoint_review": [
+            {
+                "host_id": row["host_id"], "incarnation": row["current_incarnation"],
+                "hostname": row["hostname"], "ip": row["ip"], "user": row["ansible_user"],
+            }
+            for row in rows if row["endpoint_review_required"]
         ],
         "plugin_health": [
             {"plugin": plugin, "hostname": host.hostname, "score": host.score}
@@ -262,7 +284,20 @@ async def rename_inventory_host(hostname: str, request: InventoryHostRename):
 async def record_verified_host_rebuild(hostname: str, request: VerifiedHostRebuild):
     try:
         return service.record_verified_rebuild(
-            hostname, request.host_id, request.expected_incarnation
+            hostname, request.host_id, request.expected_incarnation,
+            endpoint=(request.expected_ip, request.expected_user)
+            if request.expected_ip is not None or request.expected_user is not None else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
+
+
+@router.post("/hosts/{hostname}/verified-move", dependencies=[Depends(require_admin)])
+async def record_verified_host_move(hostname: str, request: VerifiedHostMove):
+    try:
+        return service.record_verified_move(
+            hostname, request.host_id, request.expected_incarnation,
+            endpoint=(request.expected_ip, request.expected_user),
         )
     except ValueError as exc:
         raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc

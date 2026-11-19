@@ -49,14 +49,17 @@ class MaintenanceOutcomeRepository:
             (plan_id, host, json.dumps(outcome)),
         )
 
-    def start(self, plan_id, host):
+    def start(self, plan_id, host, *, host_id=None):
         # The shared maintenance lease serializes dispatch across entry points.
         # A committed marker survives the loss of the dispatching process.
-        self.record(plan_id, host, {
+        outcome = {
             "host": host,
             "status": "interrupted",
             "reason": "completion_unverified",
-        })
+        }
+        if host_id is not None:
+            outcome["host_id"] = host_id
+        self.record(plan_id, host, outcome)
 
     def finish(self, plan_id, host, outcome):
         self.database.execute(
@@ -64,12 +67,16 @@ class MaintenanceOutcomeRepository:
             (json.dumps(outcome), plan_id, host),
         )
 
-    def requires_reconciliation(self, host):
+    def requires_reconciliation(self, host, *, host_id=None, aliases=()):
+        names = tuple(dict.fromkeys((host, *aliases)))
+        placeholders = ", ".join("?" for _ in names)
         rows = self.database.query(
-            "SELECT outcome FROM maintenance_host_outcomes WHERE host=?", (host,)
+            f"SELECT outcome FROM maintenance_host_outcomes WHERE host IN ({placeholders})",
+            names,
         )
         return any(
-            self.needs_reconciliation(outcome)
+            (host_id is None or outcome.get("host_id") in (None, host_id))
+            and self.needs_reconciliation(outcome)
             for outcome in (json.loads(row["outcome"]) for row in rows)
         )
 
