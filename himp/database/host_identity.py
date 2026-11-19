@@ -228,13 +228,26 @@ class HostIdentityRepository:
         return rows[0]["host_id"] if rows else None
 
     def report_bindings(self):
-        """Current report identity by hostname, including pending hosts as null."""
+        """Return report identities, with retired and pending hosts explicitly blocked."""
+        rows = self.database.query(
+            """
+            SELECT inventory_hosts.hostname, inventory_hosts.active, host_id,
+                   current_incarnation,
+                   EXISTS (
+                       SELECT 1 FROM inventory_endpoint_reviews
+                       WHERE inventory_id=inventory_hosts.id
+                   ) AS endpoint_review_required
+            FROM inventory_hosts
+            LEFT JOIN host_identities ON host_identities.inventory_id=inventory_hosts.id
+            WHERE inventory_hosts.active=0 OR host_id IS NOT NULL
+            """
+        )
         return {
             row["hostname"]: (
-                None if row["endpoint_review_required"] else
                 {"host_id": row["host_id"], "incarnation": row["current_incarnation"]}
+                if row["active"] and not row["endpoint_review_required"] else None
             )
-            for row in self.current()
+            for row in rows
         }
 
     @staticmethod

@@ -19,18 +19,15 @@
     patterns: "*.json"
   register: dashboard_json
 
-- name: Read current report bindings
+- name: Require current report bindings supplied by HIMP
   run_once: true
   delegate_to: localhost
   become: false
-  changed_when: false
-  ansible.builtin.command:
-    argv:
-      - "{{ ansible_playbook_python }}"
-      - "-c"
-      - "import json; from himp.database.host_identity import HostIdentityRepository; print(json.dumps(HostIdentityRepository().report_bindings()))"
-    chdir: "{{ playbook_dir }}/.."
-  register: dashboard_report_bindings
+  ansible.builtin.assert:
+    that:
+      - himp_dashboard_bindings is defined
+      - himp_dashboard_bindings is mapping
+    fail_msg: Run dashboard generation through HIMP to supply report bindings.
 
 - name: Read JSON reports
   run_once: true
@@ -44,7 +41,7 @@
       }}
   loop: "{{ dashboard_json.files }}"
   vars:
-    bindings: "{{ dashboard_report_bindings.stdout | from_json }}"
+    bindings: "{{ himp_dashboard_bindings }}"
     hostname: "{{ item.path | basename | splitext | first }}"
     candidate: "{{ lookup('file', item.path) | from_json }}"
     canonical_names: >-

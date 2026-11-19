@@ -279,6 +279,7 @@ class UpdateService:
         try:
             result = run_playbook(
                 config.dashboard_playbook, timeout=timeout, inventory_path=snapshot,
+                extra_vars={"himp_dashboard_bindings": HostIdentityRepository().report_bindings()},
             )
         except Exception:
             return {"status": "failed", "reason": "dashboard_execution_error"}

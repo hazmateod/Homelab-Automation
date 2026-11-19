@@ -144,3 +144,15 @@ def test_unverified_report_exports_leave_verified_json_and_markdown_intact(tmp_p
     archive = tmp_path / "reports" / "history" / "cmdb" / identity["host_id"] / "1"
     assert (archive / "report.json").read_bytes() == verified_json
     assert json.loads((json_dir / "fixture.json").read_bytes())["host_identity"] == replacement
+
+    canonical = json_dir / "fixture.json"
+    canonical.write_text("{broken")
+    recovered = run_playbook(
+        str(playbook), "fixture", timeout=15, inventory_path=inventory,
+        extra_vars={"himp_host_bindings": {"fixture": {
+            **replacement, "ip": "192.0.2.1", "user": "fixture",
+        }}},
+    )
+    assert recovered.success, recovered.stdout + recovered.stderr
+    assert json.loads(canonical.read_bytes())["host_identity"] == replacement
+    assert any(path.read_text() == "{broken" for path in json_dir.glob("fixture.json.*~"))

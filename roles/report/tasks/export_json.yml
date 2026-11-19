@@ -24,11 +24,25 @@
   delegate_to: localhost
   become: false
 
+- name: Inspect previous canonical JSON without blocking replacement
+  when: cmdb_report_identity | length > 0
+  vars:
+    prior_path: "{{ cmdb_json_directory }}/{{ inventory_hostname }}.json"
+  block:
+    - name: Parse previous canonical report
+      ansible.builtin.set_fact:
+        cmdb_previous_report: "{{ lookup('file', prior_path, errors='ignore') | default('{}', true) | from_json }}"
+  rescue:
+    - name: Leave malformed report for the verified writer to back up
+      ansible.builtin.set_fact:
+        cmdb_previous_report: {}
+  delegate_to: localhost
+  become: false
+
 - name: Archive previous canonical JSON before replacing its incarnation
   vars:
     prior_path: "{{ cmdb_json_directory }}/{{ inventory_hostname }}.json"
-    prior_report: "{{ lookup('file', prior_path, errors='ignore') | default('{}', true) | from_json }}"
-    prior_identity: "{{ prior_report.host_identity | default({}) }}"
+    prior_identity: "{{ cmdb_previous_report.host_identity | default({}) }}"
     prior_directory: >-
       {{ playbook_dir }}/../reports/history/cmdb/{{ prior_identity.host_id }}/{{ prior_identity.incarnation }}
   when:

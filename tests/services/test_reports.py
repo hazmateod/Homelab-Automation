@@ -203,3 +203,34 @@ def test_operational_summary_handles_no_execution_history(
         "failed": 0,
         "recent": [],
     }
+
+
+def test_dashboard_entry_points_send_himp_bindings_to_ansible(monkeypatch, tmp_path):
+    from types import SimpleNamespace
+
+    from himp.commands import dashboard
+    from himp.database.host_identity import HostIdentityRepository
+    from himp.database.inventory import InventoryRepository
+    from himp.services import update
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "inventory.db"))
+    repository = InventoryRepository()
+    repository.save_host({
+        "hostname": "retired", "group": "test", "ip": "192.0.2.1", "user": "fixture", "become": False,
+    })
+    repository.mark_removed("retired")
+    bindings = HostIdentityRepository(repository).report_bindings()
+    calls = []
+
+    def runner(playbook, **options):
+        calls.append((playbook, options))
+        return SimpleNamespace(success=True, return_code=0, elapsed=0)
+
+    monkeypatch.setattr(dashboard, "run_playbook", runner)
+    monkeypatch.setattr(dashboard, "log", lambda *args: None)
+    monkeypatch.setattr(update, "run_playbook", runner)
+    dashboard.run(None)
+    assert update.UpdateService._refresh_dashboard("snapshot.yml", 10)["status"] == "succeeded"
+    assert bindings == {"retired": None}
+    assert len(calls) == 2
+    assert all(options["extra_vars"] == {"himp_dashboard_bindings": bindings} for _, options in calls)

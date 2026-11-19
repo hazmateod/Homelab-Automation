@@ -239,3 +239,31 @@ def test_rebuild_rejects_previous_current_exports_and_retains_history(tmp_path, 
             export("fixture")
     assert Dashboard.load(cache, bindings=identities.report_bindings()).hosts == []
     assert "Previous installation" in service.history("fixture", 1)
+
+
+
+def test_retiring_host_does_not_restore_an_unattributed_dashboard_row(tmp_path, monkeypatch):
+    import json
+
+    from himp.database.host_identity import HostIdentityRepository
+    from himp.models.dashboard import Dashboard
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "fixture.db"))
+    service = HostReportExportService()
+    inventory = service.inventory
+    inventory.save_host({
+        "hostname": "fixture", "group": "test", "ip": "192.0.2.1", "user": "fixture", "become": False,
+    })
+    cache = tmp_path / "dashboard.json"
+    cache.write_text(json.dumps({"generated": "fixture", "hosts": [{
+        "hostname": "fixture", "ip": "192.0.2.1", "os": "fixture", "kernel": "fixture",
+        "score": 100, "status": "HEALTHY",
+    }]}))
+    identities = HostIdentityRepository(inventory)
+    assert len(Dashboard.load(cache, bindings=identities.report_bindings()).hosts) == 1
+    inventory.mark_removed("fixture")
+    assert Dashboard.load(cache, bindings=identities.report_bindings()).hosts == []
+    inventory.restore_host("fixture")
+    identities.backfill()
+    inventory.mark_removed("fixture")
+    assert Dashboard.load(cache, bindings=identities.report_bindings()).hosts == []
