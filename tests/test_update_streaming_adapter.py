@@ -25,7 +25,7 @@ def fake_result():
         success=True,
         return_code=0,
         elapsed=0.25,
-        stdout="",
+        stdout="PLAY RECAP\nhost01 : ok=1 changed=0 unreachable=0 failed=0",
         stderr="",
     )
 

@@ -7,9 +7,11 @@ Provides a shared, policy-enforced service for maintenance updates.
 from hashlib import sha256
 from pathlib import Path
 from tempfile import NamedTemporaryFile
+from time import monotonic
 
 from himp.config import config
 from himp.database.automation_target_plans import AutomationTargetPlanRepository
+from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
 from himp.lib.ansible import run_playbook, run_playbook_streaming
 from himp.lib.ansible_recap import parse_play_recap
 from himp.services.host_maintenance_eligibility import (
@@ -84,24 +86,28 @@ class UpdateService:
                         list(selection["eligible_hosts"]),
                         list(selection["excluded_hosts"]),
                     )
-                if selection["eligible_hosts"]:
+                def validate():
                     latest = self.eligibility.resolve(
                         requested, mode=mode, inventory_path=snapshot.name
                     )
-                    if (
-                        latest != selection
-                        or pending.exists()
-                        or sha256(source.read_bytes()).hexdigest() != revision
-                    ):
-                        raise RuntimeError("Maintenance target plan changed before dispatch")
+                    return (
+                        latest == selection
+                        and not pending.exists()
+                        and sha256(source.read_bytes()).hexdigest() == revision
+                    )
+
+                if selection["eligible_hosts"] and not validate():
+                    raise RuntimeError("Maintenance target plan changed before dispatch")
+
                 return self._run_plan(
-                    target, selection, plan_id, snapshot.name, timeout, on_event
+                    target, selection, plan_id, snapshot.name, timeout, on_event,
+                    validate,
                 )
             except Exception as error:
                 error.target_plan_id = plan_id
                 raise
 
-    def _run_plan(self, target, selection, plan_id, snapshot, timeout, on_event):
+    def _run_plan(self, target, selection, plan_id, snapshot, timeout, on_event, validate):
         eligible = selection["eligible_hosts"]
         excluded = selection["excluded_hosts"]
 
@@ -110,6 +116,7 @@ class UpdateService:
                 "target": target,
                 "target_plan_id": plan_id,
                 "success": True,
+                "status": "skipped",
                 "skipped": True,
                 "return_code": 0,
                 "elapsed": 0.0,
@@ -122,38 +129,88 @@ class UpdateService:
                 "excluded_hosts": excluded,
             }
 
-        # Explicit hostname selection prevents disabled hosts
-        # from being reached through an Ansible group.
-        #
-        # Never pass an empty --limit to Ansible.
-        safe_limit = ",".join(eligible)
-        if on_event is None:
-            result = run_playbook(
-                config.maintenance_playbook,
-                safe_limit,
-                timeout=timeout,
-                inventory_path=snapshot,
-            )
-        else:
-            result = run_playbook_streaming(
-                config.maintenance_playbook,
-                safe_limit,
-                timeout=timeout,
-                inventory_path=snapshot,
-                on_event=on_event,
-                structured_events=True,
-            )
+        outcomes = MaintenanceOutcomeRepository()
+        results = {}
+        stdout = []
+        stderr = []
+        elapsed = 0.0
+        return_code = 0
+        deadline = None if timeout is None else monotonic() + timeout
+        for index, host in enumerate(eligible):
+            if outcomes.requires_reconciliation(host):
+                results[host] = {"host": host, "status": "unstarted",
+                                 "reason": "prior_mutation_unverified"}
+                continue
+            if index and not validate():
+                results[host] = {"host": host, "status": "unstarted",
+                                 "reason": "target_plan_changed"}
+                continue
+            remaining = timeout
+            if deadline is not None and index:
+                remaining = deadline - monotonic()
+            if remaining is not None and remaining <= 0:
+                results[host] = {"host": host, "status": "unstarted",
+                                 "reason": "run_timeout"}
+                continue
 
+            outcomes.start(plan_id, host)
+            try:
+                if on_event is None:
+                    result = run_playbook(
+                        config.maintenance_playbook, host,
+                        timeout=remaining, inventory_path=snapshot,
+                    )
+                else:
+                    result = run_playbook_streaming(
+                        config.maintenance_playbook, host, timeout=remaining,
+                        inventory_path=snapshot, on_event=on_event,
+                        structured_events=True,
+                    )
+            except Exception:
+                results[host] = {"host": host, "status": "interrupted",
+                                 "reason": "completion_unverified"}
+                continue
+
+            stdout.append(result.stdout)
+            stderr.append(result.stderr)
+            elapsed += result.elapsed
+            return_code = return_code or result.return_code
+            outcome = parse_play_recap(result.stdout).get(host)
+            if outcome is None or (
+                not result.success and outcome["status"] in {"succeeded", "skipped"}
+            ):
+                outcome = {"host": host, "status": "interrupted",
+                           "reason": "completion_unverified"}
+            outcomes.finish(plan_id, host, outcome)
+            results[host] = outcome
+
+        for host, outcome in results.items():
+            if outcome["status"] == "unstarted":
+                outcomes.record(plan_id, host, outcome)
+
+        statuses = {result["status"] for result in results.values()}
+        if statuses == {"skipped"}:
+            status = "skipped"
+        elif statuses <= {"succeeded", "skipped"}:
+            status = "succeeded"
+        elif "succeeded" in statuses:
+            status = "partial"
+        elif "interrupted" in statuses:
+            status = "interrupted"
+        else:
+            status = "failed"
+        success = status in {"succeeded", "skipped"}
         return {
             "target": target,
             "target_plan_id": plan_id,
-            "success": result.success,
-            "skipped": False,
-            "return_code": result.return_code,
-            "elapsed": round(result.elapsed, 3),
-            "stdout": result.stdout,
-            "stderr": result.stderr,
-            "host_results": parse_play_recap(result.stdout),
+            "status": status,
+            "success": success,
+            "skipped": status == "skipped",
+            "return_code": return_code or int(not success),
+            "elapsed": round(elapsed, 3),
+            "stdout": "\n".join(stdout),
+            "stderr": "\n".join(stderr),
+            "host_results": results,
             "eligible_hosts": eligible,
             "excluded_hosts": excluded,
         }

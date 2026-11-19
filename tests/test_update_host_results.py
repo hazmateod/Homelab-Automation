@@ -177,3 +177,98 @@ def test_failed_plan_persistence_blocks_dispatch(monkeypatch):
     monkeypatch.setattr(update_module, "run_playbook", unexpected_run)
     with pytest.raises(RuntimeError, match="plan storage unavailable"):
         service.update("maintenance")
+
+
+def test_failed_middle_host_does_not_stop_later_host(monkeypatch, tmp_path):
+    from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
+
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text("all: {}\n")
+    monkeypatch.setattr(update_module.config, "inventory", str(inventory))
+    hosts = ["fixture-first", "fixture-middle", "fixture-last"]
+    calls = []
+
+    def runner(playbook, host, **kwargs):
+        calls.append(host)
+        unreachable = int(host == hosts[1])
+        return SimpleNamespace(
+            success=not unreachable, return_code=4 if unreachable else 0,
+            elapsed=0.1, stderr="",
+            stdout=f"PLAY RECAP\n{host} : ok=1 unreachable={unreachable} failed=0",
+        )
+
+    monkeypatch.setattr(update_module, "run_playbook", runner)
+    result = update_module.UpdateService(eligibility=FakeEligibility(hosts)).update("maintenance")
+    assert calls == hosts
+    assert result["status"] == "partial"
+    assert not result["success"]
+    persisted = MaintenanceOutcomeRepository().find(result["target_plan_id"])
+    assert persisted == result["host_results"]
+    assert [persisted[host]["status"] for host in hosts] == [
+        "succeeded", "unreachable", "succeeded",
+    ]
+
+
+def test_dispatch_marker_survives_interruption_and_blocks_replay(monkeypatch, tmp_path):
+    from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
+
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text("all: {}\n")
+    monkeypatch.setattr(update_module.config, "inventory", str(inventory))
+    service = update_module.UpdateService(eligibility=FakeEligibility(["fixture-crash"]))
+
+    class WorkerExit(BaseException):
+        pass
+
+    def interrupt(*args, **kwargs):
+        assert MaintenanceOutcomeRepository().requires_reconciliation("fixture-crash")
+        raise WorkerExit()
+
+    monkeypatch.setattr(update_module, "run_playbook", interrupt)
+    with pytest.raises(WorkerExit):
+        service.update("maintenance")
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Unverified mutation must not be replayed")
+
+    monkeypatch.setattr(update_module, "run_playbook", unexpected)
+    result = service.update("maintenance")
+    assert result["host_results"]["fixture-crash"]["reason"] == "prior_mutation_unverified"
+    assert not result["success"]
+
+
+def test_real_ansible_isolates_unreachable_middle_host(monkeypatch, tmp_path):
+    import shutil
+
+    if shutil.which("ansible-playbook") is None:
+        pytest.skip("ansible-core is required for the subprocess fixture")
+
+    marker = tmp_path / "completed"
+    playbook = tmp_path / "maintenance.yml"
+    playbook.write_text(
+        "- hosts: all\n"
+        "  serial: 1\n"
+        "  gather_facts: true\n"
+        "  tasks:\n"
+        "    - ansible.builtin.copy:\n"
+        "        content: completed\n"
+        f"        dest: {marker}\n"
+        "      when: inventory_hostname == 'ansible-fixture-last'\n"
+    )
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text(
+        "all:\n"
+        "  hosts:\n"
+        "    ansible-fixture-first: {ansible_connection: local}\n"
+        "    ansible-fixture-middle: {ansible_host: 127.0.0.1, ansible_port: 1}\n"
+        "    ansible-fixture-last: {ansible_connection: local}\n"
+    )
+    hosts = ["ansible-fixture-first", "ansible-fixture-middle", "ansible-fixture-last"]
+    monkeypatch.setattr(update_module.config, "inventory", str(inventory))
+    monkeypatch.setattr(update_module.config, "maintenance_playbook", str(playbook))
+    result = update_module.UpdateService(eligibility=FakeEligibility(hosts)).update(
+        "maintenance", timeout=30,
+    )
+    assert marker.read_text() == "completed"
+    assert result["status"] == "partial"
+    assert result["host_results"][hosts[1]]["status"] == "unreachable"
