@@ -5,7 +5,9 @@ Shared Ansible helper functions.
 import json
 import subprocess
 import time
+from contextlib import ExitStack
 from dataclasses import dataclass
+from tempfile import NamedTemporaryFile
 
 from himp.config import config
 
@@ -46,19 +48,25 @@ def run_playbook(
             limit,
         ])
 
-    if extra_vars:
-        cmd.extend(["--extra-vars", json.dumps(extra_vars)])
-
     start = time.perf_counter()
 
     try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            timeout=timeout,
-            capture_output=True,
-            text=True,
-        )
+        with ExitStack() as files:
+            if extra_vars:
+                variables = files.enter_context(NamedTemporaryFile(
+                    mode="w", encoding="utf-8", prefix="himp-ansible-", suffix=".json",
+                ))
+                json.dump(extra_vars, variables)
+                variables.flush()
+                cmd.extend(["--extra-vars", f"@{variables.name}"])
+
+            result = subprocess.run(
+                cmd,
+                check=False,
+                timeout=timeout,
+                capture_output=True,
+                text=True,
+            )
 
     except subprocess.TimeoutExpired as error:
         raise AnsiblePlaybookTimeoutError(

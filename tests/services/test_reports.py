@@ -271,12 +271,13 @@ def test_dashboard_refresh_and_exports_preserve_verified_alias_and_isolate_bad_r
     )
     (json_dir / "broken.json").write_text("{broken")
     (json_dir / "bad-shape.json").write_text('{"metadata": []}')
+    (json_dir / "too-deep.json").write_text("[" * 30_000 + "0")
     identities.rename(repository.find_host("old-name")["id"], "old-name", "new-name", "rename")
 
     reports = ReportService()
     reports.root = root
     variables = reports.dashboard_variables()
-    assert variables["himp_dashboard_skipped_reports"] == ["bad-shape.json", "broken.json"]
+    assert variables["himp_dashboard_skipped_reports"] == ["bad-shape.json", "broken.json", "too-deep.json"]
 
     repo = Path(__file__).resolve().parents[2]
     playbooks = tmp_path / "playbooks"
@@ -294,7 +295,7 @@ def test_dashboard_refresh_and_exports_preserve_verified_alias_and_isolate_bad_r
     assert "broken.json" in result.stdout
     dashboard_json = json.loads((root / "dashboard" / "dashboard.json").read_text())
     assert [host["hostname"] for host in dashboard_json["hosts"]] == ["new-name"]
-    assert dashboard_json["skipped_reports"] == ["bad-shape.json", "broken.json"]
+    assert dashboard_json["skipped_reports"] == ["bad-shape.json", "broken.json", "too-deep.json"]
     assert reports.dashboard()["skipped_reports"] == dashboard_json["skipped_reports"]
     assert dashboard_json["hosts"][0]["os"] == 'OS "quoted"'
     assert "/api/reports/host/new-name/txt" in (root / "dashboard" / "index.html").read_text()
@@ -309,3 +310,24 @@ def test_dashboard_refresh_and_exports_preserve_verified_alias_and_isolate_bad_r
     assert reports.dashboard_variables()["himp_dashboard_reports"] == []
     with pytest.raises(FileNotFoundError):
         export.txt("new-name")
+
+    # Exercise the dashboard renderer with a payload above Linux's single-argument limit.
+    hosts = [f"fixture-{index:04d}" for index in range(700)]
+    legacy_report = json.dumps({
+        "metadata": {"operating_system": "fixture", "kernel": "fixture"},
+        "network": {"primary_ip": "192.0.2.1"},
+        "health": {"overall": {"score": 80, "status": "HEALTHY"}},
+    })
+    for hostname in hosts:
+        (json_dir / f"{hostname}.json").write_text(legacy_report)
+    inventory.write_text(
+        "all:\n  hosts:\n    localhost: {ansible_connection: local}\n"
+        + "".join(f"    {hostname}: {{}}\n" for hostname in hosts)
+    )
+    variables = reports.dashboard_variables()
+    assert len(json.dumps(variables).encode()) > 131_072
+    result = run_playbook(str(playbook), timeout=45, inventory_path=inventory, extra_vars=variables)
+    assert result.success, result.stdout + result.stderr
+    dashboard_json = json.loads((root / "dashboard" / "dashboard.json").read_text())
+    assert [row["hostname"] for row in dashboard_json["hosts"]] == hosts
+    assert "too-deep.json" in dashboard_json["skipped_reports"]

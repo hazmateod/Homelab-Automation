@@ -147,7 +147,7 @@ class ReportService:
         for artifact in sorted(artifacts):
             try:
                 report = json.loads(artifact.read_text(encoding="utf-8"))
-            except (OSError, ValueError):
+            except (OSError, ValueError, RecursionError):
                 skipped.append(str(artifact.relative_to(root)))
                 continue
             if not isinstance(report, dict):
@@ -167,7 +167,7 @@ class ReportService:
             if dashboard_bindings is not None:
                 try:
                     report = self._dashboard_report(report, hostname)
-                except ValueError:
+                except (ValueError, RecursionError):
                     skipped.append(str(artifact.relative_to(root)))
                     continue
             if hostname not in ranks or rank > ranks[hostname]:
