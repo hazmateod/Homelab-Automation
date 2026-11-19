@@ -193,6 +193,19 @@ def main():
         func=plugin_run.run,
     )
 
+    reconcile_parser = subparsers.add_parser(
+        "reconcile-maintenance",
+        help="Record manual verification of an interrupted maintenance mutation",
+    )
+    reconcile_parser.add_argument("plan_id")
+    reconcile_parser.add_argument("host")
+    reconcile_parser.add_argument("--note", required=True)
+    reconcile_parser.add_argument(
+        "--confirm-drained", action="store_true",
+        help="Confirm the worker and remote mutation have stopped and host state was verified",
+    )
+    reconcile_parser.set_defaults(func=update.reconcile)
+
     validate_parser = subparsers.add_parser(
         "validate",
         help="Validate installed plugins",

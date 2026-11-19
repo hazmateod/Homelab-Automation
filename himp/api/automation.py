@@ -13,6 +13,7 @@ from fastapi.responses import JSONResponse
 
 from himp.app import HIMP
 from himp.database.automation_progress import AutomationProgressRepository
+from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
 from himp.services.automation import (
     AutomationAlreadyRunningError,
     AutomationConfirmationRequiredError,
@@ -93,6 +94,14 @@ def automation_execution_status(
 
 
 
+@router.get("/automation/maintenance-plans/{plan_id}/outcomes")
+def maintenance_plan_outcomes(plan_id: str):
+    outcomes = MaintenanceOutcomeRepository().read_plan_outcomes(plan_id)
+    if outcomes is None:
+        raise HTTPException(status_code=404, detail="Maintenance target plan not found")
+    return {"target_plan_id": plan_id, "host_results": outcomes}
+
+
 def _serialize_automation_progress(record):
     """Return an explicit public allowlist of progress fields."""
     if record is None:
@@ -113,6 +122,7 @@ def _serialize_automation_progress(record):
                 for key in (
                     "host",
                     "status",
+                    "reason",
                     "last_task",
                     "last_event",
                     "updated_at",

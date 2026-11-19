@@ -73,6 +73,7 @@ class UpdateService:
             )
             plan_id = self.plans.save({
                 "task": target,
+                "outcome_schema": 1,
                 "mode": mode,
                 "requested": requested,
                 "inventory_revision": revision,
@@ -86,6 +87,7 @@ class UpdateService:
                         list(selection["eligible_hosts"]),
                         list(selection["excluded_hosts"]),
                     )
+
                 def validate():
                     latest = self.eligibility.resolve(
                         requested, mode=mode, inventory_path=snapshot.name
@@ -199,6 +201,11 @@ class UpdateService:
             status = "interrupted"
         else:
             status = "failed"
+        dashboard = {"status": "skipped"}
+        if "succeeded" in statuses:
+            remaining = None if deadline is None else deadline - monotonic()
+            if remaining is None or remaining > 0:
+                dashboard = self._refresh_dashboard(snapshot, remaining)
         success = status in {"succeeded", "skipped"}
         return {
             "target": target,
@@ -211,6 +218,20 @@ class UpdateService:
             "stdout": "\n".join(stdout),
             "stderr": "\n".join(stderr),
             "host_results": results,
+            "dashboard": dashboard,
             "eligible_hosts": eligible,
             "excluded_hosts": excluded,
+        }
+
+    @staticmethod
+    def _refresh_dashboard(snapshot, timeout):
+        try:
+            result = run_playbook(
+                config.dashboard_playbook, timeout=timeout, inventory_path=snapshot,
+            )
+        except Exception:
+            return {"status": "failed", "reason": "dashboard_execution_error"}
+        return {
+            "status": "succeeded" if result.success else "failed",
+            "return_code": result.return_code,
         }

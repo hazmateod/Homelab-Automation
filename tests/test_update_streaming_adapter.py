@@ -8,6 +8,15 @@ import himp.services.update as update_module
 from himp.services.update import UpdateService
 
 
+@pytest.fixture(autouse=True)
+def stub_dashboard(monkeypatch):
+    monkeypatch.setattr(
+        update_module.UpdateService,
+        "_refresh_dashboard",
+        staticmethod(lambda *args: {"status": "succeeded"}),
+    )
+
+
 class FakeEligibility:
     def __init__(self, hosts):
         self.hosts = hosts

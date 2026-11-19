@@ -7,6 +7,15 @@ import pytest
 from himp.services import update as update_module
 
 
+@pytest.fixture(autouse=True)
+def stub_dashboard(monkeypatch):
+    monkeypatch.setattr(
+        update_module.UpdateService,
+        "_refresh_dashboard",
+        staticmethod(lambda *args: {"status": "succeeded"}),
+    )
+
+
 class FakeEligibility:
     def __init__(self, eligible, excluded=None):
         self.eligible = eligible
@@ -272,3 +281,58 @@ def test_real_ansible_isolates_unreachable_middle_host(monkeypatch, tmp_path):
     assert marker.read_text() == "completed"
     assert result["status"] == "partial"
     assert result["host_results"][hosts[1]]["status"] == "unreachable"
+
+
+def test_recovery_read_distinguishes_unknown_dispatch_from_unstarted(tmp_path, monkeypatch):
+    from himp.database.automation_target_plans import AutomationTargetPlanRepository
+    from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
+
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text("all: {}\n")
+    monkeypatch.setattr(update_module.config, "inventory", str(inventory))
+    plans = AutomationTargetPlanRepository()
+    ids = []
+
+    class TrackingPlans:
+        def save(self, plan):
+            plan_id = plans.save(plan)
+            ids.append(plan_id)
+            return plan_id
+
+    class WorkerExit(BaseException):
+        pass
+
+    def interrupt(*args, **kwargs):
+        raise WorkerExit()
+
+    monkeypatch.setattr(update_module, "run_playbook", interrupt)
+    service = update_module.UpdateService(
+        eligibility=FakeEligibility(["fixture-unknown", "fixture-unstarted"]),
+        plans=TrackingPlans(),
+    )
+    with pytest.raises(WorkerExit):
+        service.update("maintenance")
+
+    outcomes = MaintenanceOutcomeRepository()
+    assert outcomes.read_plan_outcomes(ids[0]) == {
+        "fixture-unknown": {"host": "fixture-unknown", "status": "interrupted",
+                            "reason": "completion_unverified"},
+        "fixture-unstarted": {"host": "fixture-unstarted", "status": "unstarted"},
+    }
+    legacy = plans.save({"task": "maintenance", "eligible_hosts": ["fixture-unknown"]})
+    assert outcomes.read_plan_outcomes(legacy) is None
+
+
+def test_reconcile_preserves_interruption_and_clears_only_selected_marker():
+    from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
+
+    outcomes = MaintenanceOutcomeRepository()
+    host = "fixture-reconcile"
+    outcomes.start("fixture-plan-one", host)
+    outcomes.start("fixture-plan-two", host)
+    assert outcomes.reconcile("fixture-plan-one", host, "Verified package state locally")
+    assert outcomes.requires_reconciliation(host)
+    assert not outcomes.reconcile("fixture-plan-one", host, "Duplicate acknowledgement")
+    assert outcomes.reconcile("fixture-plan-two", host, "Confirmed no remote process remained")
+    assert not outcomes.requires_reconciliation(host)
+    assert outcomes.find("fixture-plan-one")[host]["status"] == "interrupted"
