@@ -83,3 +83,52 @@ def test_verified_rebuild_blocks_retry_and_new_report_uses_new_incarnation(
     assert [(binding["host_id"], binding["incarnation"]) for binding in bindings] == [
         (host_id, 1), (host_id, 2),
     ]
+
+
+def test_unverified_report_exports_leave_verified_json_and_markdown_intact(tmp_path):
+    import json
+    from pathlib import Path
+    import shutil
+
+    from himp.lib.ansible import run_playbook
+
+    if shutil.which("ansible-playbook") is None:
+        pytest.skip("ansible-core is required for the report export fixture")
+    playbooks = tmp_path / "playbooks"
+    playbooks.mkdir()
+    root = Path(__file__).resolve().parents[2]
+    for filename in ("export_json.yml", "export_markdown.yml"):
+        shutil.copyfile(root / "roles" / "report" / "tasks" / filename, playbooks / filename)
+    playbook = playbooks / "render.yml"
+    playbook.write_text(
+        "- hosts: all\n"
+        "  gather_facts: false\n"
+        "  vars:\n"
+        "    ansible_date_time: {date: '2026-01-01', time: '00:00:00'}\n"
+        "    cmdb: {health: {disk: [], recommendations: []}}\n"
+        "  tasks:\n"
+        "    - ansible.builtin.include_tasks: export_json.yml\n"
+        "    - ansible.builtin.include_tasks: export_markdown.yml\n"
+    )
+    inventory = tmp_path / "inventory.yml"
+    inventory.write_text(
+        "all:\n  hosts:\n    fixture:\n"
+        "      ansible_connection: local\n      ansible_host: 192.0.2.1\n      ansible_user: fixture\n"
+    )
+    json_dir = tmp_path / "reports" / "json"
+    markdown_dir = tmp_path / "reports" / "current" / "cmdb"
+    identity = {"host_id": "verified", "incarnation": 1}
+    bound = run_playbook(str(playbook), "fixture", timeout=15, inventory_path=inventory, extra_vars={
+        "himp_host_bindings": {"fixture": {**identity, "ip": "192.0.2.1", "user": "fixture"}},
+    })
+    assert bound.success, bound.stdout + bound.stderr
+    verified_json = (json_dir / "fixture.json").read_bytes()
+    verified_markdown = (markdown_dir / "fixture.md").read_bytes()
+    assert json.loads(verified_json)["host_identity"] == identity
+    for limit in ("fixture", None):
+        unbound = run_playbook(str(playbook), limit, timeout=15, inventory_path=inventory)
+        assert unbound.success, unbound.stdout + unbound.stderr
+        assert (json_dir / "fixture.json").read_bytes() == verified_json
+        assert (markdown_dir / "fixture.md").read_bytes() == verified_markdown
+        assert "host_identity" not in json.loads((json_dir / "unverified" / "fixture.json").read_bytes())
+        assert (markdown_dir / "unverified" / "fixture.md").is_file()

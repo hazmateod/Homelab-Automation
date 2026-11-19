@@ -37,3 +37,9 @@ For a confirmed move, send `host_id`, `expected_incarnation`, `expected_ip`,
 `expected_user`, and `continuity_verified: true` to the verified move endpoint.
 For a confirmed replacement after an endpoint edit, include the expected IP and
 user in the verified rebuild request.
+
+Reports without a matching host identity are written under `reports/json/unverified`
+and `reports/current/cmdb/unverified`. A report run cannot replace a canonical
+report without a matching binding. The dashboard and host exports use unverified
+output as a fallback when canonical output is absent. The verified comparison
+view reads canonical JSON and checks the current host incarnation.

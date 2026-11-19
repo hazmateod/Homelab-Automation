@@ -7,6 +7,7 @@ from himp.database.host_identity import HostIdentityRepository
 from himp.lib.ansible import run_playbook
 from himp.lib.history import log
 from himp.lib.output import error, info, success
+from himp.services.inventory_publication import inventory_admission
 
 
 def run(args):
@@ -14,13 +15,14 @@ def run(args):
     info("Generating reports...")
     print()
 
-    bindings = HostIdentityRepository().execution_bindings()
-    options = {"extra_vars": {"himp_host_bindings": bindings}} if bindings else {}
-    result = run_playbook(
-        config.report_playbook,
-        args.limit,
-        **options,
-    )
+    with inventory_admission(config.inventory):
+        bindings = HostIdentityRepository().execution_bindings()
+        options = {"extra_vars": {"himp_host_bindings": bindings}} if bindings else {}
+        result = run_playbook(
+            config.report_playbook,
+            args.limit,
+            **options,
+        )
 
     log(
         "report",

@@ -188,3 +188,14 @@ def test_missing_report_is_rejected(
         raise AssertionError(
             "Expected FileNotFoundError"
         )
+
+
+def test_export_prefers_canonical_markdown_and_can_read_unverified_fallback(tmp_path, monkeypatch):
+    service = configure_service(tmp_path, monkeypatch)
+    parent = service.root / "current" / "cmdb"
+    fallback = parent / "unverified"
+    fallback.mkdir()
+    (fallback / "pve01.md").write_text("# Unverified output")
+    assert service.txt("pve01").startswith(b"# pve01 Infrastructure Report")
+    (parent / "pve01.md").unlink()
+    assert service.txt("pve01") == b"# Unverified output"

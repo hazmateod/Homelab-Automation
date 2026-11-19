@@ -412,3 +412,35 @@ def test_renamed_host_preserves_holds_and_dispatches_verified_report_binding(
     result = service.update("maintenance", **kwargs)
     assert calls == [{"host_id": host_id, "incarnation": 1, "ip": "192.0.2.1", "user": "fixture"}]
     assert outcomes.find(result["target_plan_id"])["new"]["host_id"] == host_id
+
+
+def test_ssh_user_mismatch_blocks_maintenance_before_report_changes(monkeypatch, tmp_path):
+    from himp.database.inventory import InventoryRepository
+    from himp.services.host_maintenance_eligibility import HostMaintenanceEligibility
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "inventory.db"))
+    inventory = tmp_path / "hosts.yml"
+    inventory.write_text("all: {}\n")
+    monkeypatch.setattr(update_module.config, "inventory", str(inventory))
+    repository = InventoryRepository()
+    repository.save_host({
+        "hostname": "fixture", "group": "test", "ip": "192.0.2.1",
+        "user": "approved", "become": False,
+    })
+    eligibility = HostMaintenanceEligibility(inventory_repository=repository)
+    monkeypatch.setattr(eligibility, "read_inventory", lambda path: {
+        "_meta": {"hostvars": {"fixture": {"ansible_host": "192.0.2.1", "ansible_user": "different"}}},
+        "maintenance": {"hosts": ["fixture"]},
+    })
+    report = tmp_path / "fixture.json"
+    report.write_text('{"host_identity":{"host_id":"verified","incarnation":1}}')
+
+    def unexpected(*args, **kwargs):
+        pytest.fail("Maintenance must not dispatch for a mismatched SSH user")
+
+    monkeypatch.setattr(update_module, "run_playbook", unexpected)
+    monkeypatch.setattr(update_module, "run_playbook_streaming", unexpected)
+    service = update_module.UpdateService(eligibility=eligibility)
+    with pytest.raises(ValueError, match="Maintenance SSH user differs"):
+        service.update("maintenance")
+    assert report.read_text() == '{"host_identity":{"host_id":"verified","incarnation":1}}'

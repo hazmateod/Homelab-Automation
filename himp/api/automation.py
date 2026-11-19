@@ -254,7 +254,7 @@ class AutomationDependencyRequest(BaseModel):
     depends_on_task_id: str
 
 
-@router.post("/automation/{task_id}/dependencies")
+@router.post("/automation/{task_id}/dependencies", dependencies=[Depends(require_admin)])
 def add_automation_dependency(
     task_id: str,
     request: AutomationDependencyRequest,
@@ -315,7 +315,8 @@ def automation_dependency_graph():
 
 
 @router.delete(
-    "/automation/{task_id}/dependencies/{dependency_task_id}"
+    "/automation/{task_id}/dependencies/{dependency_task_id}",
+    dependencies=[Depends(require_admin)],
 )
 def remove_automation_dependency(
     task_id: str,
@@ -351,7 +352,7 @@ def remove_automation_dependency(
         )
 
 
-@router.post("/automation/{task_id}/enable")
+@router.post("/automation/{task_id}/enable", dependencies=[Depends(require_admin)])
 def enable_automation(
     task_id: str,
 ):
@@ -372,7 +373,7 @@ def enable_automation(
         )
 
 
-@router.post("/automation/{task_id}/disable")
+@router.post("/automation/{task_id}/disable", dependencies=[Depends(require_admin)])
 def disable_automation(
     task_id: str,
 ):

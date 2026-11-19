@@ -13,7 +13,9 @@
   delegate_to: localhost
   become: false
   ansible.builtin.find:
-    paths: "{{ playbook_dir }}/../reports/json"
+    paths:
+      - "{{ playbook_dir }}/../reports/json"
+      - "{{ playbook_dir }}/../reports/json/unverified"
     patterns: "*.json"
   register: dashboard_json
 
@@ -41,7 +43,16 @@
           ]
       }}
   loop: "{{ dashboard_json.files }}"
-  when: (item.path | basename | splitext | first) in groups['all']
+  vars:
+    canonical_names: >-
+      {{
+        dashboard_json.files
+        | rejectattr('path', 'search', '/unverified/[^/]+$')
+        | map(attribute='path') | map('basename') | list
+      }}
+  when:
+    - (item.path | basename | splitext | first) in groups['all']
+    - (item.path | dirname | basename) != 'unverified' or (item.path | basename) not in canonical_names
 
 - name: Generate dashboard JSON
   run_once: true

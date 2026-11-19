@@ -21,6 +21,7 @@ from himp.services.host_maintenance_eligibility import (
     literal_host_pattern,
 )
 from himp.models.dashboard import Dashboard
+from himp.services.inventory_publication import inventory_admission
 
 
 class ReportTargetChangedError(ValueError):
@@ -38,6 +39,10 @@ class ReportService:
 
 
     def generate(self, limit=None, timeout=None, *, expected_target_plan_id=None):
+        with inventory_admission(config.inventory):
+            return self._generate(limit, timeout, expected_target_plan_id=expected_target_plan_id)
+
+    def _generate(self, limit, timeout, *, expected_target_plan_id):
         if not limit or not literal_host_pattern(limit, {}):
             if expected_target_plan_id is not None:
                 raise ReportTargetChangedError("Report retry requires one verified host")

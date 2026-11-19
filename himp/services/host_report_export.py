@@ -46,6 +46,8 @@ class HostReportExportService:
         )
 
         if not filename.exists():
+            filename = filename.parent / "unverified" / filename.name
+        if not filename.exists():
             raise FileNotFoundError(
                 f"Host report not found: {hostname}"
             )

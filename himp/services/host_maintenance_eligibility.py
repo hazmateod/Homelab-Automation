@@ -210,6 +210,8 @@ class HostMaintenanceEligibility:
             variables = hostvars[hostname]
             if row["ip"] != variables.get("ansible_host"):
                 raise ValueError("Maintenance target differs between inventory and database")
+            if row["ansible_user"] != variables.get("ansible_user"):
+                raise ValueError(f"Maintenance SSH user differs between inventory and database: {hostname}")
             fingerprints[hostname] = fingerprint_host(row, variables)
 
         return {
