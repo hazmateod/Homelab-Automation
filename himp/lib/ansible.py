@@ -2,6 +2,7 @@
 Shared Ansible helper functions.
 """
 
+import json
 import subprocess
 import time
 from dataclasses import dataclass
@@ -30,6 +31,7 @@ def run_playbook(
     timeout=None,
     *,
     inventory_path=None,
+    extra_vars=None,
 ):
     cmd = [
         "ansible-playbook",
@@ -43,6 +45,9 @@ def run_playbook(
             "--limit",
             limit,
         ])
+
+    if extra_vars:
+        cmd.extend(["--extra-vars", json.dumps(extra_vars)])
 
     start = time.perf_counter()
 

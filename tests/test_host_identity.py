@@ -1,8 +1,14 @@
+import json
+
 import pytest
 
 from himp.database.host_identity import HostIdentityRepository
 from himp.database.inventory import InventoryRepository
+from himp.health.repository import HealthRepository
+from himp.models.ssh import SSHResult
+from himp.services.host_health import HostHealthService
 from himp.services.inventory_publication import InventoryPublication
+from himp.services.reports import ReportService
 
 
 def host(name, ip):
@@ -69,3 +75,74 @@ def test_pending_publication_recovers_identity_after_failed_backfill(monkeypatch
         assert current["hostname"] == "current"
     assert not publication.journal.exists()
     assert HostIdentityRepository(inventory).backfill() == 0
+
+
+def test_shadow_projections_match_verified_incarnations_and_keep_legacy_readable(
+    monkeypatch, tmp_path,
+):
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "host-identity.db"))
+    inventory = InventoryRepository()
+    inventory.save_host(host("current", "192.0.2.1"))
+    identities = HostIdentityRepository(inventory)
+    identities.backfill()
+    active, = identities.current()
+    identity = {"host_id": active["host_id"], "incarnation": 1}
+
+    reports = ReportService()
+    reports.root = tmp_path / "reports"
+    report_dir = reports.root / "json"
+    report_dir.mkdir(parents=True)
+    bound_report = {"host_identity": identity}
+    (report_dir / "current.json").write_text(json.dumps(bound_report))
+    (report_dir / "legacy.json").write_text("{}")
+    health = HealthRepository()
+    health.REPORT_DIR = tmp_path
+    (tmp_path / "plugin.json").write_text(json.dumps({
+        "plugin": "fixture",
+        "hosts": [{"hostname": "current", "host_identity": identity}, {"hostname": "legacy"}],
+    }))
+
+    assert reports.current_host_reports() == {"current": bound_report}
+    assert [(plugin, row.hostname) for plugin, row in health.current_hosts()] == [
+        ("fixture", "current"),
+    ]
+    inventory_row = inventory.find_host("current")
+    identities.rename(inventory_row["id"], "current", "renamed", "fixture-rename")
+    assert reports.current_host_reports() == {"renamed": bound_report}
+    assert [row.hostname for _, row in health.current_hosts()] == ["renamed"]
+
+    inventory.mark_removed("renamed")
+    assert reports.current_host_reports() == {}
+    assert list(health.current_hosts()) == []
+    inventory.restore_host("renamed")
+    assert reports.current_host_reports() == {"renamed": bound_report}
+
+    assert identities.record_rebuild(active["host_id"], 1) == 2
+    assert reports.current_host_reports() == {}
+    assert list(health.current_hosts()) == []
+    assert len(reports.files()) == 2
+    assert [row.hostname for row in health.plugin("plugin").hosts] == ["current", "legacy"]
+
+
+def test_host_health_binds_only_when_incarnation_stays_stable(monkeypatch, tmp_path):
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "host-identity.db"))
+    service = HostHealthService()
+    service.inventory.save_host(host("current", "192.0.2.1"))
+    service.identities.backfill()
+    host_id = service.identities.current()[0]["host_id"]
+
+    def respond(*, timeout, **target):
+        return SSHResult(**target)
+
+    monkeypatch.setattr(service.ssh, "test", respond)
+    bound = service.check_host("current").host_identity
+    assert bound == {"host_id": host_id, "incarnation": 1}
+    assert service.latest("current")["details"]["host_identity"] == bound
+
+    def respond_after_rebuild(*, timeout, **target):
+        assert service.identities.record_rebuild(host_id, 1) == 2
+        return SSHResult(**target)
+
+    monkeypatch.setattr(service.ssh, "test", respond_after_rebuild)
+    assert service.check_host("current").host_identity is None
+    assert "host_identity" not in service.latest("current")["details"]

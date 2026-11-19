@@ -7,8 +7,11 @@ Business logic layer for HIMP inventory.
 from collections import Counter
 import json
 import subprocess
+from uuid import uuid4
 
 from himp.collectors.inventory import InventoryCollector
+from himp.database.host_automation_policies import HostAutomationPolicyRepository
+from himp.database.host_identity import HostIdentityRepository
 from himp.database.inventory import InventoryRepository
 from himp.health.repository import HealthRepository
 from himp.services.inventory_writer import InventoryFileWriter
@@ -65,6 +68,7 @@ class InventoryService:
         hostname,
         expected_ip,
         inventory_path=None,
+        expected_user=None,
     ):
         inventory_path = str(inventory_path or config.inventory)
         inventory_result = subprocess.run(
@@ -108,6 +112,9 @@ class InventoryService:
                 f"{hostname}: expected {expected_ip}, "
                 f"got {actual_ip}"
             )
+
+        if expected_user is not None and inventory_data.get("ansible_user") != expected_user:
+            raise ValueError(f"Ansible inventory user changed for {hostname}")
 
         ping_result = subprocess.run(
             [
@@ -165,6 +172,44 @@ class InventoryService:
             result = writer.rename_group(group=group, new_group=new_group)
             publication.publish(writer, original, "rename_group", group, new_group)
             return result
+
+    def rename_host(self, hostname, new_hostname):
+        publication = self._publication()
+        with publication.locked(), publication.stage() as (writer, original):
+            existing = self.repository.find_host(hostname)
+            if existing is None:
+                raise ValueError(f"Inventory host does not exist: {hostname}")
+            if self.repository.find_host(new_hostname, include_inactive=True) is not None:
+                raise ValueError(f"Inventory host already exists: {new_hostname}")
+            policy = HostAutomationPolicyRepository(self.repository.database).get(new_hostname)
+            if policy["changed_by"] is not None:
+                raise ValueError(f"An automation policy already exists for {new_hostname}")
+            writer.rename_host(hostname, new_hostname)
+            self._validate_inventory_host(
+                hostname=new_hostname,
+                expected_ip=existing["ip"],
+                inventory_path=writer.filename,
+                expected_user=existing["ansible_user"],
+            )
+            publication.publish(
+                writer, original, "rename_host", existing["id"], hostname, new_hostname,
+                str(uuid4()),
+            )
+            return self.repository.find_host(new_hostname)
+
+    def record_verified_rebuild(self, hostname, host_id, expected_incarnation):
+        with self._publication().locked():
+            host = self.repository.find_host(hostname)
+            if host is None:
+                raise ValueError(f"Inventory host does not exist: {hostname}")
+            identities = HostIdentityRepository(self.repository)
+            current = identities.current_host(host["id"], hostname, host["ip"], host["ansible_user"])
+            if current != {"host_id": host_id, "incarnation": expected_incarnation}:
+                raise ValueError("The inventory host incarnation has changed")
+            incarnation = identities.record_rebuild(host_id, expected_incarnation)
+            if incarnation is None:
+                raise ValueError("The inventory host incarnation has changed")
+            return {"host_id": host_id, "incarnation": incarnation}
 
     def remove_host(self, hostname):
         publication = self._publication()

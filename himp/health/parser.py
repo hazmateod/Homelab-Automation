@@ -99,6 +99,10 @@ class HealthArtifactParser:
                             "hostname",
                             "unknown"
                         ),
+                        host_identity=(
+                            item["host_identity"]
+                            if isinstance(item.get("host_identity"), dict) else None
+                        ),
 
                         results=[
 

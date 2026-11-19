@@ -4,6 +4,7 @@ Health Report Repository.
 
 from pathlib import Path
 
+from himp.database.host_identity import HostIdentityRepository
 from himp.health.parser import HealthArtifactParser
 
 
@@ -41,3 +42,13 @@ class HealthRepository:
         )
 
         return self.parser.parse(artifact)
+
+    def current_hosts(self, current=None):
+        """Shadow view of verified plugin results without replacing legacy artifacts."""
+        if current is None:
+            current = HostIdentityRepository().current_hostnames()
+        for execution in self.plugins():
+            for host in execution.hosts:
+                hostname = HostIdentityRepository.projected_hostname(current, host.host_identity)
+                if hostname is not None:
+                    yield execution.summary.plugin, host.model_copy(update={"hostname": hostname})

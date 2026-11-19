@@ -5,12 +5,14 @@ Provides report inventory and dashboard report information.
 """
 
 from hashlib import sha256
+import json
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 
 from himp.config import config
 from himp.database.automation_executions import AutomationExecutionRepository
 from himp.database.automation_target_plans import AutomationTargetPlanRepository
+from himp.database.host_identity import HostIdentityRepository
 from himp.database.inventory import InventoryRepository
 from himp.lib.ansible import run_playbook
 from himp.services.host_maintenance_eligibility import (
@@ -39,7 +41,7 @@ class ReportService:
         if not limit or not literal_host_pattern(limit, {}):
             if expected_target_plan_id is not None:
                 raise ReportTargetChangedError("Report retry requires one verified host")
-            return self._run_report(limit, timeout)
+            return self._run_broad_report(limit, timeout)
 
         source = Path(config.inventory).resolve()
         contents = source.read_bytes()
@@ -53,8 +55,9 @@ class ReportService:
             if not literal_host_pattern(limit, inventory) or variables is None:
                 if expected_target_plan_id is not None:
                     raise ReportTargetChangedError("The original report host is no longer identifiable")
-                return self._run_report(limit, timeout)
-            row = InventoryRepository().find_host(limit)
+                return self._run_broad_report(limit, timeout)
+            repository = InventoryRepository()
+            row = repository.find_host(limit)
             if row is None or row["ip"] != variables.get("ansible_host"):
                 raise ReportTargetChangedError("Report host is inactive or differs from inventory")
 
@@ -66,6 +69,13 @@ class ReportService:
                 "eligible_hosts": [limit],
                 "target_fingerprints": {limit: fingerprint_host(row, variables)},
             }
+            identity = HostIdentityRepository(repository).current_host(
+                row["id"], limit, variables.get("ansible_host"), variables.get("ansible_user")
+            )
+            bindings = {}
+            if identity is not None:
+                plan["host_identity"] = identity
+                bindings[limit] = {**identity, "ip": row["ip"], "user": row["ansible_user"]}
             plans = AutomationTargetPlanRepository()
             if expected_target_plan_id is not None and plans.find(expected_target_plan_id) != plan:
                 raise ReportTargetChangedError("The report inventory or host identity has changed")
@@ -74,20 +84,54 @@ class ReportService:
             plan_id = plans.save(plan)
             try:
                 return {
-                    **self._run_report(limit, timeout, inventory_path=snapshot.name),
+                    **self._run_report(
+                        limit, timeout, inventory_path=snapshot.name, bindings=bindings
+                    ),
                     "target_plan_id": plan_id,
                 }
             except Exception as error:
                 error.target_plan_id = plan_id
                 raise
 
+    def _run_broad_report(self, limit, timeout):
+        identities = HostIdentityRepository()
+        return self._run_report(limit, timeout, bindings=identities.execution_bindings())
+
     @staticmethod
-    def _run_report(limit, timeout, *, inventory_path=None):
+    def _run_report(limit, timeout, *, inventory_path=None, bindings=None):
         options = {"timeout": timeout}
         if inventory_path is not None:
             options["inventory_path"] = inventory_path
+        if bindings:
+            options["extra_vars"] = {"himp_host_bindings": bindings}
         result = run_playbook(config.report_playbook, limit, **options)
         return {"success": result.success, "elapsed": result.elapsed}
+
+    @staticmethod
+    def generated_at(report):
+        metadata = report.get("metadata")
+        timestamp = metadata.get("report_generated") if isinstance(metadata, dict) else None
+        return timestamp if isinstance(timestamp, str) else None
+
+    def current_host_reports(self, current=None):
+        """Shadow view of verified JSON reports, including evidence from a prior alias."""
+        if current is None:
+            current = HostIdentityRepository().current_hostnames()
+        reports = {}
+        ranks = {}
+        for artifact in sorted((self.root / "json").glob("*.json")):
+            try:
+                report = json.loads(artifact.read_text())
+            except (OSError, ValueError):
+                continue
+            if not isinstance(report, dict):
+                continue
+            hostname = HostIdentityRepository.projected_hostname(current, report.get("host_identity"))
+            rank = (self.generated_at(report) or "", artifact.stem == hostname)
+            if hostname is not None and (hostname not in ranks or rank > ranks[hostname]):
+                reports[hostname] = report
+                ranks[hostname] = rank
+        return reports
 
 
     def summary(self):

@@ -8,9 +8,18 @@
   become: false
 
 - name: Export CMDB as JSON
+  vars:
+    binding: "{{ (himp_host_bindings | default({})).get(inventory_hostname, {}) }}"
+    verified_identity: >-
+      {{
+        {'host_id': binding.host_id, 'incarnation': binding.incarnation}
+        if binding and binding.ip == (ansible_host | default(''))
+        and binding.user == (ansible_user | default(''))
+        else {}
+      }}
   ansible.builtin.copy:
     dest: "{{ playbook_dir }}/../reports/json/{{ inventory_hostname }}.json"
-    content: "{{ cmdb | to_nice_json }}"
+    content: "{{ (cmdb | combine({'host_identity': verified_identity} if verified_identity else {})) | to_nice_json }}"
     mode: "0644"
   delegate_to: localhost
   become: false

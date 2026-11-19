@@ -32,6 +32,7 @@ class HealthCheckResult(BaseModel):
 class HostHealthResult(BaseModel):
     hostname: str
     results: list[HealthCheckResult]
+    host_identity: dict[str, object] | None = None
 
     @property
     def passed(self) -> int:

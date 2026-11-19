@@ -3,6 +3,7 @@ from types import SimpleNamespace
 import pytest
 
 from himp.services import reports
+from himp.database.host_identity import HostIdentityRepository
 
 
 @pytest.fixture
@@ -56,3 +57,29 @@ def test_report_retry_dispatches_only_the_verified_original_host(
         with pytest.raises(reports.ReportTargetChangedError):
             service.generate("fixture", expected_target_plan_id=plan_id)
         assert calls == ["fixture"]
+
+
+def test_verified_rebuild_blocks_retry_and_new_report_uses_new_incarnation(
+    monkeypatch, report_host,
+):
+    _, repository, inventory = report_host
+    inventory["_meta"]["hostvars"]["fixture"]["ansible_user"] = "fixture"
+    identities = HostIdentityRepository(repository)
+    identities.backfill()
+    host_id = identities.current()[0]["host_id"]
+    bindings = []
+
+    def runner(playbook, limit, *, timeout, inventory_path, extra_vars):
+        bindings.append(extra_vars["himp_host_bindings"][limit])
+        return SimpleNamespace(success=True, elapsed=1.0)
+
+    monkeypatch.setattr(reports, "run_playbook", runner)
+    service = reports.ReportService()
+    first = service.generate("fixture")
+    assert identities.record_rebuild(host_id, 1) == 2
+    with pytest.raises(reports.ReportTargetChangedError):
+        service.generate("fixture", expected_target_plan_id=first["target_plan_id"])
+    service.generate("fixture")
+    assert [(binding["host_id"], binding["incarnation"]) for binding in bindings] == [
+        (host_id, 1), (host_id, 2),
+    ]

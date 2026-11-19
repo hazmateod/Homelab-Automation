@@ -2,7 +2,11 @@
 Host Health Service.
 """
 
+from functools import cached_property
+import time
+
 from himp.database.host_health import HostHealthRepository
+from himp.database.host_identity import HostIdentityRepository
 from himp.database.inventory import InventoryRepository
 from himp.health.models import (
     HealthCheckResult,
@@ -10,8 +14,6 @@ from himp.health.models import (
     HealthStatus,
     HostHealthResult,
 )
-import time
-
 from himp.services.ssh import SSHService
 
 
@@ -30,6 +32,10 @@ class HostHealthService:
 
         self.ssh = SSHService()
 
+    @cached_property
+    def identities(self):
+        return HostIdentityRepository(self.inventory)
+
     def check_host(
         self,
         hostname,
@@ -44,6 +50,8 @@ class HostHealthService:
                 f"Inventory host not found: {hostname}"
             )
 
+        target = (host["id"], hostname, host["ip"], host["ansible_user"])
+        identity = self.identities.current_host(*target)
         ssh = self.ssh.test(
             hostname=host["hostname"],
             ip=host["ip"],
@@ -76,6 +84,12 @@ class HostHealthService:
                 "stderr": ssh.stderr,
             },
         )
+        if (
+            identity is not None
+            and (ssh.hostname, ssh.ip, ssh.user) == target[1:]
+            and self.identities.current_host(*target) == identity
+        ):
+            result.details["host_identity"] = identity
 
         self.repository.save(
             hostname=hostname,
@@ -85,6 +99,7 @@ class HostHealthService:
         return HostHealthResult(
             hostname=hostname,
             results=[result],
+            host_identity=result.details.get("host_identity"),
         )
 
 

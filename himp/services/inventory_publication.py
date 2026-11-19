@@ -69,9 +69,14 @@ class InventoryPublication:
             "mark_removed": self.repository.mark_removed,
             "restore_host": self.repository.restore_host,
             "rename_group": self.repository.rename_group,
+            "rename_host": lambda *args: HostIdentityRepository(self.repository).rename(*args),
         }
-        actions[pending["operation"]](*pending["arguments"])
-        self.reconcile_identities()
+        operation = pending["operation"]
+        if operation not in {"save_host", "rename_host"}:
+            self.reconcile_identities()
+        actions[operation](*pending["arguments"])
+        if operation == "save_host":
+            self.reconcile_identities()
         self.journal.unlink()
         _sync_directory(self.journal.parent)
 

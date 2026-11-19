@@ -2,6 +2,7 @@
 
 from uuid import uuid4
 
+from himp.database.host_automation_policies import HostAutomationPolicyRepository
 from himp.database.inventory import InventoryRepository
 
 
@@ -29,6 +30,84 @@ class HostIdentityRepository:
             )
             """
         )
+        self.database.execute(
+            """
+            CREATE TABLE IF NOT EXISTS host_alias_history (
+                operation_id TEXT PRIMARY KEY,
+                host_id TEXT NOT NULL REFERENCES host_identities(host_id),
+                change_id BIGINT NOT NULL UNIQUE,
+                old_hostname TEXT NOT NULL,
+                new_hostname TEXT NOT NULL,
+                recorded_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+    def rename(self, inventory_id, old_hostname, new_hostname, operation_id):
+        """Apply a journaled rename and move the active maintenance policy atomically."""
+        self.backfill()
+        HostAutomationPolicyRepository(self.database)
+        with self.database.transaction() as connection:
+            execute = self.database.execute_transaction
+            previous = execute(
+                connection, "SELECT 1 FROM host_alias_history WHERE operation_id=?",
+                (operation_id,),
+            ).fetchone()
+            if previous is not None:
+                return
+            renamed = execute(
+                connection,
+                """
+                UPDATE inventory_hosts SET hostname=?
+                WHERE id=? AND hostname=? AND active=1
+                RETURNING id
+                """,
+                (new_hostname, inventory_id, old_hostname),
+            ).fetchone()
+            if renamed is None:
+                raise ValueError("The inventory host changed before rename recovery")
+            change = execute(
+                connection,
+                """
+                INSERT INTO inventory_changes (hostname, change_type, field, old_value, new_value)
+                VALUES (?, 'RENAMED', 'hostname', ?, ?)
+                RETURNING id
+                """,
+                (new_hostname, old_hostname, new_hostname),
+            ).fetchone()
+            execute(
+                connection,
+                """
+                INSERT INTO host_alias_history
+                    (operation_id, host_id, change_id, old_hostname, new_hostname)
+                SELECT ?, host_id, ?, ?, ? FROM host_identities WHERE inventory_id=?
+                """,
+                (operation_id, change["id"], old_hostname, new_hostname, inventory_id),
+            )
+            execute(
+                connection, "UPDATE host_automation_policies SET hostname=? WHERE hostname=?",
+                (new_hostname, old_hostname),
+            )
+
+    def aliases(self, host_id):
+        return self.database.query(
+            """
+            SELECT old_hostname, new_hostname, recorded_at FROM host_alias_history
+            WHERE host_id=? ORDER BY change_id
+            """,
+            (host_id,),
+        )
+
+    def current_host(self, inventory_id, hostname, ip, user):
+        rows = self.database.query(
+            """
+            SELECT host_id, current_incarnation AS incarnation
+            FROM host_identities JOIN inventory_hosts ON inventory_id=inventory_hosts.id
+            WHERE active=1 AND inventory_hosts.id=? AND hostname=? AND ip=? AND ansible_user=?
+            """,
+            (inventory_id, hostname, ip, user),
+        )
+        return dict(rows[0]) if rows else None
 
     def backfill(self):
         """Create an identity for each known inventory row, including retired hosts."""
@@ -98,13 +177,44 @@ class HostIdentityRepository:
         return self.database.query(
             """
             SELECT host_identities.host_id, host_identities.current_incarnation,
-                   inventory_hosts.hostname, inventory_hosts.group_name, inventory_hosts.ip
+                   inventory_hosts.hostname, inventory_hosts.group_name, inventory_hosts.ip,
+                   inventory_hosts.ansible_user
             FROM host_identities
             JOIN inventory_hosts ON inventory_hosts.id=host_identities.inventory_id
             WHERE inventory_hosts.active=1
             ORDER BY inventory_hosts.hostname
             """
         )
+
+    def execution_bindings(self):
+        """Capture candidates at dispatch. Ansible verifies connection variables per host."""
+        return {
+            row["hostname"]: {
+                "host_id": row["host_id"],
+                "incarnation": row["current_incarnation"],
+                "ip": row["ip"],
+                "user": row["ansible_user"],
+            }
+            for row in self.current()
+            if row["ip"] and row["ansible_user"]
+        }
+
+    def current_hostnames(self):
+        """Index verified current incarnations by their stable identity."""
+        return {
+            (row["host_id"], row["current_incarnation"]): row["hostname"]
+            for row in self.current()
+        }
+
+    @staticmethod
+    def projected_hostname(current, identity):
+        if not isinstance(identity, dict):
+            return None
+        host_id = identity.get("host_id")
+        incarnation = identity.get("incarnation")
+        if not isinstance(host_id, str) or type(incarnation) is not int:
+            return None
+        return current.get((host_id, incarnation))
 
     def history(self, host_id):
         return self.database.query(

@@ -3,6 +3,8 @@ import subprocess
 import pytest
 
 from himp.config import config
+from himp.database.host_automation_policies import HostAutomationPolicyRepository
+from himp.database.host_identity import HostIdentityRepository
 from himp.services.inventory import InventoryService
 
 
@@ -79,6 +81,20 @@ def test_validate_inventory_host_accepts_matching_inventory_and_ping(
 
     assert calls[1][0] == "ansible"
     assert calls[1][3] == "himpdb01.server.arpa"
+
+
+def test_validate_rename_rejects_a_changed_ssh_user_before_connecting(monkeypatch):
+    def resolve(command, **kwargs):
+        assert command[0] == "ansible-inventory"
+        return subprocess.CompletedProcess(
+            command, 0, stdout='{"ansible_host":"192.0.2.1","ansible_user":"different"}',
+        )
+
+    monkeypatch.setattr("himp.services.inventory.subprocess.run", resolve)
+    with pytest.raises(ValueError, match="Ansible inventory user changed"):
+        make_service()._validate_inventory_host(
+            "fixture", "192.0.2.1", expected_user="operator"
+        )
 
 
 def test_validate_inventory_host_rejects_unresolved_host(
@@ -275,3 +291,53 @@ def test_remove_rejects_unsupported_nested_membership(inventory_service):
 
     assert path.read_text() == original
     assert service.find_host("existing") is not None
+
+
+def test_rename_recovers_after_database_commit_and_preserves_policy(
+    inventory_service, monkeypatch,
+):
+    service = inventory_service
+    path = service.writer.filename
+    path.write_text(path.read_text() + "    second:\n      hosts:\n        existing:\n")
+    policies = HostAutomationPolicyRepository(service.repository.database)
+    policies.set_policy("existing", False, "protected", "operator")
+    identities = HostIdentityRepository(service.repository)
+    identities.backfill()
+    original, = identities.current()
+    monkeypatch.setattr(service, "_validate_inventory_host", lambda **kwargs: None)
+    rename = HostIdentityRepository.rename
+
+    def interrupt_after_commit(self, *args):
+        rename(self, *args)
+        raise RuntimeError("interrupted after rename commit")
+
+    with monkeypatch.context() as patch:
+        patch.setattr(HostIdentityRepository, "rename", interrupt_after_commit)
+        with pytest.raises(RuntimeError, match="interrupted after rename commit"):
+            service.rename_host("existing", "new-name")
+
+    assert service._publication().journal.exists()
+    with service._publication().locked():
+        renamed, = identities.current()
+        assert renamed["host_id"] == original["host_id"]
+        assert renamed["current_incarnation"] == original["current_incarnation"]
+        assert [(row["old_hostname"], row["new_hostname"]) for row in
+                identities.aliases(original["host_id"])] == [("existing", "new-name")]
+        assert policies.disabled_hosts() == {"new-name"}
+        assert path.read_text().count("new-name:") == 2
+    assert not service._publication().journal.exists()
+
+
+def test_verified_rebuild_requires_the_current_host_identity(inventory_service):
+    service = inventory_service
+    identities = HostIdentityRepository(service.repository)
+    identities.backfill()
+    host_id = identities.current()[0]["host_id"]
+
+    with pytest.raises(ValueError, match="incarnation has changed"):
+        service.record_verified_rebuild("existing", "other-host", 1)
+    assert service.record_verified_rebuild("existing", host_id, 1) == {
+        "host_id": host_id, "incarnation": 2,
+    }
+    with pytest.raises(ValueError, match="incarnation has changed"):
+        service.record_verified_rebuild("existing", host_id, 1)
