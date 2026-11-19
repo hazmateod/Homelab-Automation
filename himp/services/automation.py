@@ -1258,6 +1258,10 @@ class AutomationService:
                         "error": str(error),
                     }
 
+                    plan_id = getattr(error, "target_plan_id", None)
+                    if plan_id is not None:
+                        failure_result["target_plan_id"] = plan_id
+
                     classification = self._classify_error(
                         error
                     )

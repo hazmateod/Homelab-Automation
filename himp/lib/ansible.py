@@ -28,11 +28,13 @@ def run_playbook(
     playbook,
     limit=None,
     timeout=None,
+    *,
+    inventory_path=None,
 ):
     cmd = [
         "ansible-playbook",
         "-i",
-        config.inventory,
+        str(inventory_path or config.inventory),
         playbook,
     ]
 
@@ -77,6 +79,8 @@ def run_playbook_streaming(
     on_output=None,
     on_event=None,
     structured_events=False,
+    *,
+    inventory_path=None,
 ):
     """Run Ansible with incremental stdout callbacks."""
     import json
@@ -94,7 +98,7 @@ def run_playbook_streaming(
     cmd = [
         "ansible-playbook",
         "-i",
-        config.inventory,
+        str(inventory_path or config.inventory),
         playbook,
     ]
 

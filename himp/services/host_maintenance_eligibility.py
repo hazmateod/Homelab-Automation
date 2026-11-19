@@ -5,10 +5,13 @@ Resolve approved Ansible targets and apply persistent
 operator-controlled host automation exclusions.
 """
 
+from hashlib import sha256
 import json
+import re
 import subprocess
 
 from himp.config import config
+from himp.database.inventory import InventoryRepository
 from himp.database.host_automation_policies import (
     HostAutomationPolicyRepository,
 )
@@ -17,19 +20,21 @@ from himp.database.host_automation_policies import (
 class HostMaintenanceEligibility:
     """Fail-closed host eligibility resolution."""
 
-    def __init__(self, policies=None):
+    def __init__(self, policies=None, inventory_repository=None):
         self.policies = (
             policies
             if policies is not None
             else HostAutomationPolicyRepository()
         )
 
-    def _inventory(self):
+        self.inventory_repository = inventory_repository
+
+    def _inventory(self, inventory_path=None):
         result = subprocess.run(
             [
                 "ansible-inventory",
                 "-i",
-                config.inventory,
+                str(inventory_path or config.inventory),
                 "--list",
             ],
             capture_output=True,
@@ -105,7 +110,7 @@ class HostMaintenanceEligibility:
 
         return expand(group_name)
 
-    def resolve(self, target, mode="scheduled"):
+    def resolve(self, target, mode="scheduled", *, inventory_path=None):
         """
         Return eligible hosts and exclusions.
 
@@ -122,7 +127,7 @@ class HostMaintenanceEligibility:
 
         target = target.strip()
 
-        inventory = self._inventory()
+        inventory = self._inventory(inventory_path)
 
         all_hosts = set(
             inventory.get("_meta", {})
@@ -172,15 +177,35 @@ class HostMaintenanceEligibility:
                 "Maintenance target resolution failed"
             )
 
-        disabled = self.policies.disabled_hosts()
+        if any(
+            not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", host)
+            or host in inventory
+            for host in selected
+        ):
+            raise ValueError("Maintenance selected an ambiguous Ansible host pattern")
 
-        eligible = sorted(selected - disabled)
-        excluded = sorted(selected & disabled)
+        repository = self.inventory_repository or InventoryRepository()
+        active = {row["hostname"]: row for row in repository.all_hosts()}
+        disabled = self.policies.disabled_hosts()
+        eligible = sorted((selected & active.keys()) - disabled)
+        excluded = sorted(selected - set(eligible))
+        hostvars = inventory["_meta"]["hostvars"]
+        fingerprints = {}
+        for hostname in eligible:
+            row = active[hostname]
+            variables = hostvars[hostname]
+            if row["ip"] != variables.get("ansible_host"):
+                raise ValueError("Maintenance target differs between inventory and database")
+            identity = (row["id"], row["first_seen"], variables)
+            fingerprints[hostname] = sha256(
+                json.dumps(identity, default=str, sort_keys=True).encode()
+            ).hexdigest()
 
         return {
             "target": target,
             "mode": mode,
             "eligible_hosts": eligible,
+            "target_fingerprints": fingerprints,
             "excluded_hosts": excluded,
             "selected_count": len(selected),
             "eligible_count": len(eligible),

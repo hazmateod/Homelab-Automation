@@ -12,9 +12,10 @@ class FakeEligibility:
     def __init__(self, hosts):
         self.hosts = hosts
 
-    def resolve(self, requested, mode):
+    def resolve(self, requested, mode, *, inventory_path):
         return {
             "eligible_hosts": self.hosts,
+            "target_fingerprints": {host: "fixture" for host in self.hosts},
             "excluded_hosts": [],
         }
 
@@ -32,7 +33,7 @@ def fake_result():
 def test_default_uses_existing_runner(monkeypatch):
     calls = []
 
-    def legacy(playbook, limit, timeout=None):
+    def legacy(playbook, limit, timeout=None, *, inventory_path=None):
         calls.append((playbook, limit, timeout))
         return fake_result()
 
