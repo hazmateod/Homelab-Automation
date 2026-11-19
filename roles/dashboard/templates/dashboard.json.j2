@@ -1,15 +1,16 @@
 {
   "generated": "{{ ansible_date_time.iso8601 }}",
   "host_count": {{ dashboard_hosts | default([]) | length }},
+  "skipped_reports": {{ himp_dashboard_skipped_reports | default([]) | to_json }},
   "hosts": [
 {% for host in dashboard_hosts | default([]) %}
     {
-      "hostname": "{{ host.metadata.hostname }}",
-      "ip": "{{ host.network.primary_ip | default('Unknown') }}",
-      "os": "{{ host.metadata.operating_system }}",
-      "kernel": "{{ host.metadata.kernel }}",
+      "hostname": {{ host.metadata.hostname | to_json }},
+      "ip": {{ host.network.primary_ip | default('Unknown') | to_json }},
+      "os": {{ host.metadata.operating_system | to_json }},
+      "kernel": {{ host.metadata.kernel | to_json }},
       "score": {{ host.health.overall.score | default(0) }},
-      "status": "{{ host.health.overall.status | default('UNKNOWN') }}",
+      "status": {{ host.health.overall.status | default('UNKNOWN') | to_json }},
       "host_identity": {{ host.host_identity | default(none) | to_json }}
     }{% if not loop.last %},{% endif %}
 {% endfor %}

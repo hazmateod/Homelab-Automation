@@ -122,22 +122,82 @@ class ReportService:
         """Shadow view of verified JSON reports, including evidence from a prior alias."""
         if current is None:
             current = HostIdentityRepository().current_hostnames()
-        reports = {}
+        return self._select_host_reports(current)[0]
+
+    def dashboard_variables(self):
+        bindings = HostIdentityRepository().report_bindings()
+        current = {
+            (identity["host_id"], identity["incarnation"]): hostname
+            for hostname, identity in bindings.items() if identity is not None
+        }
+        reports, skipped = self._select_host_reports(current, dashboard_bindings=bindings)
+        return {
+            "himp_dashboard_reports": list(reports.values()),
+            "himp_dashboard_skipped_reports": skipped,
+        }
+
+    def _select_host_reports(self, current, *, dashboard_bindings=None):
+        root = self.root / "json"
+        artifacts = list(root.glob("*.json"))
+        if dashboard_bindings is not None:
+            artifacts.extend((root / "unverified").glob("*.json"))
+        selected = {}
         ranks = {}
-        for artifact in sorted((self.root / "json").glob("*.json")):
+        skipped = []
+        for artifact in sorted(artifacts):
             try:
-                report = json.loads(artifact.read_text())
+                report = json.loads(artifact.read_text(encoding="utf-8"))
             except (OSError, ValueError):
+                skipped.append(str(artifact.relative_to(root)))
                 continue
             if not isinstance(report, dict):
+                skipped.append(str(artifact.relative_to(root)))
                 continue
-            hostname = HostIdentityRepository.projected_hostname(current, report.get("host_identity"))
-            rank = (self.generated_at(report) or "", artifact.stem == hostname)
-            if hostname is not None and (hostname not in ranks or rank > ranks[hostname]):
-                reports[hostname] = report
+            identity = report.get("host_identity")
+            canonical = artifact.parent == root
+            hostname = (
+                HostIdentityRepository.projected_hostname(current, identity) if canonical else None
+            )
+            if hostname is None and dashboard_bindings is not None:
+                if identity is None and artifact.stem not in dashboard_bindings:
+                    hostname = artifact.stem
+            if hostname is None:
+                continue
+            rank = (identity is not None, canonical, self.generated_at(report) or "", artifact.stem == hostname)
+            if dashboard_bindings is not None:
+                try:
+                    report = self._dashboard_report(report, hostname)
+                except ValueError:
+                    skipped.append(str(artifact.relative_to(root)))
+                    continue
+            if hostname not in ranks or rank > ranks[hostname]:
+                selected[hostname] = report
                 ranks[hostname] = rank
-        return reports
+        return selected, skipped
 
+    @staticmethod
+    def _dashboard_report(report, hostname):
+        metadata = report.get("metadata")
+        network = report.get("network", {})
+        health = report.get("health", {})
+        if not all(isinstance(section, dict) for section in (metadata, network, health)):
+            raise ValueError("Invalid dashboard report sections")
+        overall = health.get("overall", {})
+        if not isinstance(overall, dict) or type(overall.get("score", 0)) is not int:
+            raise ValueError("Invalid dashboard health data")
+        return {
+            "metadata": {
+                "hostname": hostname,
+                "operating_system": str(metadata.get("operating_system", "Unknown")),
+                "kernel": str(metadata.get("kernel", "Unknown")),
+            },
+            "network": {"primary_ip": str(network.get("primary_ip", "Unknown"))},
+            "health": {"overall": {
+                "score": overall.get("score", 0),
+                "status": str(overall.get("status", "UNKNOWN")),
+            }},
+            "host_identity": report.get("host_identity"),
+        }
 
     def summary(self):
 
@@ -203,6 +263,7 @@ class ReportService:
             "critical": dashboard.critical_count(),
             "unknown": dashboard.unknown_count(),
             "average_score": dashboard.average_score(),
+            **({"skipped_reports": dashboard.skipped_reports} if dashboard.skipped_reports else {}),
         }
 
 

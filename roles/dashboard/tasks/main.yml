@@ -8,54 +8,25 @@
     state: directory
     mode: "0755"
 
-- name: Find JSON reports
-  run_once: true
-  delegate_to: localhost
-  become: false
-  ansible.builtin.find:
-    paths:
-      - "{{ playbook_dir }}/../reports/json"
-      - "{{ playbook_dir }}/../reports/json/unverified"
-    patterns: "*.json"
-  register: dashboard_json
-
-- name: Require current report bindings supplied by HIMP
+- name: Require reports selected by HIMP
   run_once: true
   delegate_to: localhost
   become: false
   ansible.builtin.assert:
     that:
-      - himp_dashboard_bindings is defined
-      - himp_dashboard_bindings is mapping
-    fail_msg: Run dashboard generation through HIMP to supply report bindings.
+      - himp_dashboard_reports is defined
+      - himp_dashboard_reports is sequence
+      - himp_dashboard_reports is not string
+      - himp_dashboard_reports is not mapping
+    fail_msg: Run dashboard generation through HIMP to select current reports.
 
-- name: Read JSON reports
+- name: Select reports for current Ansible inventory
   run_once: true
   delegate_to: localhost
   become: false
   ansible.builtin.set_fact:
     dashboard_hosts: >-
-      {{
-        dashboard_hosts | default([])
-        + [candidate]
-      }}
-  loop: "{{ dashboard_json.files }}"
-  vars:
-    bindings: "{{ himp_dashboard_bindings }}"
-    hostname: "{{ item.path | basename | splitext | first }}"
-    candidate: "{{ lookup('file', item.path) | from_json }}"
-    canonical_names: >-
-      {{
-        dashboard_json.files
-        | rejectattr('path', 'search', '/unverified/[^/]+$')
-        | map(attribute='path') | map('basename') | list
-      }}
-  when:
-    - hostname in groups['all']
-    - >-
-      (hostname not in bindings and candidate.host_identity is not defined)
-      or (bindings.get(hostname) is not none and candidate.host_identity | default(none) == bindings[hostname])
-    - (item.path | dirname | basename) != 'unverified' or (item.path | basename) not in canonical_names
+      {{ himp_dashboard_reports | selectattr('metadata.hostname', 'in', groups['all']) | list }}
 
 - name: Generate dashboard JSON
   run_once: true
@@ -97,3 +68,4 @@
     msg:
       - "Dashboard generated."
       - "Hosts: {{ dashboard_hosts | default([]) | length }}"
+      - "Unreadable or malformed reports skipped: {{ himp_dashboard_skipped_reports | default([]) | to_json }}"

@@ -50,10 +50,21 @@ class HostReportExportService:
         )
 
         bindings = self.identities.report_bindings()
-        for candidate in (filename, filename.parent / "unverified" / filename.name):
-            if not candidate.is_file():
+        candidates = [filename, filename.parent / "unverified" / filename.name]
+        binding = bindings.get(hostname)
+        if binding is not None:
+            history = self.root / "history" / "cmdb" / str(UUID(binding["host_id"]))
+            candidates.append(history / str(binding["incarnation"]) / "report.md")
+            # Pre-archive exports still live under their original verified alias.
+            for alias in reversed(self.identities.aliases(binding["host_id"])):
+                old_name = alias["old_hostname"]
+                if old_name and Path(old_name).name == old_name:
+                    candidates.append(filename.with_name(f"{old_name}.md"))
+        for candidate in candidates:
+            try:
+                content = candidate.read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
                 continue
-            content = candidate.read_text(encoding="utf-8")
             first_line, _, remainder = content.partition("\n")
             identity = None
             prefix = "<!-- himp-host-identity: "
@@ -66,6 +77,9 @@ class HostReportExportService:
                     continue
                 content = remainder
             if HostIdentityRepository.report_matches(bindings, hostname, identity):
+                heading, newline, body = content.partition("\n")
+                if heading.startswith("# ") and heading.endswith(" Infrastructure Report"):
+                    content = f"# {hostname} Infrastructure Report{newline}{body}"
                 break
         else:
             raise FileNotFoundError(f"Host report not found: {hostname}")

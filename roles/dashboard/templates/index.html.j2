@@ -82,6 +82,15 @@
 
 <section>
 
+{% if himp_dashboard_skipped_reports | default([]) %}
+<p>Unreadable or malformed reports skipped:</p>
+<ul>
+{% for filename in himp_dashboard_skipped_reports %}
+<li>{{ filename | e }}</li>
+{% endfor %}
+</ul>
+{% endif %}
+
 <table>
 
 <thead>
@@ -103,14 +112,14 @@
 
 <tr>
 
-<td>{{ host.metadata.hostname }}</td>
+<td>{{ host.metadata.hostname | e }}</td>
 
-<td>{{ host.network.primary_ip | default('Unknown') }}</td>
+<td>{{ host.network.primary_ip | default('Unknown') | e }}</td>
 
-<td>{{ host.metadata.operating_system }}</td>
+<td>{{ host.metadata.operating_system | e }}</td>
 
-<td class="{{ host.health.overall.status | default('unknown') | lower }}">
-{{ host.health.overall.status | default('UNKNOWN') }}
+<td class="{{ host.health.overall.status | default('unknown') | lower | e }}">
+{{ host.health.overall.status | default('UNKNOWN') | e }}
 </td>
 
 <td>
@@ -118,7 +127,7 @@
 </td>
 
 <td>
-<a href="../current/{{ host.metadata.hostname }}.md">
+<a href="/api/reports/host/{{ host.metadata.hostname | urlencode }}/txt">
 View
 </a>
 </td>

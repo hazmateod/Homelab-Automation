@@ -205,11 +205,10 @@ def test_operational_summary_handles_no_execution_history(
     }
 
 
-def test_dashboard_entry_points_send_himp_bindings_to_ansible(monkeypatch, tmp_path):
+def test_dashboard_entry_points_send_selected_reports_to_ansible(monkeypatch, tmp_path):
     from types import SimpleNamespace
 
     from himp.commands import dashboard
-    from himp.database.host_identity import HostIdentityRepository
     from himp.database.inventory import InventoryRepository
     from himp.services import update
 
@@ -219,7 +218,6 @@ def test_dashboard_entry_points_send_himp_bindings_to_ansible(monkeypatch, tmp_p
         "hostname": "retired", "group": "test", "ip": "192.0.2.1", "user": "fixture", "become": False,
     })
     repository.mark_removed("retired")
-    bindings = HostIdentityRepository(repository).report_bindings()
     calls = []
 
     def runner(playbook, **options):
@@ -231,6 +229,83 @@ def test_dashboard_entry_points_send_himp_bindings_to_ansible(monkeypatch, tmp_p
     monkeypatch.setattr(update, "run_playbook", runner)
     dashboard.run(None)
     assert update.UpdateService._refresh_dashboard("snapshot.yml", 10)["status"] == "succeeded"
-    assert bindings == {"retired": None}
     assert len(calls) == 2
-    assert all(options["extra_vars"] == {"himp_dashboard_bindings": bindings} for _, options in calls)
+    assert all(options["extra_vars"] == {"himp_dashboard_reports": [], "himp_dashboard_skipped_reports": []} for _, options in calls)
+
+
+def test_dashboard_refresh_and_exports_preserve_verified_alias_and_isolate_bad_reports(tmp_path, monkeypatch):
+    import json
+    import shutil
+    from pathlib import Path
+
+    import pytest
+
+    from himp.database.host_identity import HostIdentityRepository
+    from himp.database.inventory import InventoryRepository
+    from himp.lib.ansible import run_playbook
+    from himp.services.host_report_export import HostReportExportService
+
+    if shutil.which("ansible-playbook") is None:
+        pytest.skip("ansible-core is required for the dashboard fixture")
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "fixture.db"))
+    root = tmp_path / "reports"
+    json_dir = root / "json"
+    json_dir.mkdir(parents=True)
+    markdown_dir = root / "current" / "cmdb"
+    markdown_dir.mkdir(parents=True)
+    repository = InventoryRepository()
+    repository.save_host({
+        "hostname": "old-name", "group": "test", "ip": "192.0.2.1", "user": "fixture", "become": False,
+    })
+    identities = HostIdentityRepository(repository)
+    identities.backfill()
+    binding = identities.report_bindings()["old-name"]
+    (json_dir / "old-name.json").write_text(json.dumps({
+        "metadata": {"hostname": "old-name", "operating_system": 'OS "quoted"'},
+        "host_identity": binding,
+        "health": {"overall": {"score": 90, "status": "HEALTHY"}},
+    }))
+    (markdown_dir / "old-name.md").write_text(
+        f"<!-- himp-host-identity: {json.dumps(binding)} -->\n# old-name Infrastructure Report\n"
+    )
+    (json_dir / "broken.json").write_text("{broken")
+    (json_dir / "bad-shape.json").write_text('{"metadata": []}')
+    identities.rename(repository.find_host("old-name")["id"], "old-name", "new-name", "rename")
+
+    reports = ReportService()
+    reports.root = root
+    variables = reports.dashboard_variables()
+    assert variables["himp_dashboard_skipped_reports"] == ["bad-shape.json", "broken.json"]
+
+    repo = Path(__file__).resolve().parents[2]
+    playbooks = tmp_path / "playbooks"
+    playbooks.mkdir()
+    playbook = playbooks / "dashboard.yml"
+    shutil.copyfile(repo / "playbooks" / playbook.name, playbook)
+    monkeypatch.setenv("ANSIBLE_ROLES_PATH", str(repo / "roles"))
+    inventory = tmp_path / "inventory.yml"
+    inventory.write_text(
+        "all:\n  hosts:\n    localhost: {ansible_connection: local}\n"
+        "    new-name: {}\n    broken: {}\n    bad-shape: {}\n"
+    )
+    result = run_playbook(str(playbook), timeout=25, inventory_path=inventory, extra_vars=variables)
+    assert result.success, result.stdout + result.stderr
+    assert "broken.json" in result.stdout
+    dashboard_json = json.loads((root / "dashboard" / "dashboard.json").read_text())
+    assert [host["hostname"] for host in dashboard_json["hosts"]] == ["new-name"]
+    assert dashboard_json["skipped_reports"] == ["bad-shape.json", "broken.json"]
+    assert reports.dashboard()["skipped_reports"] == dashboard_json["skipped_reports"]
+    assert dashboard_json["hosts"][0]["os"] == 'OS "quoted"'
+    assert "/api/reports/host/new-name/txt" in (root / "dashboard" / "index.html").read_text()
+    assert (json_dir / "broken.json").read_text() == "{broken"
+
+    export = HostReportExportService()
+    export.root = root
+    assert export.txt("new-name").startswith(b"# new-name Infrastructure Report")
+    assert export.csv("new-name").startswith(b"hostname,")
+    assert export.pdf("new-name").startswith(b"%PDF")
+    assert identities.record_rebuild(binding["host_id"], 1) == 2
+    assert reports.dashboard_variables()["himp_dashboard_reports"] == []
+    with pytest.raises(FileNotFoundError):
+        export.txt("new-name")

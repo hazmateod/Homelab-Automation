@@ -3,7 +3,7 @@ Dashboard Commands
 """
 
 from himp.config import config
-from himp.database.host_identity import HostIdentityRepository
+from himp.services.reports import ReportService
 from himp.lib.ansible import run_playbook
 from himp.lib.history import log
 from himp.lib.output import error, info, success
@@ -16,7 +16,7 @@ def run(args):
 
     result = run_playbook(
         config.dashboard_playbook,
-        extra_vars={"himp_dashboard_bindings": HostIdentityRepository().report_bindings()},
+        extra_vars=ReportService().dashboard_variables(),
     )
 
     log(

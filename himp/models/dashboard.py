@@ -11,9 +11,10 @@ from himp.database.host_identity import HostIdentityRepository
 
 class Dashboard:
 
-    def __init__(self, generated, hosts):
+    def __init__(self, generated, hosts, skipped_reports=None):
         self.generated = generated
         self.hosts = hosts
+        self.skipped_reports = skipped_reports or []
 
     @classmethod
     def load(cls, filename="reports/dashboard/dashboard.json", *, bindings=None):
@@ -44,6 +45,7 @@ class Dashboard:
         return cls(
             generated=data["generated"],
             hosts=hosts,
+            skipped_reports=data.get("skipped_reports"),
         )
 
     def count_by_status(self, status):

@@ -574,10 +574,11 @@ def test_himp_service_allows_required_runtime_state_writes():
 
 
 def test_dashboard_local_tasks_disable_become():
-    dashboard_tasks = Path("roles/dashboard/tasks/main.yml").read_text()
+    import yaml
 
-    assert dashboard_tasks.count("delegate_to: localhost") == 9
-    assert dashboard_tasks.count("become: false") == 9
+    tasks = yaml.safe_load(Path("roles/dashboard/tasks/main.yml").read_text())
+    assert tasks
+    assert all(task["delegate_to"] == "localhost" and task["become"] is False for task in tasks)
 
 
 def test_automation_page_exposes_current_execution_status():
