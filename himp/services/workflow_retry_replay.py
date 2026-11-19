@@ -14,6 +14,10 @@ This service does not implement another execution engine:
 """
 
 
+# These operations have a fixed scope and do not consume a limit.
+FIXED_SCOPE_RETRY_TASKS = frozenset({"health_check", "host_health_check", "storage_capacity_check"})
+
+
 class WorkflowRetryReplayError(ValueError):
     """Rejected retry/replay request."""
 
@@ -115,6 +119,12 @@ class WorkflowRetryReplayService:
                 "Failed task is no longer part of the "
                 "current workflow definition: "
                 f"{task_id}"
+            )
+
+        if task_id not in FIXED_SCOPE_RETRY_TASKS:
+            raise WorkflowRetryReplayError(
+                "Failed step cannot be retried safely without a verified target snapshot. "
+                "Start a new run with an explicit target."
             )
 
         execution = self.automation_service.run(

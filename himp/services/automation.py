@@ -33,6 +33,10 @@ from himp.services.automation_progress_lifecycle import (
 )
 
 
+MAINTENANCE_TASKS = frozenset({"scheduled_updates", "update_host", "update_group"})
+MAINTENANCE_RESOURCE = "resource:maintenance"
+
+
 logger = logging.getLogger("himp.automation")
 
 
@@ -1085,7 +1089,10 @@ class AutomationService:
             confirmed=confirmed,
         )
 
+        maintenance = task_id in MAINTENANCE_TASKS
         timeout = policy["timeout_seconds"]
+        if maintenance and timeout is None:
+            timeout = 3600
 
         if timeout is None:
             lease_seconds = (
@@ -1126,10 +1133,19 @@ class AutomationService:
             timezone.utc
         ).isoformat()
 
-        attempts = policy["retry_attempts"]
+        attempts = 1 if maintenance else policy["retry_attempts"]
         delay = policy["retry_delay_seconds"]
 
+        resource_acquired = False
         try:
+            if maintenance:
+                resource_acquired = self.lock_repository.acquire(
+                    MAINTENANCE_RESOURCE,
+                    lease_seconds=lease_seconds,
+                    execution_token=execution_token,
+                )
+                if not resource_acquired:
+                    raise AutomationAlreadyRunningError("Another maintenance operation is running")
 
             last_error = None
 
@@ -1160,7 +1176,7 @@ class AutomationService:
 
                     execution_kwargs = {
                         "limit": limit,
-                        "timeout": policy["timeout_seconds"],
+                        "timeout": timeout,
                     }
 
                     if progress_lifecycle is not None:
@@ -1196,6 +1212,7 @@ class AutomationService:
                         "executed_at": executed_at,
                         "attempt": attempt,
                         "attempts": attempts,
+                        "requested_limit": limit,
                         "result": result,
                     }
 
@@ -1284,6 +1301,7 @@ class AutomationService:
                         "executed_at": executed_at,
                         "attempt": attempt,
                         "attempts": attempts,
+                        "requested_limit": limit,
                         "result": failure_result,
                     }
 
@@ -1337,7 +1355,10 @@ class AutomationService:
             return execution
 
         finally:
-            self.lock_repository.release(
-                task_id,
-                execution_token=execution_token,
-            )
+            try:
+                if resource_acquired:
+                    self.lock_repository.release(
+                        MAINTENANCE_RESOURCE, execution_token=execution_token
+                    )
+            finally:
+                self.lock_repository.release(task_id, execution_token=execution_token)

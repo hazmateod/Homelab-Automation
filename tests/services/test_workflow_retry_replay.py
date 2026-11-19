@@ -366,3 +366,22 @@ def test_capabilities_explicitly_disable_resume():
     assert "does not persist" in (
         result["resume_reason"]
     )
+
+
+def test_retry_refuses_report_without_verified_target_snapshot(monkeypatch):
+    import pytest
+
+    service, execution_service = make_service()
+    automation = execution_service.automation_service
+    automation.execution_repository.rows[723].update(
+        task_id="generate_reports", result={"requested_limit": "fixture-only"}
+    )
+    monkeypatch.setattr(
+        service.workflow_service.repository, "get_task",
+        lambda *args: {"task_id": "generate_reports"},
+    )
+
+    with pytest.raises(WorkflowRetryReplayError, match="verified target snapshot"):
+        service.retry_failed_step(1, "source-run", 723)
+
+    assert automation.calls == []
