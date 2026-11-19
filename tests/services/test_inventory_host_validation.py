@@ -244,3 +244,34 @@ def test_external_edit_is_preserved(inventory_service, monkeypatch):
     assert service.writer.filename.read_text() == external
     assert service.find_host("new") is None
     assert not service._publication().journal.exists()
+
+
+def test_remove_host_clears_all_memberships_and_syncs(inventory_service, monkeypatch):
+    service = inventory_service
+    path = service.writer.filename
+    path.write_text(path.read_text() + "    second:\n      hosts:\n        existing:\n          ansible_host: 192.0.2.1\n")
+    monkeypatch.setattr(config, "inventory", str(path))
+
+    removed = service.remove_host("existing")
+
+    assert not removed["active"]
+    assert "existing:" not in path.read_text()
+    assert service.sync()["synced"] == 0
+    service.restore_host("existing")
+    assert service.sync()["synced"] == 1
+
+
+def test_remove_rejects_unsupported_nested_membership(inventory_service):
+    service = inventory_service
+    path = service.writer.filename
+    original = path.read_text() + (
+        "    parent:\n      children:\n        nested:\n"
+        "          hosts:\n            existing:\n"
+    )
+    path.write_text(original)
+
+    with pytest.raises(ValueError, match="unsupported membership"):
+        service.remove_host("existing")
+
+    assert path.read_text() == original
+    assert service.find_host("existing") is not None
