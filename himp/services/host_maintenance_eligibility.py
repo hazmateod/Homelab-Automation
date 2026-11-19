@@ -17,6 +17,20 @@ from himp.database.host_automation_policies import (
 )
 
 
+def literal_host_pattern(hostname, inventory):
+    return (
+        re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", hostname) is not None
+        and hostname not in inventory
+    )
+
+
+def fingerprint_host(row, variables):
+    identity = (row["id"], row["first_seen"], variables)
+    return sha256(
+        json.dumps(identity, default=str, sort_keys=True).encode()
+    ).hexdigest()
+
+
 class HostMaintenanceEligibility:
     """Fail-closed host eligibility resolution."""
 
@@ -29,7 +43,8 @@ class HostMaintenanceEligibility:
 
         self.inventory_repository = inventory_repository
 
-    def _inventory(self, inventory_path=None):
+    @staticmethod
+    def read_inventory(inventory_path=None):
         result = subprocess.run(
             [
                 "ansible-inventory",
@@ -127,7 +142,7 @@ class HostMaintenanceEligibility:
 
         target = target.strip()
 
-        inventory = self._inventory(inventory_path)
+        inventory = self.read_inventory(inventory_path)
 
         all_hosts = set(
             inventory.get("_meta", {})
@@ -178,8 +193,7 @@ class HostMaintenanceEligibility:
             )
 
         if any(
-            not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", host)
-            or host in inventory
+            not literal_host_pattern(host, inventory)
             for host in selected
         ):
             raise ValueError("Maintenance selected an ambiguous Ansible host pattern")
@@ -196,10 +210,7 @@ class HostMaintenanceEligibility:
             variables = hostvars[hostname]
             if row["ip"] != variables.get("ansible_host"):
                 raise ValueError("Maintenance target differs between inventory and database")
-            identity = (row["id"], row["first_seen"], variables)
-            fingerprints[hostname] = sha256(
-                json.dumps(identity, default=str, sort_keys=True).encode()
-            ).hexdigest()
+            fingerprints[hostname] = fingerprint_host(row, variables)
 
         return {
             "target": target,

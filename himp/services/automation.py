@@ -787,6 +787,7 @@ class AutomationService:
         limit=None,
         timeout=None,
         progress_lifecycle=None,
+        expected_target_plan_id=None,
     ):
         if task_id == "host_health_check":
 
@@ -839,10 +840,10 @@ class AutomationService:
                     "Report service not configured"
                 )
 
-            return self.reports.generate(
-                limit=limit,
-                timeout=timeout,
-            )
+            report_options = {"limit": limit, "timeout": timeout}
+            if expected_target_plan_id is not None:
+                report_options["expected_target_plan_id"] = expected_target_plan_id
+            return self.reports.generate(**report_options)
 
         if task_id == "inventory_refresh":
 
@@ -1082,6 +1083,8 @@ class AutomationService:
         workflow_execution_id=None,
         retry_of_execution_id=None,
         retry_source_workflow_execution_id=None,
+        *,
+        expected_target_plan_id=None,
     ):
 
         policy = self.validate_execution_policy(
@@ -1184,6 +1187,9 @@ class AutomationService:
                             progress_lifecycle
                         )
 
+                    if expected_target_plan_id is not None:
+                        execution_kwargs["expected_target_plan_id"] = expected_target_plan_id
+
                     result = self._execute_task(
                         task_id,
                         **execution_kwargs,
@@ -1243,6 +1249,10 @@ class AutomationService:
                         return execution
 
                     last_error = None
+                    if task_id == "generate_reports" and limit:
+                        expected_target_plan_id = result.get("target_plan_id")
+                        if expected_target_plan_id is None:
+                            break
                     retry_error_category = "result"
 
                 except Exception as error:
@@ -1336,6 +1346,10 @@ class AutomationService:
 
                     if not classification["retryable"]:
                         break
+                    if task_id == "generate_reports" and limit:
+                        expected_target_plan_id = plan_id
+                        if expected_target_plan_id is None:
+                            break
 
                 if attempt < attempts:
                     logger.info(

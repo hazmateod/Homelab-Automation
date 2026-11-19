@@ -7,7 +7,8 @@ from himp.database.factory import create_database
 
 
 class AutomationTargetPlanRepository:
-    def save(self, plan):
+    @staticmethod
+    def _database():
         database = create_database()
         database.execute(
             """
@@ -18,6 +19,16 @@ class AutomationTargetPlanRepository:
             )
             """
         )
+        return database
+
+    def find(self, plan_id):
+        rows = self._database().query(
+            "SELECT plan FROM automation_target_plans WHERE id=?", (plan_id,)
+        )
+        return json.loads(rows[0]["plan"]) if rows else None
+
+    def save(self, plan):
+        database = self._database()
         plan_id = str(uuid4())
         database.execute(
             "INSERT INTO automation_target_plans (id, plan) VALUES (?, ?)",

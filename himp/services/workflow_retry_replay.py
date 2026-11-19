@@ -14,6 +14,9 @@ This service does not implement another execution engine:
 """
 
 
+from himp.services.reports import ReportTargetChangedError
+
+
 # These operations have a fixed scope and do not consume a limit.
 FIXED_SCOPE_RETRY_TASKS = frozenset({"health_check", "host_health_check", "storage_capacity_check"})
 
@@ -121,21 +124,30 @@ class WorkflowRetryReplayService:
                 f"{task_id}"
             )
 
-        if task_id not in FIXED_SCOPE_RETRY_TASKS:
+        retry_options = {}
+        if task_id == "generate_reports":
+            envelope = source_execution.get("result") or {}
+            plan_id = (envelope.get("result") or {}).get("target_plan_id")
+            limit = envelope.get("requested_limit")
+            if plan_id and limit:
+                retry_options = {"limit": limit, "expected_target_plan_id": plan_id}
+        if task_id not in FIXED_SCOPE_RETRY_TASKS and not retry_options:
             raise WorkflowRetryReplayError(
                 "Failed step cannot be retried safely without a verified target snapshot. "
                 "Start a new run with an explicit target."
             )
 
-        execution = self.automation_service.run(
-            task_id,
-            confirmed=confirmed,
-            workflow_execution_id=None,
-            retry_of_execution_id=execution_id,
-            retry_source_workflow_execution_id=(
-                workflow_execution_id
-            ),
-        )
+        try:
+            execution = self.automation_service.run(
+                task_id,
+                confirmed=confirmed,
+                workflow_execution_id=None,
+                retry_of_execution_id=execution_id,
+                retry_source_workflow_execution_id=workflow_execution_id,
+                **retry_options,
+            )
+        except ReportTargetChangedError as error:
+            raise WorkflowRetryReplayError(str(error)) from error
 
         return {
             "action": "retry_failed_step",
