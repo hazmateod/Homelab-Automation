@@ -59,12 +59,13 @@ class AutomationProgressLifecycle:
         if self.run_id is None:
             raise ValueError("Progress attempt has not started")
 
+        options = {} if host_results is None else {"host_results": host_results}
         return self.repository.update(
             self.run_id,
             status="succeeded" if success else "failed",
             completed_execution_id=execution_id,
-            host_results=host_results,
             execution_token=self.execution_token,
+            **options,
         )
 
     def interrupt(self):
