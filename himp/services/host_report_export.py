@@ -71,7 +71,7 @@ class HostReportExportService:
             if first_line.startswith(prefix):
                 try:
                     identity = json.loads(first_line.removeprefix(prefix).removesuffix(" -->"))
-                except ValueError:
+                except (ValueError, RecursionError):
                     continue
                 if not isinstance(identity, dict):
                     continue

@@ -267,3 +267,49 @@ def test_retiring_host_does_not_restore_an_unattributed_dashboard_row(tmp_path, 
     identities.backfill()
     inventory.mark_removed("fixture")
     assert Dashboard.load(cache, bindings=identities.report_bindings()).hosts == []
+
+
+def test_deep_identity_header_falls_back_to_verified_archive(tmp_path, monkeypatch):
+    import io
+    import json
+
+    import pytest
+    from pypdf import PdfReader
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "inventory.db"))
+    service = HostReportExportService()
+    service.root = tmp_path / "reports"
+    service.inventory.save_host({
+        "hostname": "fixture", "group": "test", "ip": "192.0.2.1",
+        "user": "fixture", "become": False,
+    })
+    service.identities.backfill()
+    identity = service.identities.report_bindings()["fixture"]
+
+    canonical = service.root / "current" / "cmdb" / "fixture.md"
+    canonical.parent.mkdir(parents=True)
+    damaged = "<!-- himp-host-identity: " + "[" * 30_000 + "0 -->\n# Damaged report\n"
+    canonical.write_text(damaged)
+    archive = service.root / "history" / "cmdb" / identity["host_id"] / "1" / "report.md"
+    archive.parent.mkdir(parents=True)
+    archive.write_text(
+        f"<!-- himp-host-identity: {json.dumps(identity)} -->\n"
+        "# Verified report\n\n## Health\nStatus:\nArchive healthy\n"
+    )
+
+    assert b"Archive healthy" in service.txt("fixture")
+    assert b"Archive healthy" in service.csv("fixture")
+    pdf = PdfReader(io.BytesIO(service.pdf("fixture")))
+    assert "Archive healthy" in pdf.pages[0].extract_text()
+    assert canonical.read_text() == damaged
+
+    mismatched = {**identity, "host_id": "00000000-0000-4000-8000-000000000001"}
+    original = archive.read_text()
+    archive.write_text(original.replace(json.dumps(identity), json.dumps(mismatched), 1))
+    with pytest.raises(FileNotFoundError):
+        service.txt("fixture")
+
+    archive.write_text(original)
+    assert service.identities.record_rebuild(identity["host_id"], 1) == 2
+    with pytest.raises(FileNotFoundError):
+        service.txt("fixture")
