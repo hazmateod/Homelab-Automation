@@ -41,6 +41,7 @@
           ]
       }}
   loop: "{{ dashboard_json.files }}"
+  when: (item.path | basename | splitext | first) in groups['all']
 
 - name: Generate dashboard JSON
   run_once: true

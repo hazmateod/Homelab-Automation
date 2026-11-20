@@ -851,6 +851,7 @@ class AutomationService:
                 VulnerabilityOnboardingService()
             )
 
+            onboarding_status = "complete"
             try:
                 before_hosts = {
                     host["hostname"]: host["address"]
@@ -858,6 +859,8 @@ class AutomationService:
                 }
 
             except Exception:
+                onboarding_status = "incomplete"
+                logger.warning("Inventory refresh could not read the initial onboarding state")
                 before_hosts = {}
 
             inventory_result = (
@@ -889,7 +892,11 @@ class AutomationService:
                     )
 
             except Exception:
-                pass
+                onboarding_status = "incomplete"
+                logger.warning("Inventory refresh could not finish onboarding reconciliation")
+
+            if onboarding_status == "incomplete":
+                return {**inventory_result, "onboarding_status": onboarding_status}
 
             return inventory_result
 

@@ -232,23 +232,7 @@ class InventoryService:
             new_group=new_group,
         )
 
-        hosts = self.repository.all_hosts(
-            include_inactive=True,
-        )
-
-        for host in hosts:
-            if host["group_name"] != group:
-                continue
-
-            self.repository.save_host(
-                {
-                    "hostname": host["hostname"],
-                    "group": new_group,
-                    "ip": host["ip"],
-                    "user": host["ansible_user"],
-                    "become": bool(host["become"]),
-                }
-            )
+        self.repository.rename_group(group, new_group)
 
         return result
 
@@ -318,12 +302,15 @@ class InventoryService:
     def sync(self):
         hosts = self.collector.hosts()
 
-        self.repository.save_snapshot(
-            hosts
-        )
+        collected_names = {host["hostname"] for host in hosts}
+        active_names = {
+            host["hostname"] for host in self.repository.all_hosts()
+        }
+        self.repository.save_snapshot(hosts)
 
         return {
             "synced": len(hosts),
+            "membership_drift_count": len(collected_names ^ active_names),
             "active_hosts": self.repository.count(),
             "total_hosts": len(
                 self.repository.all_hosts(
