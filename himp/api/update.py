@@ -8,6 +8,7 @@ from fastapi import APIRouter, HTTPException
 
 from himp.app import HIMP
 from himp.services.inventory import InventoryService
+from himp.services.automation import AutomationAlreadyRunningError
 from himp.services.update import UpdateService
 
 
@@ -35,11 +36,10 @@ async def update_host(hostname: str):
             },
         )
 
-    return himp.automation.run(
-        "update_host",
-        limit=hostname,
-        confirmed=True,
-    )
+    try:
+        return himp.automation.run("update_host", limit=hostname, confirmed=True)
+    except AutomationAlreadyRunningError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
 
 @router.post("/group/{group}")
@@ -60,8 +60,7 @@ async def update_group(group: str):
             },
         )
 
-    return himp.automation.run(
-        "update_group",
-        limit=group,
-        confirmed=True,
-    )
+    try:
+        return himp.automation.run("update_group", limit=group, confirmed=True)
+    except AutomationAlreadyRunningError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error

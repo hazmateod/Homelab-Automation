@@ -1473,10 +1473,12 @@ def test_update_host_uses_automation_execution_persistence():
         {
             "task_id": "update_host",
             "lease_seconds": 3660,
-        }
+        },
+        {"task_id": "resource:maintenance", "lease_seconds": 3660},
     ]
 
     assert lock.release_calls == [
+        "resource:maintenance",
         "update_host"
     ]
 
@@ -1604,9 +1606,61 @@ def test_update_group_uses_automation_execution_persistence():
         {
             "task_id": "update_group",
             "lease_seconds": 3660,
-        }
+        },
+        {"task_id": "resource:maintenance", "lease_seconds": 3660},
     ]
 
     assert lock.release_calls == [
+        "resource:maintenance",
         "update_group"
     ]
+
+
+def test_maintenance_contention_releases_only_the_task_lock(monkeypatch):
+    from himp.services.automation import AutomationAlreadyRunningError
+
+    service = AutomationService()
+    lock = FakeLockRepository()
+    service.lock_repository = lock
+    acquire = lock.acquire
+
+    def acquire_task_only(task_id, **kwargs):
+        acquire(task_id, **kwargs)
+        return task_id != "resource:maintenance"
+
+    monkeypatch.setattr(lock, "acquire", acquire_task_only)
+
+    def unexpected_execution(*args, **kwargs):
+        pytest.fail("Conflicting maintenance reached dispatch")
+
+    monkeypatch.setattr(service, "_execute_task", unexpected_execution)
+    with pytest.raises(AutomationAlreadyRunningError, match="Another maintenance"):
+        service.run("scheduled_updates")
+
+    assert lock.release_calls == ["scheduled_updates"]
+
+
+@pytest.mark.parametrize("times_out", [False, True])
+def test_fleet_report_failure_does_not_retry_without_target_plan(times_out):
+    service = AutomationService()
+    service.find_task("generate_reports")["retry_attempts"] = 2
+    service.lock_repository = FakeLockRepository()
+    history = RecordingExecutionRepository()
+    service.execution_repository = history
+    calls = []
+
+    def execute(task_id, **kwargs):
+        calls.append(task_id)
+        if times_out:
+            raise TimeoutError("Report timed out")
+        return {"success": False}
+
+    service._execute_task = execute
+    if times_out:
+        with pytest.raises(TimeoutError, match="Report timed out"):
+            service.run("generate_reports")
+    else:
+        assert service.run("generate_reports")["result"]["success"] is False
+
+    assert calls == ["generate_reports"]
+    assert len(history.saved) == 1

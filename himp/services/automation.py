@@ -33,6 +33,10 @@ from himp.services.automation_progress_lifecycle import (
 )
 
 
+MAINTENANCE_TASKS = frozenset({"scheduled_updates", "update_host", "update_group"})
+MAINTENANCE_RESOURCE = "resource:maintenance"
+
+
 logger = logging.getLogger("himp.automation")
 
 
@@ -783,6 +787,7 @@ class AutomationService:
         limit=None,
         timeout=None,
         progress_lifecycle=None,
+        expected_target_plan_id=None,
     ):
         if task_id == "host_health_check":
 
@@ -835,10 +840,10 @@ class AutomationService:
                     "Report service not configured"
                 )
 
-            return self.reports.generate(
-                limit=limit,
-                timeout=timeout,
-            )
+            report_options = {"limit": limit, "timeout": timeout}
+            if expected_target_plan_id is not None:
+                report_options["expected_target_plan_id"] = expected_target_plan_id
+            return self.reports.generate(**report_options)
 
         if task_id == "inventory_refresh":
 
@@ -1078,6 +1083,8 @@ class AutomationService:
         workflow_execution_id=None,
         retry_of_execution_id=None,
         retry_source_workflow_execution_id=None,
+        *,
+        expected_target_plan_id=None,
     ):
 
         policy = self.validate_execution_policy(
@@ -1085,7 +1092,10 @@ class AutomationService:
             confirmed=confirmed,
         )
 
+        maintenance = task_id in MAINTENANCE_TASKS
         timeout = policy["timeout_seconds"]
+        if maintenance and timeout is None:
+            timeout = 3600
 
         if timeout is None:
             lease_seconds = (
@@ -1126,10 +1136,19 @@ class AutomationService:
             timezone.utc
         ).isoformat()
 
-        attempts = policy["retry_attempts"]
+        attempts = 1 if maintenance else policy["retry_attempts"]
         delay = policy["retry_delay_seconds"]
 
+        resource_acquired = False
         try:
+            if maintenance:
+                resource_acquired = self.lock_repository.acquire(
+                    MAINTENANCE_RESOURCE,
+                    lease_seconds=lease_seconds,
+                    execution_token=execution_token,
+                )
+                if not resource_acquired:
+                    raise AutomationAlreadyRunningError("Another maintenance operation is running")
 
             last_error = None
 
@@ -1160,13 +1179,16 @@ class AutomationService:
 
                     execution_kwargs = {
                         "limit": limit,
-                        "timeout": policy["timeout_seconds"],
+                        "timeout": timeout,
                     }
 
                     if progress_lifecycle is not None:
                         execution_kwargs["progress_lifecycle"] = (
                             progress_lifecycle
                         )
+
+                    if expected_target_plan_id is not None:
+                        execution_kwargs["expected_target_plan_id"] = expected_target_plan_id
 
                     result = self._execute_task(
                         task_id,
@@ -1196,6 +1218,7 @@ class AutomationService:
                         "executed_at": executed_at,
                         "attempt": attempt,
                         "attempts": attempts,
+                        "requested_limit": limit,
                         "result": result,
                     }
 
@@ -1226,6 +1249,10 @@ class AutomationService:
                         return execution
 
                     last_error = None
+                    if task_id == "generate_reports":
+                        expected_target_plan_id = result.get("target_plan_id")
+                        if expected_target_plan_id is None:
+                            break
                     retry_error_category = "result"
 
                 except Exception as error:
@@ -1240,6 +1267,10 @@ class AutomationService:
                         "success": False,
                         "error": str(error),
                     }
+
+                    plan_id = getattr(error, "target_plan_id", None)
+                    if plan_id is not None:
+                        failure_result["target_plan_id"] = plan_id
 
                     classification = self._classify_error(
                         error
@@ -1284,6 +1315,7 @@ class AutomationService:
                         "executed_at": executed_at,
                         "attempt": attempt,
                         "attempts": attempts,
+                        "requested_limit": limit,
                         "result": failure_result,
                     }
 
@@ -1314,6 +1346,10 @@ class AutomationService:
 
                     if not classification["retryable"]:
                         break
+                    if task_id == "generate_reports":
+                        expected_target_plan_id = plan_id
+                        if expected_target_plan_id is None:
+                            break
 
                 if attempt < attempts:
                     logger.info(
@@ -1337,7 +1373,10 @@ class AutomationService:
             return execution
 
         finally:
-            self.lock_repository.release(
-                task_id,
-                execution_token=execution_token,
-            )
+            try:
+                if resource_acquired:
+                    self.lock_repository.release(
+                        MAINTENANCE_RESOURCE, execution_token=execution_token
+                    )
+            finally:
+                self.lock_repository.release(task_id, execution_token=execution_token)

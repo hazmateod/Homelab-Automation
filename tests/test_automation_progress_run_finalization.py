@@ -77,7 +77,7 @@ def test_finalization_exception_preserves_result_and_history(success):
     assert len(history.saved) == 1
     assert history.saved[0]["success"] is success
 
-    assert lock.release_calls == ["update_host"]
+    assert lock.release_calls == ["resource:maintenance", "update_host"]
 
     lifecycle.finalize_safely.assert_called_once_with(
         success=success,
@@ -121,7 +121,7 @@ def test_execution_exception_preserves_original_error():
     assert len(history.saved) == 1
     assert history.saved[0]["success"] is False
 
-    assert lock.release_calls == ["update_host"]
+    assert lock.release_calls == ["resource:maintenance", "update_host"]
 
     lifecycle.finalize_safely.assert_called_once()
     assert (

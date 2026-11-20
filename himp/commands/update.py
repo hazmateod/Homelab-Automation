@@ -4,7 +4,7 @@ Update Commands
 
 from himp.lib.history import log
 from himp.lib.output import error, info, success
-from himp.services.update import UpdateService
+from himp.app import HIMP
 
 
 def run(args):
@@ -12,12 +12,17 @@ def run(args):
         error("Host or group is required.")
         return
 
-    service = UpdateService()
+    if args.target != "maintenance":
+        error("Use the automation API for explicit host or group updates.")
+        return 1
+
+    service = HIMP().automation
 
     info(f"Updating {args.target}...")
     print()
 
-    result = service.update(args.target)
+    execution = service.run("scheduled_updates", confirmed=True)
+    result = execution["result"]
 
     ok = result["success"]
     elapsed = result["elapsed"]
@@ -36,3 +41,4 @@ def run(args):
         error("Update failed.")
 
     info(f"Execution time: {elapsed:.2f} seconds")
+    return 0 if ok else 1

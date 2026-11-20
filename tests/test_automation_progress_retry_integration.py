@@ -10,7 +10,7 @@ from tests.services.test_automation_policy import (
 )
 
 
-def test_retries_create_independent_progress_lifecycles():
+def test_failed_maintenance_does_not_retry_without_verified_outcomes():
     service = make_service()
 
     service.tasks.append({
@@ -68,28 +68,14 @@ def test_retries_create_independent_progress_lifecycles():
             confirmed=True,
         )
 
-    assert result["attempt"] == 2
-    assert len(executions) == 2
-    assert len(lifecycles) == 2
-    assert lifecycles[0] is not lifecycles[1]
-
-    assert lifecycles[0].attempt == 1
-    assert lifecycles[1].attempt == 2
-
-    assert (
-        lifecycles[0].execution_token
-        == lifecycles[1].execution_token
-        == lock.execution_token
-    )
-
+    assert result["attempt"] == 1
+    assert result["attempts"] == 1
+    assert result["requested_limit"] == "synthetic-host"
+    assert len(executions) == len(lifecycles) == len(history.saved) == 1
+    assert lifecycles[0].execution_token == lock.execution_token
     assert executions[0]["lifecycle"] is lifecycles[0]
-    assert executions[1]["lifecycle"] is lifecycles[1]
-
-    assert len(history.saved) == 2
     assert history.saved[0]["success"] is False
-    assert history.saved[1]["success"] is True
-
-    assert lock.release_calls == ["update_host"]
+    assert lock.release_calls == ["resource:maintenance", "update_host"]
 
 
 def test_progress_factory_failure_does_not_block_maintenance():
@@ -141,4 +127,4 @@ def test_progress_factory_failure_does_not_block_maintenance():
     assert executed == ["update_host"]
     assert len(history.saved) == 1
     assert history.saved[0]["success"] is True
-    assert lock.release_calls == ["update_host"]
+    assert lock.release_calls == ["resource:maintenance", "update_host"]
