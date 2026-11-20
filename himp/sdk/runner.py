@@ -33,17 +33,41 @@ class PluginRunner:
 
         start = time.perf_counter()
 
+        from himp.database.host_automation_policies import (
+            HostAutomationPolicyRepository,
+        )
+
+        disabled = HostAutomationPolicyRepository().disabled_hosts()
+
+        command = [
+            "ansible-playbook",
+            "-i",
+            config.inventory,
+            "playbooks/run_plugin.yml",
+            "-e",
+            f"plugin={plugin.id}",
+            "-e",
+            f"target_group={plugin.inventory_group}",
+        ]
+
+        if disabled:
+            import re
+
+            for hostname in disabled:
+                if not re.fullmatch(r"[A-Za-z0-9_.-]+", hostname):
+                    raise ValueError(
+                        "Invalid hostname in automation exclusion policy"
+                    )
+
+            exclusions = "all" + "".join(
+                f":!{hostname}"
+                for hostname in sorted(disabled)
+            )
+
+            command.extend(["--limit", exclusions])
+
         process = subprocess.run(
-            [
-                "ansible-playbook",
-                "-i",
-                config.inventory,
-                "playbooks/run_plugin.yml",
-                "-e",
-                f"plugin={plugin.id}",
-                "-e",
-                f"target_group={plugin.inventory_group}",
-            ],
+            command,
             check=False,
         )
 

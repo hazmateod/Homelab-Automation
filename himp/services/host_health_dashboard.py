@@ -48,7 +48,14 @@ class HostHealthDashboardService:
 
         results = []
 
+        from himp.database.host_automation_policies import HostAutomationPolicyRepository
+
+        disabled = HostAutomationPolicyRepository().disabled_hosts()
+
+
         for host in self.inventory.all_hosts():
+            if host["hostname"] in disabled:
+                continue
 
             latest = self.health.latest(
                 hostname=host["hostname"],

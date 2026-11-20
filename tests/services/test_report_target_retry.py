@@ -156,3 +156,58 @@ def test_unverified_report_exports_leave_verified_json_and_markdown_intact(tmp_p
     assert recovered.success, recovered.stdout + recovered.stderr
     assert json.loads(canonical.read_bytes())["host_identity"] == replacement
     assert any(path.read_text() == "{broken" for path in json_dir.glob("fixture.json.*~"))
+
+
+def test_disabled_report_host_is_blocked_before_dispatch(monkeypatch, report_host):
+    from himp.database.host_automation_policies import HostAutomationPolicyRepository
+
+    _, repository, inventory = report_host
+    inventory["_meta"]["hostvars"]["fixture"]["ansible_user"] = "fixture"
+    identities = HostIdentityRepository(repository)
+    identities.backfill()
+    host_id = identities.current()[0]["host_id"]
+    disabled = set()
+    calls = []
+
+    monkeypatch.setattr(
+        HostAutomationPolicyRepository, "disabled_hosts", lambda self: disabled
+    )
+
+    def runner(playbook, limit, **options):
+        calls.append(options["extra_vars"]["himp_host_bindings"][limit])
+        return SimpleNamespace(success=True, elapsed=1.0)
+
+    monkeypatch.setattr(reports, "run_playbook", runner)
+    service = reports.ReportService()
+    first = service.generate("fixture")
+    disabled.add("fixture")
+
+    with pytest.raises(reports.ReportTargetChangedError, match="disabled"):
+        service.generate("fixture")
+    with pytest.raises(reports.ReportTargetChangedError, match="disabled"):
+        service.generate("fixture", expected_target_plan_id=first["target_plan_id"])
+
+    assert [(binding["host_id"], binding["incarnation"]) for binding in calls] == [
+        (host_id, 1),
+    ]
+
+
+def test_broad_report_preserves_scope_and_excludes_disabled_hosts(
+    monkeypatch, report_host,
+):
+    from himp.database.host_automation_policies import HostAutomationPolicyRepository
+
+    monkeypatch.setattr(
+        HostAutomationPolicyRepository, "disabled_hosts", lambda self: {"fixture"}
+    )
+    calls = []
+
+    def runner(playbook, limit, **options):
+        calls.append(limit)
+        return SimpleNamespace(success=True, elapsed=1.0)
+
+    monkeypatch.setattr(reports, "run_playbook", runner)
+    service = reports.ReportService()
+    assert service.generate()["success"]
+    assert service.generate("managed:*")["success"]
+    assert calls == ["all:!fixture", "managed:*:!fixture"]

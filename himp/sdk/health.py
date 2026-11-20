@@ -47,18 +47,41 @@ class PluginHealthRunner:
             if bindings else []
         )
 
+        from himp.database.host_automation_policies import (
+            HostAutomationPolicyRepository,
+        )
+        import re
+
+        disabled = HostAutomationPolicyRepository().disabled_hosts()
+
+        command = [
+            "ansible-playbook",
+            "-i",
+            config.inventory,
+            "playbooks/run_health.yml",
+            "-e",
+            f"plugin={plugin.id}",
+            "-e",
+            f"inventory_group={plugin.inventory_group}",
+            *identity_options,
+        ]
+
+        if disabled:
+            for hostname in disabled:
+                if not re.fullmatch(r"[A-Za-z0-9_.-]+", hostname):
+                    raise ValueError(
+                        "Invalid hostname in automation exclusion policy"
+                    )
+
+            exclusions = "all" + "".join(
+                f":!{hostname}"
+                for hostname in sorted(disabled)
+            )
+
+            command.extend(["--limit", exclusions])
+
         process = subprocess.run(
-            [
-                "ansible-playbook",
-                "-i",
-                config.inventory,
-                "playbooks/run_health.yml",
-                "-e",
-                f"plugin={plugin.id}",
-                "-e",
-                f"inventory_group={plugin.inventory_group}",
-                *identity_options,
-            ],
+            command,
             check=False,
             timeout=timeout,
         )
