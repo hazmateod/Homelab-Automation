@@ -6,12 +6,18 @@ Provides inventory and CMDB information.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, HTTPException
+from typing import Literal
+
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
+from himp.api.dependencies import require_admin
+from himp.database.host_identity import HostIdentityRepository
 from himp.database.inventory import InventoryRepository
+from himp.health.repository import HealthRepository
 from himp.services.host_health import HostHealthService
 from himp.services.inventory import InventoryService
+from himp.services.reports import ReportService
 from himp.services.ssh import SSHService
 from himp.services.storage_capacity import StorageCapacityService
 
@@ -33,6 +39,26 @@ class InventoryHostUpdate(BaseModel):
 
 class InventoryGroupUpdate(BaseModel):
     new_group: str
+
+
+class InventoryHostRename(BaseModel):
+    new_hostname: str
+
+
+class VerifiedHostRebuild(BaseModel):
+    host_id: str
+    expected_incarnation: int
+    replacement_verified: Literal[True]
+    expected_ip: str | None = None
+    expected_user: str | None = None
+
+
+class VerifiedHostMove(BaseModel):
+    host_id: str
+    expected_incarnation: int
+    expected_ip: str
+    expected_user: str
+    continuity_verified: Literal[True]
 
 
 router = APIRouter(
@@ -79,7 +105,42 @@ async def inventory_hosts():
     }
 
 
-@router.put("/groups/{group}")
+@router.get("/identity/current")
+async def verified_inventory_evidence():
+    """Expose a shadow comparison before changing dashboard reads."""
+    identities = HostIdentityRepository(repository)
+    rows = identities.current()
+    current = {
+        (row["host_id"], row["current_incarnation"]): row["hostname"]
+        for row in rows if not row["endpoint_review_required"]
+    }
+    health = HealthRepository()
+    reports = ReportService()
+    return {
+        "active_inventory": [row["hostname"] for row in repository.all_hosts()],
+        "verified_inventory": [
+            {"host_id": host_id, "incarnation": incarnation, "hostname": hostname}
+            for (host_id, incarnation), hostname in current.items()
+        ],
+        "pending_endpoint_review": [
+            {
+                "host_id": row["host_id"], "incarnation": row["current_incarnation"],
+                "hostname": row["hostname"], "ip": row["ip"], "user": row["ansible_user"],
+            }
+            for row in rows if row["endpoint_review_required"]
+        ],
+        "plugin_health": [
+            {"plugin": plugin, "hostname": host.hostname, "score": host.score}
+            for plugin, host in health.current_hosts(current)
+        ],
+        "verified_reports": [
+            {"hostname": hostname, "generated": reports.generated_at(item)}
+            for hostname, item in reports.current_host_reports(current).items()
+        ],
+    }
+
+
+@router.put("/groups/{group}", dependencies=[Depends(require_admin)])
 async def update_inventory_group(
     group: str,
     request: InventoryGroupUpdate,
@@ -115,7 +176,7 @@ async def update_inventory_group(
     }
 
 
-@router.post("/hosts")
+@router.post("/hosts", dependencies=[Depends(require_admin)])
 async def create_inventory_host(
     request: InventoryHostCreate,
 ):
@@ -143,7 +204,7 @@ async def create_inventory_host(
     }
 
 
-@router.put("/hosts/{hostname}")
+@router.put("/hosts/{hostname}", dependencies=[Depends(require_admin)])
 async def update_inventory_host(
     hostname: str,
     request: InventoryHostUpdate,
@@ -179,7 +240,7 @@ async def update_inventory_host(
     }
 
 
-@router.delete("/hosts/{hostname}")
+@router.delete("/hosts/{hostname}", dependencies=[Depends(require_admin)])
 async def delete_inventory_host(
     hostname: str,
 ):
@@ -210,7 +271,39 @@ async def delete_inventory_host(
     }
 
 
-@router.post("/hosts/{hostname}/restore")
+@router.post("/hosts/{hostname}/rename", dependencies=[Depends(require_admin)])
+async def rename_inventory_host(hostname: str, request: InventoryHostRename):
+    try:
+        host = service.rename_host(hostname, request.new_hostname)
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
+    return {"host": dict(host), "message": "Inventory host renamed successfully."}
+
+
+@router.post("/hosts/{hostname}/verified-rebuild", dependencies=[Depends(require_admin)])
+async def record_verified_host_rebuild(hostname: str, request: VerifiedHostRebuild):
+    try:
+        return service.record_verified_rebuild(
+            hostname, request.host_id, request.expected_incarnation,
+            endpoint=(request.expected_ip, request.expected_user)
+            if request.expected_ip is not None or request.expected_user is not None else None,
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
+
+
+@router.post("/hosts/{hostname}/verified-move", dependencies=[Depends(require_admin)])
+async def record_verified_host_move(hostname: str, request: VerifiedHostMove):
+    try:
+        return service.record_verified_move(
+            hostname, request.host_id, request.expected_incarnation,
+            endpoint=(request.expected_ip, request.expected_user),
+        )
+    except ValueError as exc:
+        raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
+
+
+@router.post("/hosts/{hostname}/restore", dependencies=[Depends(require_admin)])
 async def restore_inventory_host(
     hostname: str,
 ):
@@ -382,7 +475,7 @@ async def changes():
     }
 
 
-@router.get("/sync")
+@router.post("/sync", dependencies=[Depends(require_admin)])
 async def sync_inventory():
     return service.sync()
 

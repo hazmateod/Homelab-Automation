@@ -958,11 +958,16 @@ def test_scheduler_run_closes_postgresql_pools(monkeypatch):
     assert calls == ["close_pools"]
 
 
-def test_busy_maintenance_stays_due_and_other_tasks_continue(monkeypatch, capsys):
+@pytest.mark.parametrize("inventory_busy", [False, True])
+def test_busy_maintenance_stays_due_and_other_tasks_continue(monkeypatch, capsys, inventory_busy):
+    from himp.services.inventory_publication import InventoryBusyError
+
+    monkeypatch.setattr(scheduler_run, "_run_vulnerability_ingest", lambda: None)
+    busy_error = InventoryBusyError if inventory_busy else scheduler_run.AutomationAlreadyRunningError
     class BusyAutomation(FakeAutomation):
         def run(self, task_id):
             if task_id == "scheduled_updates":
-                raise scheduler_run.AutomationAlreadyRunningError("Maintenance is busy")
+                raise busy_error("Maintenance is busy")
             return super().run(task_id)
 
     automation = BusyAutomation()

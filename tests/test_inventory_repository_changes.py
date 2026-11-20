@@ -1,3 +1,6 @@
+from contextlib import contextmanager
+from types import SimpleNamespace
+
 from himp.database.inventory import InventoryRepository
 
 
@@ -5,6 +8,17 @@ class CapturingDatabase:
     def __init__(self):
         self.query_calls = []
         self.execute_calls = []
+
+    @contextmanager
+    def transaction(self):
+        yield self
+
+    @staticmethod
+    def execute_transaction(connection, sql, parameters):
+        if sql.strip().startswith("SELECT"):
+            rows = connection.query(sql, parameters)
+            return SimpleNamespace(fetchone=lambda: rows[0] if rows else None)
+        return connection.execute(sql, parameters)
 
     def query(
         self,

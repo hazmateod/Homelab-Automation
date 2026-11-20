@@ -115,7 +115,7 @@ def list_workflows():
     )
 
 
-@router.post("/workflows")
+@router.post("/workflows", dependencies=[Depends(require_admin)])
 def create_workflow(
     request: WorkflowCreateRequest,
 ):
@@ -150,7 +150,7 @@ def get_workflow(
         _not_found(error)
 
 
-@router.put("/workflows/{workflow_id}")
+@router.put("/workflows/{workflow_id}", dependencies=[Depends(require_admin)])
 def update_workflow(
     workflow_id: int,
     request: WorkflowUpdateRequest,
@@ -174,7 +174,7 @@ def update_workflow(
         _invalid(error)
 
 
-@router.delete("/workflows/{workflow_id}")
+@router.delete("/workflows/{workflow_id}", dependencies=[Depends(require_admin)])
 def delete_workflow(
     workflow_id: int,
 ):
@@ -191,7 +191,7 @@ def delete_workflow(
         _not_found(error)
 
 
-@router.post("/workflows/{workflow_id}/tasks")
+@router.post("/workflows/{workflow_id}/tasks", dependencies=[Depends(require_admin)])
 def add_workflow_task(
     workflow_id: int,
     request: WorkflowTaskRequest,
@@ -225,7 +225,8 @@ def add_workflow_task(
 
 
 @router.delete(
-    "/workflows/{workflow_id}/tasks/{task_id}"
+    "/workflows/{workflow_id}/tasks/{task_id}",
+    dependencies=[Depends(require_admin)],
 )
 def remove_workflow_task(
     workflow_id: int,
@@ -252,7 +253,8 @@ def remove_workflow_task(
 
 
 @router.post(
-    "/workflows/{workflow_id}/dependencies"
+    "/workflows/{workflow_id}/dependencies",
+    dependencies=[Depends(require_admin)],
 )
 def add_workflow_dependency(
     workflow_id: int,
@@ -288,7 +290,8 @@ def add_workflow_dependency(
 
 @router.delete(
     "/workflows/{workflow_id}/dependencies/"
-    "{task_id}/{dependency_task_id}"
+    "{task_id}/{dependency_task_id}",
+    dependencies=[Depends(require_admin)],
 )
 def remove_workflow_dependency(
     workflow_id: int,
@@ -382,7 +385,8 @@ def workflow_history_run(
 
 
 @router.post(
-    "/workflows/{workflow_id}/execute"
+    "/workflows/{workflow_id}/execute",
+    dependencies=[Depends(require_admin)],
 )
 def execute_workflow(
     workflow_id: int,

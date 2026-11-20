@@ -2,11 +2,13 @@
 Plugin Health Engine.
 """
 
+import json
 from pathlib import Path
 import subprocess
 import time
 
 from himp.config import config
+from himp.database.host_identity import HostIdentityRepository
 from himp.models.execution import Execution
 from himp.plugins.loader import PluginLoader
 
@@ -39,6 +41,11 @@ class PluginHealthRunner:
         result = Execution(plugin=plugin.id)
 
         start = time.perf_counter()
+        bindings = HostIdentityRepository().execution_bindings()
+        identity_options = (
+            ["--extra-vars", json.dumps({"himp_host_bindings": bindings})]
+            if bindings else []
+        )
 
         process = subprocess.run(
             [
@@ -50,6 +57,7 @@ class PluginHealthRunner:
                 f"plugin={plugin.id}",
                 "-e",
                 f"inventory_group={plugin.inventory_group}",
+                *identity_options,
             ],
             check=False,
             timeout=timeout,

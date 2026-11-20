@@ -2,9 +2,12 @@
 Shared Ansible helper functions.
 """
 
+import json
 import subprocess
 import time
+from contextlib import ExitStack
 from dataclasses import dataclass
+from tempfile import NamedTemporaryFile
 
 from himp.config import config
 
@@ -30,6 +33,7 @@ def run_playbook(
     timeout=None,
     *,
     inventory_path=None,
+    extra_vars=None,
 ):
     cmd = [
         "ansible-playbook",
@@ -47,13 +51,22 @@ def run_playbook(
     start = time.perf_counter()
 
     try:
-        result = subprocess.run(
-            cmd,
-            check=False,
-            timeout=timeout,
-            capture_output=True,
-            text=True,
-        )
+        with ExitStack() as files:
+            if extra_vars:
+                variables = files.enter_context(NamedTemporaryFile(
+                    mode="w", encoding="utf-8", prefix="himp-ansible-", suffix=".json",
+                ))
+                json.dump(extra_vars, variables)
+                variables.flush()
+                cmd.extend(["--extra-vars", f"@{variables.name}"])
+
+            result = subprocess.run(
+                cmd,
+                check=False,
+                timeout=timeout,
+                capture_output=True,
+                text=True,
+            )
 
     except subprocess.TimeoutExpired as error:
         raise AnsiblePlaybookTimeoutError(
@@ -81,6 +94,7 @@ def run_playbook_streaming(
     structured_events=False,
     *,
     inventory_path=None,
+    extra_vars=None,
 ):
     """Run Ansible with incremental stdout callbacks."""
     import json
@@ -104,6 +118,9 @@ def run_playbook_streaming(
 
     if limit:
         cmd.extend(["--limit", limit])
+
+    if extra_vars:
+        cmd.extend(["--extra-vars", json.dumps(extra_vars)])
 
     started = time.monotonic()
     deadline = (

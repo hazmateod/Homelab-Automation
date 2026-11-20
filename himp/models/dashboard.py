@@ -6,16 +6,18 @@ import json
 from pathlib import Path
 
 from himp.models.host import Host
+from himp.database.host_identity import HostIdentityRepository
 
 
 class Dashboard:
 
-    def __init__(self, generated, hosts):
+    def __init__(self, generated, hosts, skipped_reports=None):
         self.generated = generated
         self.hosts = hosts
+        self.skipped_reports = skipped_reports or []
 
     @classmethod
-    def load(cls, filename="reports/dashboard/dashboard.json"):
+    def load(cls, filename="reports/dashboard/dashboard.json", *, bindings=None):
 
         path = Path(filename)
 
@@ -25,6 +27,10 @@ class Dashboard:
         hosts = []
 
         for item in data["hosts"]:
+            if bindings is not None and not HostIdentityRepository.report_matches(
+                bindings, item["hostname"], item.get("host_identity")
+            ):
+                continue
             hosts.append(
                 Host(
                     hostname=item["hostname"],
@@ -39,6 +45,7 @@ class Dashboard:
         return cls(
             generated=data["generated"],
             hosts=hosts,
+            skipped_reports=data.get("skipped_reports"),
         )
 
     def count_by_status(self, status):

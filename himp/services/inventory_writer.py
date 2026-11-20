@@ -494,14 +494,46 @@ class InventoryFileWriter:
             del lines[host_index:block_end]
             updated = "".join(lines)
 
-        def contains_host(group):
-            return hostname in (group.get("hosts") or {}) or any(
-                contains_host(child or {})
-                for child in (group.get("children") or {}).values()
-            )
-
-        if any(contains_host(group or {}) for group in self._load(updated).values()):
+        if self._contains_host(updated, hostname):
             raise ValueError(f"Inventory host still has an unsupported membership: {hostname}")
 
         self.filename.write_text(updated)
         return {"hostname": hostname, "group": groups[0]}
+
+    def _contains_host(self, content, hostname):
+        def contains(group):
+            return hostname in (group.get("hosts") or {}) or any(
+                contains(child or {}) for child in (group.get("children") or {}).values()
+            )
+
+        return any(contains(group or {}) for group in self._load(content).values())
+
+    def rename_host(self, hostname, new_hostname):
+        if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", new_hostname):
+            raise ValueError("Invalid new inventory hostname")
+        content = self._read()
+        if self._contains_host(content, new_hostname):
+            raise ValueError(f"Inventory host already exists: {new_hostname}")
+        inventory = self._load(content)
+
+        def contains_group(groups):
+            return new_hostname in groups or any(
+                contains_group((group or {}).get("children") or {})
+                for group in groups.values()
+            )
+
+        if contains_group(inventory) or new_hostname in {"all", "ungrouped"}:
+            raise ValueError("The new hostname conflicts with an inventory group")
+        groups = self._children(inventory)
+        renamed = False
+        for group, data in groups.items():
+            if hostname in (data.get("hosts") or {}):
+                lines, index, _ = self._find_host_block(content, hostname, group=group)
+                lines[index] = lines[index].replace(f"{hostname}:", f"{new_hostname}:", 1)
+                content = "".join(lines)
+                renamed = True
+        if not renamed or self._contains_host(content, hostname):
+            raise ValueError("Inventory host does not have a supported rename layout")
+        if not self._contains_host(content, new_hostname):
+            raise ValueError("The new hostname cannot be represented as an inventory key")
+        self.filename.write_text(content)

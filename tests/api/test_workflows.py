@@ -716,3 +716,37 @@ def test_execute_workflow_validation_error(
         "Workflow validation failed: "
         "Workflow contains no tasks"
     )
+
+
+def test_workflow_mutations_require_admin_for_authenticated_users(monkeypatch):
+    from types import SimpleNamespace
+
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from himp.api import automation, dependencies
+
+    monkeypatch.setattr(
+        dependencies, "require_session",
+        lambda request: SimpleNamespace(role="viewer", username="fixture"),
+    )
+    monkeypatch.setattr(dependencies, "log_security_event", lambda *args, **kwargs: None)
+    app = FastAPI()
+    app.include_router(workflows_api.router)
+    app.include_router(automation.router)
+    with TestClient(app) as client:
+        for method, path in (
+            ("POST", "/workflows"),
+            ("POST", "/automation/scheduled_updates/enable"),
+            ("POST", "/automation/scheduled_updates/disable"),
+            ("POST", "/automation/scheduled_updates/dependencies"),
+            ("DELETE", "/automation/scheduled_updates/dependencies/health_check"),
+            ("PUT", "/workflows/1"),
+            ("DELETE", "/workflows/1"),
+            ("POST", "/workflows/1/tasks"),
+            ("DELETE", "/workflows/1/tasks/scheduled_updates"),
+            ("POST", "/workflows/1/dependencies"),
+            ("DELETE", "/workflows/1/dependencies/scheduled_updates/health_check"),
+        ):
+            assert client.request(method, path).status_code == 403, (method, path)
+        assert client.get("/workflows").status_code == 200

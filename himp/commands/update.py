@@ -69,6 +69,6 @@ def reconcile(args):
         locks.release(MAINTENANCE_RESOURCE, execution_token=token)
 
     if not reconciled:
-        error("No unreconciled interrupted outcome matched the plan and host.")
+        error("No unreconciled maintenance outcome matched the plan and host.")
         raise SystemExit(1)
     success("Reconciliation recorded. No maintenance was dispatched.")

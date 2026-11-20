@@ -7,8 +7,10 @@ existing generated host report data.
 
 import csv
 import io
+import json
 from html import escape
 from pathlib import Path
+from uuid import UUID
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
@@ -22,6 +24,7 @@ from reportlab.platypus import (
 )
 
 from himp.database.inventory import InventoryRepository
+from himp.database.host_identity import HostIdentityRepository
 
 
 class HostReportExportService:
@@ -29,6 +32,7 @@ class HostReportExportService:
     def __init__(self):
         self.root = Path("reports")
         self.inventory = InventoryRepository()
+        self.identities = HostIdentityRepository(self.inventory)
 
     def report(self, hostname):
         host = self.inventory.find_host(hostname)
@@ -45,20 +49,54 @@ class HostReportExportService:
             / f"{hostname}.md"
         )
 
-        if not filename.exists():
-            raise FileNotFoundError(
-                f"Host report not found: {hostname}"
-            )
-
-        content = filename.read_text(
-            encoding="utf-8"
-        )
+        bindings = self.identities.report_bindings()
+        candidates = [filename, filename.parent / "unverified" / filename.name]
+        binding = bindings.get(hostname)
+        if binding is not None:
+            history = self.root / "history" / "cmdb" / str(UUID(binding["host_id"]))
+            candidates.append(history / str(binding["incarnation"]) / "report.md")
+            # Pre-archive exports still live under their original verified alias.
+            for alias in reversed(self.identities.aliases(binding["host_id"])):
+                old_name = alias["old_hostname"]
+                if old_name and Path(old_name).name == old_name:
+                    candidates.append(filename.with_name(f"{old_name}.md"))
+        for candidate in candidates:
+            try:
+                content = candidate.read_text(encoding="utf-8")
+            except (OSError, UnicodeError):
+                continue
+            first_line, _, remainder = content.partition("\n")
+            identity = None
+            prefix = "<!-- himp-host-identity: "
+            if first_line.startswith(prefix):
+                try:
+                    identity = json.loads(first_line.removeprefix(prefix).removesuffix(" -->"))
+                except (ValueError, RecursionError):
+                    continue
+                if not isinstance(identity, dict):
+                    continue
+                content = remainder
+            if HostIdentityRepository.report_matches(bindings, hostname, identity):
+                heading, newline, body = content.partition("\n")
+                if heading.startswith("# ") and heading.endswith(" Infrastructure Report"):
+                    content = f"# {hostname} Infrastructure Report{newline}{body}"
+                break
+        else:
+            raise FileNotFoundError(f"Host report not found: {hostname}")
 
         return {
             "hostname": hostname,
             "content": content,
             "rows": self._parse(content),
         }
+
+    def history(self, hostname, incarnation, extension="md"):
+        host = self.inventory.find_host(hostname, include_inactive=True)
+        host_id = self.identities.identifier(host["id"]) if host else None
+        if host_id is None or incarnation < 1 or extension not in {"md", "json"}:
+            raise FileNotFoundError(f"Historical host report not found: {hostname}")
+        directory = self.root / "history" / "cmdb" / str(UUID(host_id)) / str(incarnation)
+        return (directory / f"report.{extension}").read_text(encoding="utf-8")
 
     def txt(self, hostname):
         return self.report(hostname)["content"].encode(

@@ -11,6 +11,7 @@ from datetime import datetime, timezone
 from himp.app import HIMP
 from himp.database.postgresql import PostgreSQLDatabase
 from himp.services.automation import AutomationAlreadyRunningError
+from himp.services.inventory_publication import InventoryBusyError
 from himp.services.operational_dispatcher import (
     OperationalDispatcher,
 )
@@ -308,7 +309,7 @@ def run(args):
                     f"{result['executed_at']}"
                 )
 
-            except AutomationAlreadyRunningError as exc:
+            except (AutomationAlreadyRunningError, InventoryBusyError) as exc:
                 print(f"Automation task deferred: {task_id}: {exc}")
                 continue
 

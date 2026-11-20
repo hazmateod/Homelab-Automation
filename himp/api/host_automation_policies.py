@@ -8,10 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict
 
 from himp.api.dependencies import require_admin, require_session
+from himp.config import config
 from himp.database.host_automation_policies import (
     HostAutomationPolicyRepository,
 )
 from himp.services.inventory import InventoryService
+from himp.services.inventory_publication import InventoryBusyError, inventory_admission
 
 
 router = APIRouter(
@@ -55,17 +57,17 @@ async def update_host_automation_policy(
     request: HostAutomationPolicyUpdate,
     admin=Depends(require_admin),
 ):
-    require_known_host(hostname)
-
-    repository = HostAutomationPolicyRepository()
-
     try:
-        policy = repository.set_policy(
-            hostname=hostname,
-            enabled=request.enabled,
-            reason=request.reason,
-            changed_by=admin.username,
-        )
+        with inventory_admission(config.inventory):
+            require_known_host(hostname)
+            policy = HostAutomationPolicyRepository().set_policy(
+                hostname=hostname,
+                enabled=request.enabled,
+                reason=request.reason,
+                changed_by=admin.username,
+            )
+    except InventoryBusyError as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
 
     except ValueError as error:
         raise HTTPException(

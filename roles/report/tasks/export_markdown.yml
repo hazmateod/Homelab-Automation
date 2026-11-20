@@ -3,9 +3,14 @@
 # HIMP Markdown Report Export
 ###############################################################################
 
+- name: Choose CMDB Markdown output directory
+  ansible.builtin.set_fact:
+    cmdb_markdown_directory: >-
+      {{ playbook_dir }}/../reports/current/cmdb{{ '' if cmdb_report_identity else '/unverified' }}
+
 - name: Ensure Markdown report directory exists
   ansible.builtin.file:
-    path: "{{ playbook_dir }}/../reports/current/cmdb"
+    path: "{{ cmdb_markdown_directory }}"
     state: directory
     mode: "0755"
   delegate_to: localhost
@@ -14,9 +19,13 @@
 
 - name: Export CMDB Markdown
   ansible.builtin.copy:
-    dest: "{{ playbook_dir }}/../reports/current/cmdb/{{ inventory_hostname }}.md"
+    dest: "{{ cmdb_markdown_directory }}/{{ inventory_hostname }}.md"
     mode: "0644"
+    backup: "{{ cmdb_report_identity | length > 0 }}"
     content: |
+      {% if cmdb_report_identity %}
+      <!-- himp-host-identity: {{ cmdb_report_identity | to_json }} -->
+      {% endif %}
       # {{ inventory_hostname }} Infrastructure Report
 
       Generated:

@@ -31,9 +31,18 @@
         file: "../plugins/{{ plugin }}/tasks/health.yml"
 
     - name: Save host health result
+      vars:
+        binding: "{{ (himp_host_bindings | default({})).get(inventory_hostname, {}) }}"
       ansible.builtin.set_fact:
         host_health_result:
           hostname: "{{ inventory_hostname }}"
+          host_identity: >-
+            {{
+              {'host_id': binding.host_id, 'incarnation': binding.incarnation}
+              if binding and binding.ip == (ansible_host | default(''))
+              and binding.user == (ansible_user | default(''))
+              else none
+            }}
           health:
             "{{ health_contributors[0] if (health_contributors | length) > 0 else {} }}"
           report:

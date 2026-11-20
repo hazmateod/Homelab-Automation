@@ -8,40 +8,25 @@
     state: directory
     mode: "0755"
 
-- name: Find JSON reports
+- name: Require reports selected by HIMP
   run_once: true
   delegate_to: localhost
   become: false
-  ansible.builtin.find:
-    paths: "{{ playbook_dir }}/../reports/json"
-    patterns: "*.json"
-  register: dashboard_json
+  ansible.builtin.assert:
+    that:
+      - himp_dashboard_reports is defined
+      - himp_dashboard_reports is sequence
+      - himp_dashboard_reports is not string
+      - himp_dashboard_reports is not mapping
+    fail_msg: Run dashboard generation through HIMP to select current reports.
 
-- name: Initialize dashboard host list
-  run_once: true
-  delegate_to: localhost
-  become: false
-  ansible.builtin.set_fact:
-    dashboard_hosts: []
-
-- name: Read JSON reports
+- name: Select reports for current Ansible inventory
   run_once: true
   delegate_to: localhost
   become: false
   ansible.builtin.set_fact:
     dashboard_hosts: >-
-      {{
-        dashboard_hosts
-        + [
-            lookup(
-              'file',
-              item.path
-            )
-            | from_json
-          ]
-      }}
-  loop: "{{ dashboard_json.files }}"
-  when: (item.path | basename | splitext | first) in groups['all']
+      {{ himp_dashboard_reports | selectattr('metadata.hostname', 'in', groups['all']) | list }}
 
 - name: Generate dashboard JSON
   run_once: true
@@ -82,4 +67,5 @@
   ansible.builtin.debug:
     msg:
       - "Dashboard generated."
-      - "Hosts: {{ dashboard_hosts | length }}"
+      - "Hosts: {{ dashboard_hosts | default([]) | length }}"
+      - "Unreadable or malformed reports skipped: {{ himp_dashboard_skipped_reports | default([]) | to_json }}"

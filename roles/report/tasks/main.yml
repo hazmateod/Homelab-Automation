@@ -16,3 +16,27 @@
 
 - name: Export Markdown
   import_tasks: export_markdown.yml
+
+- name: Preserve verified reports by incarnation
+  when: cmdb_report_identity | length > 0
+  vars:
+    archive_directory: >-
+      {{ playbook_dir }}/../reports/history/cmdb/{{ cmdb_report_identity.host_id }}/{{ cmdb_report_identity.incarnation }}
+  block:
+    - name: Create incarnation report directory
+      ansible.builtin.file:
+        path: "{{ archive_directory }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy reports to incarnation history
+      ansible.builtin.copy:
+        src: "{{ item.source }}/{{ inventory_hostname }}.{{ item.extension }}"
+        dest: "{{ archive_directory }}/report.{{ item.extension }}"
+        remote_src: true
+        mode: "0644"
+      loop:
+        - {source: "{{ cmdb_json_directory }}", extension: json}
+        - {source: "{{ cmdb_markdown_directory }}", extension: md}
+  delegate_to: localhost
+  become: false
