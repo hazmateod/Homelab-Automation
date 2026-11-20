@@ -142,3 +142,14 @@ def test_retry_attempts_have_independent_records(repository):
     assert repository.get(second_id)["status"] == "succeeded"
     assert repository.get(first_id)["completed_execution_id"] == 100
     assert repository.get(second_id)["completed_execution_id"] == 101
+
+
+def test_finalization_replaces_pending_with_durable_host_outcomes(repository):
+    lifecycle = make_lifecycle(repository)
+    run_id = lifecycle.start(["host01", "host02"])
+    outcomes = {
+        "host01": {"host": "host01", "status": "interrupted"},
+        "host02": {"host": "host02", "status": "unstarted"},
+    }
+    assert lifecycle.finalize_safely(False, execution_id=123, host_results=outcomes)
+    assert repository.get(run_id)["host_results"] == outcomes

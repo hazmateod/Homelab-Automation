@@ -8,7 +8,7 @@ import re
 
 
 RECAP_HEADER = re.compile(
-    r"^\s*PLAY RECAP\s*$"
+    r"^\s*PLAY RECAP\s*\**\s*$"
 )
 
 HOST_LINE = re.compile(

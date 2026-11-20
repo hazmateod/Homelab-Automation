@@ -55,15 +55,17 @@ class AutomationProgressLifecycle:
 
         return self.tracker.handle_event(event)
 
-    def finalize(self, success, execution_id=None):
+    def finalize(self, success, execution_id=None, host_results=None):
         if self.run_id is None:
             raise ValueError("Progress attempt has not started")
 
+        options = {} if host_results is None else {"host_results": host_results}
         return self.repository.update(
             self.run_id,
             status="succeeded" if success else "failed",
             completed_execution_id=execution_id,
             execution_token=self.execution_token,
+            **options,
         )
 
     def interrupt(self):
@@ -76,15 +78,17 @@ class AutomationProgressLifecycle:
         )
 
 
-    def finalize_safely(self, success, execution_id=None):
+    def finalize_safely(self, success, execution_id=None, host_results=None):
         """Finalize progress without changing execution outcome."""
         if self.run_id is None:
             return False
 
         try:
+            options = {} if host_results is None else {"host_results": host_results}
             self.finalize(
                 success=success,
                 execution_id=execution_id,
+                **options,
             )
             return True
 

@@ -730,16 +730,19 @@ class AutomationService:
         lifecycle,
         success,
         execution_id,
+        host_results=None,
     ):
         """Prevent progress finalization from affecting maintenance."""
         if lifecycle is None:
             return False
 
+        options = {} if host_results is None else {"host_results": host_results}
         try:
             return bool(
                 lifecycle.finalize_safely(
                     success=success,
                     execution_id=execution_id,
+                    **options,
                 )
             )
         except Exception:
@@ -1243,6 +1246,10 @@ class AutomationService:
                         progress_lifecycle,
                         success=success,
                         execution_id=execution_id,
+                        host_results=(
+                            result.get("host_results")
+                            if maintenance and isinstance(result, dict) else None
+                        ),
                     )
 
                     if success:
