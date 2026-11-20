@@ -43,10 +43,13 @@ class ReportService:
             return self._generate(limit, timeout, expected_target_plan_id=expected_target_plan_id)
 
     def _generate(self, limit, timeout, *, expected_target_plan_id):
+        from himp.database.host_automation_policies import HostAutomationPolicyRepository
+
+        disabled = HostAutomationPolicyRepository().disabled_hosts()
         if not limit or not literal_host_pattern(limit, {}):
             if expected_target_plan_id is not None:
                 raise ReportTargetChangedError("Report retry requires one verified host")
-            return self._run_broad_report(limit, timeout)
+            return self._run_broad_report(limit, timeout, disabled)
 
         source = Path(config.inventory).resolve()
         contents = source.read_bytes()
@@ -60,7 +63,9 @@ class ReportService:
             if not literal_host_pattern(limit, inventory) or variables is None:
                 if expected_target_plan_id is not None:
                     raise ReportTargetChangedError("The original report host is no longer identifiable")
-                return self._run_broad_report(limit, timeout)
+                return self._run_broad_report(limit, timeout, disabled)
+            if limit in disabled:
+                raise ReportTargetChangedError("Report host is disabled by automation policy")
             repository = InventoryRepository()
             row = repository.find_host(limit)
             if row is None or row["ip"] != variables.get("ansible_host"):
@@ -98,7 +103,13 @@ class ReportService:
                 error.target_plan_id = plan_id
                 raise
 
-    def _run_broad_report(self, limit, timeout):
+    def _run_broad_report(self, limit, timeout, disabled):
+        if disabled:
+            import re
+
+            if any(re.fullmatch(r"[A-Za-z0-9_.-]+", host) is None for host in disabled):
+                raise ValueError("Invalid hostname in automation exclusion policy")
+            limit = (limit or "all") + "".join(f":!{host}" for host in sorted(disabled))
         identities = HostIdentityRepository()
         return self._run_report(limit, timeout, bindings=identities.execution_bindings())
 

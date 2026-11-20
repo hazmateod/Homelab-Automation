@@ -143,7 +143,13 @@ class HostHealthService:
         self,
         timeout=None,
     ):
-        hosts = self.inventory.all_hosts()
+        from himp.database.host_automation_policies import HostAutomationPolicyRepository
+
+        disabled = HostAutomationPolicyRepository().disabled_hosts()
+        hosts = [
+            host for host in self.inventory.all_hosts()
+            if host["hostname"] not in disabled
+        ]
 
         hostnames = [
             host["hostname"]

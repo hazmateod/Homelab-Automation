@@ -55,7 +55,7 @@
           inventory_group: "{{ inventory_group }}"
           hosts: >-
             {{
-              groups[inventory_group]
+              ansible_play_hosts_all
               | map('extract', hostvars)
               | map(attribute='host_health_result', default={})
               | list
