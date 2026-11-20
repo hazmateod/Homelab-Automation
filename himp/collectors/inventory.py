@@ -39,10 +39,7 @@ class InventoryCollector:
         seen = set()
 
         for group, data in self.groups().items():
-            hosts = data.get(
-                "hosts",
-                {}
-            )
+            hosts = data.get("hosts") or {}
 
             for hostname, details in hosts.items():
                 if hostname in seen:

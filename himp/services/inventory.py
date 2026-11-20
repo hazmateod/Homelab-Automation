@@ -12,6 +12,7 @@ from himp.collectors.inventory import InventoryCollector
 from himp.database.inventory import InventoryRepository
 from himp.health.repository import HealthRepository
 from himp.services.inventory_writer import InventoryFileWriter
+from himp.services.inventory_publication import InventoryPublication
 from himp.config import config
 from himp.models.inventory import (
     InventoryGroup,
@@ -63,12 +64,14 @@ class InventoryService:
         self,
         hostname,
         expected_ip,
+        inventory_path=None,
     ):
+        inventory_path = str(inventory_path or config.inventory)
         inventory_result = subprocess.run(
             [
                 "ansible-inventory",
                 "-i",
-                config.inventory,
+                inventory_path,
                 "--host",
                 hostname,
             ],
@@ -110,7 +113,7 @@ class InventoryService:
             [
                 "ansible",
                 "-i",
-                config.inventory,
+                inventory_path,
                 hostname,
                 "-m",
                 "ping",
@@ -130,182 +133,85 @@ class InventoryService:
 
         return inventory_data
 
-    def add_host(
-        self,
-        hostname,
-        group,
-        ip,
-        user,
-        become=False,
-    ):
-        existing = self.repository.find_host(
-            hostname,
-            include_inactive=True,
-        )
+    def _publication(self):
+        return InventoryPublication(self.writer.filename, self.repository)
 
-        if existing is not None:
-            raise ValueError(
-                f"Inventory host already exists: {hostname}"
-            )
+    def add_host(self, hostname, group, ip, user, become=False):
+        return self._write_host("add_host", hostname, group, ip, user, become)
 
-        host = self.writer.add_host(
-            hostname=hostname,
-            group=group,
-            ip=ip,
-            user=user,
-            become=become,
-        )
+    def update_host(self, hostname, group, ip, user, become=False):
+        return self._write_host("update_host", hostname, group, ip, user, become)
 
-        try:
-            self._validate_inventory_host(
-                hostname=hostname,
-                expected_ip=ip,
-            )
-        except Exception:
-            self.writer.remove_host(
-                hostname=hostname,
-            )
-            raise
+    def _write_host(self, operation, hostname, group, ip, user, become):
+        publication = self._publication()
+        with publication.locked():
+            existing = self.repository.find_host(hostname, include_inactive=True)
+            if operation == "add_host" and existing is not None:
+                raise ValueError(f"Inventory host already exists: {hostname}")
+            if operation == "update_host" and existing is None:
+                raise ValueError(f"Inventory host does not exist: {hostname}")
+            with publication.stage() as (writer, original):
+                edit = writer.add_host if operation == "add_host" else writer.update_host
+                host = edit(hostname=hostname, group=group, ip=ip, user=user, become=become)
+                self._validate_inventory_host(
+                    hostname=hostname, expected_ip=ip, inventory_path=writer.filename
+                )
+                publication.publish(writer, original, "save_host", host)
+            return self.repository.find_host(hostname, include_inactive=True)
 
-        self.repository.save_host(host)
+    def rename_group(self, group, new_group):
+        publication = self._publication()
+        with publication.locked(), publication.stage() as (writer, original):
+            result = writer.rename_group(group=group, new_group=new_group)
+            publication.publish(writer, original, "rename_group", group, new_group)
+            return result
 
-        return self.repository.find_host(
-            hostname,
-            include_inactive=True,
-        )
+    def remove_host(self, hostname):
+        publication = self._publication()
+        with publication.locked(), publication.stage() as (writer, original):
+            if self.repository.find_host(hostname, include_inactive=True) is None:
+                raise ValueError(f"Inventory host does not exist: {hostname}")
+            writer.remove_host(hostname=hostname)
+            publication.publish(writer, original, "mark_removed", hostname)
+            return self.repository.find_host(hostname, include_inactive=True)
 
-    def update_host(
-        self,
-        hostname,
-        group,
-        ip,
-        user,
-        become=False,
-    ):
-        existing = self.repository.find_host(
-            hostname,
-            include_inactive=True,
-        )
-
-        if existing is None:
-            raise ValueError(
-                f"Inventory host does not exist: {hostname}"
-            )
-
-        host = self.writer.update_host(
-            hostname=hostname,
-            group=group,
-            ip=ip,
-            user=user,
-            become=become,
-        )
-
-        try:
-            self._validate_inventory_host(
-                hostname=hostname,
-                expected_ip=ip,
-            )
-        except Exception:
-            self.writer.update_host(
+    def restore_host(self, hostname):
+        publication = self._publication()
+        with publication.locked(), publication.stage() as (writer, original):
+            existing = self.repository.find_host(hostname, include_inactive=True)
+            if existing is None:
+                raise ValueError(f"Inventory host does not exist: {hostname}")
+            if existing["active"]:
+                raise ValueError(f"Inventory host is already active: {hostname}")
+            writer.restore_host(
                 hostname=hostname,
                 group=existing["group_name"],
                 ip=existing["ip"],
                 user=existing["ansible_user"],
                 become=bool(existing["become"]),
             )
-            raise
-
-        self.repository.save_host(host)
-
-        return self.repository.find_host(
-            hostname,
-            include_inactive=True,
-        )
-
-    def rename_group(
-        self,
-        group,
-        new_group,
-    ):
-        result = self.writer.rename_group(
-            group=group,
-            new_group=new_group,
-        )
-
-        self.repository.rename_group(group, new_group)
-
-        return result
-
-    def remove_host(
-        self,
-        hostname,
-    ):
-        existing = self.repository.find_host(
-            hostname,
-            include_inactive=True,
-        )
-
-        if existing is None:
-            raise ValueError(
-                f"Inventory host does not exist: {hostname}"
-            )
-
-        result = self.writer.remove_host(
-            hostname=hostname,
-        )
-
-        self.repository.mark_removed(
-            hostname
-        )
-
-        return self.repository.find_host(
-            hostname,
-            include_inactive=True,
-        )
-
-    def restore_host(
-        self,
-        hostname,
-    ):
-        existing = self.repository.find_host(
-            hostname,
-            include_inactive=True,
-        )
-
-        if existing is None:
-            raise ValueError(
-                f"Inventory host does not exist: {hostname}"
-            )
-
-        if existing["active"]:
-            raise ValueError(
-                f"Inventory host is already active: {hostname}"
-            )
-
-        host = self.writer.restore_host(
-            hostname=hostname,
-            group=existing["group_name"],
-            ip=existing["ip"],
-            user=existing["ansible_user"],
-            become=bool(existing["become"]),
-        )
-
-        self.repository.restore_host(
-            hostname
-        )
-
-        return self.repository.find_host(
-            hostname,
-            include_inactive=True,
-        )
+            publication.publish(writer, original, "restore_host", hostname)
+            return self.repository.find_host(hostname, include_inactive=True)
 
     def sync(self):
+        with self._publication().locked():
+            return self._sync_locked()
+
+    def _sync_locked(self):
         hosts = self.collector.hosts()
 
         collected_names = {host["hostname"] for host in hosts}
-        active_names = {
-            host["hostname"] for host in self.repository.all_hosts()
-        }
+        known_hosts = self.repository.all_hosts(include_inactive=True)
+        active_names = {host["hostname"] for host in known_hosts if host["active"]}
+        inactive_names = {host["hostname"] for host in known_hosts if not host["active"]}
+        if collected_names & inactive_names:
+            raise ValueError("Inventory snapshot contains inactive hosts. Restore them explicitly before syncing.")
+        missing = active_names - collected_names
+        if missing:
+            raise ValueError(
+                f"Inventory snapshot omitted {len(missing)} active host(s). "
+                "Remove managed hosts explicitly before syncing."
+            )
         self.repository.save_snapshot(hosts)
 
         return {
