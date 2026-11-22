@@ -68,17 +68,27 @@ class MaintenanceOutcomeRepository:
         )
 
     def requires_reconciliation(self, host, *, host_id=None, aliases=()):
+        return bool(self.pending(host, host_id=host_id, aliases=aliases))
+
+    def pending(self, host, *, host_id=None, aliases=()):
         names = tuple(dict.fromkeys((host, *aliases)))
         placeholders = ", ".join("?" for _ in names)
         rows = self.database.query(
-            f"SELECT outcome FROM maintenance_host_outcomes WHERE host IN ({placeholders})",
+            f"SELECT plan_id, host, outcome FROM maintenance_host_outcomes WHERE host IN ({placeholders})",
             names,
         )
-        return any(
-            (host_id is None or outcome.get("host_id") in (None, host_id))
-            and self.needs_reconciliation(outcome)
-            for outcome in (json.loads(row["outcome"]) for row in rows)
-        )
+        pending = []
+        for row in rows:
+            outcome = json.loads(row["outcome"])
+            if (
+                (host_id is None or outcome.get("host_id") in (None, host_id))
+                and self.needs_reconciliation(outcome)
+            ):
+                pending.append({
+                    "plan_id": row["plan_id"], "host": row["host"],
+                    "status": outcome["status"], "changed": outcome.get("changed"),
+                })
+        return pending
 
     @staticmethod
     def needs_reconciliation(outcome):

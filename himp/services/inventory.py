@@ -6,13 +6,16 @@ Business logic layer for HIMP inventory.
 
 from collections import Counter
 import json
+import re
 import subprocess
+from tempfile import NamedTemporaryFile
 from uuid import uuid4
 
 from himp.collectors.inventory import InventoryCollector
 from himp.database.host_automation_policies import HostAutomationPolicyRepository
 from himp.database.host_identity import HostIdentityRepository
 from himp.database.inventory import InventoryRepository
+from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
 from himp.health.repository import HealthRepository
 from himp.services.inventory_writer import InventoryFileWriter
 from himp.services.inventory_publication import InventoryPublication
@@ -69,6 +72,8 @@ class InventoryService:
         expected_ip,
         inventory_path=None,
         expected_user=None,
+        readiness=None,
+        expected_become=None,
     ):
         inventory_path = str(inventory_path or config.inventory)
         inventory_result = subprocess.run(
@@ -116,40 +121,57 @@ class InventoryService:
         if expected_user is not None and inventory_data.get("ansible_user") != expected_user:
             raise ValueError(f"Ansible inventory user changed for {hostname}")
 
-        ping_result = subprocess.run(
-            [
-                "ansible",
-                "-i",
-                inventory_path,
-                hostname,
-                "-m",
-                "ping",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=60,
-            check=False,
-        )
+        if expected_become is not None and inventory_data.get("ansible_become", False) != expected_become:
+            raise ValueError(f"Ansible privilege escalation setting differs for {hostname}")
 
-        if ping_result.returncode != 0:
-            raise ValueError(
-                "Ansible SSH validation failed for "
-                f"{hostname}: "
-                f"{ping_result.stderr.strip() or ping_result.stdout.strip()}"
-            )
+        if readiness == "pending":
+            return inventory_data
+
+        try:
+            if readiness == "verify":
+                # Use effective host/group variables but restrict the invocation
+                # to one host, even when its name is also an inventory group.
+                # Maintenance enables become at play level. Match that default;
+                # an explicit inventory variable takes precedence in Ansible.
+                with NamedTemporaryFile(mode="w", suffix=".yml") as candidate:
+                    json.dump({"all": {"hosts": {hostname: inventory_data}}}, candidate)
+                    candidate.flush()
+                    result = subprocess.run(
+                        ["ansible", "-i", candidate.name, "all", "--become", "-m",
+                         "ansible.builtin.setup", "-a", "filter=ansible_distribution"],
+                        capture_output=True, text=True, timeout=30, check=False,
+                    )
+            else:
+                result = subprocess.run(
+                    ["ansible", "-i", inventory_path, hostname, "-m", "ping"],
+                    capture_output=True, text=True, timeout=60, check=False,
+                )
+        except subprocess.TimeoutExpired as error:
+            raise ValueError(f"Ansible connection check timed out for {hostname}") from error
+
+        if result.returncode != 0:
+            output = result.stdout.strip() or result.stderr.strip()
+            label = "Ansible readiness check" if readiness else "Ansible SSH validation"
+            raise ValueError(f"{label} failed for {hostname}: {output[-2000:]}")
 
         return inventory_data
 
     def _publication(self):
         return InventoryPublication(self.writer.filename, self.repository)
 
-    def add_host(self, hostname, group, ip, user, become=False):
-        return self._write_host("add_host", hostname, group, ip, user, become)
+    def add_host(self, hostname, group, ip, user, become=False, *, readiness=None):
+        return self._write_host("add_host", hostname, group, ip, user, become, readiness=readiness)
 
-    def update_host(self, hostname, group, ip, user, become=False):
-        return self._write_host("update_host", hostname, group, ip, user, become)
+    def update_host(self, hostname, group, ip, user, become=False, *, readiness=None):
+        return self._write_host("update_host", hostname, group, ip, user, become, readiness=readiness)
 
-    def _write_host(self, operation, hostname, group, ip, user, become):
+    def _write_host(self, operation, hostname, group, ip, user, become, *, readiness=None):
+        if readiness is not None and (
+            not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]*", hostname)
+            or not re.fullmatch(r"[A-Za-z0-9:][A-Za-z0-9_.:%-]*", ip)
+            or not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.-]*", user)
+        ):
+            raise ValueError("Enter a valid hostname, address, and SSH username.")
         publication = self._publication()
         with publication.locked():
             existing = self.repository.find_host(hostname, include_inactive=True)
@@ -160,9 +182,17 @@ class InventoryService:
             with publication.stage() as (writer, original):
                 edit = writer.add_host if operation == "add_host" else writer.update_host
                 host = edit(hostname=hostname, group=group, ip=ip, user=user, become=become)
-                self._validate_inventory_host(
-                    hostname=hostname, expected_ip=ip, inventory_path=writer.filename
-                )
+                validation = {}
+                if readiness is not None:
+                    validation.update(expected_user=user, expected_become=become, readiness=readiness)
+                    host["readiness_pending"] = readiness == "pending"
+                try:
+                    self._validate_inventory_host(
+                        hostname=hostname, expected_ip=ip, inventory_path=writer.filename,
+                        **validation,
+                    )
+                except subprocess.TimeoutExpired as error:
+                    raise ValueError(f"Ansible inventory check timed out for {hostname}") from error
                 publication.publish(writer, original, "save_host", host)
             return self.repository.find_host(hostname, include_inactive=True)
 
@@ -196,6 +226,52 @@ class InventoryService:
                 str(uuid4()),
             )
             return self.repository.find_host(new_hostname)
+
+    def maintenance_readiness(self):
+        identities = HostIdentityRepository(self.repository)
+        outcomes = MaintenanceOutcomeRepository()
+        result = {}
+        for row in identities.current():
+            hostname = row["hostname"]
+            pending = self._pending_outcomes(row, identities, outcomes)
+            if pending or row["endpoint_review_required"] or row["readiness_pending"]:
+                result[hostname] = {
+                    "host_id": row["host_id"],
+                    "incarnation": row["current_incarnation"],
+                    "ip": row["ip"],
+                    "user": row["ansible_user"],
+                    "endpoint_review": bool(row["endpoint_review_required"]),
+                    "readiness_pending": bool(row["readiness_pending"]),
+                    "outcomes": pending,
+                }
+                if row["endpoint_review_required"]:
+                    result[hostname]["endpoint_changes"] = self.repository.latest_endpoint_changes(hostname)
+        return result
+
+    @staticmethod
+    def _pending_outcomes(row, identities, outcomes):
+        aliases = {
+            name for alias in identities.aliases(row["host_id"])
+            for name in (alias["old_hostname"], alias["new_hostname"])
+        }
+        return outcomes.pending(row["hostname"], host_id=row["host_id"], aliases=aliases)
+
+    def reconcile_maintenance(self, hostname, host_id, incarnation, plan_id, plan_host, note, *, endpoint):
+        from himp.services.maintenance_reconciliation import maintenance_reconciliation
+
+        with maintenance_reconciliation(), self._publication().locked():
+            identities = HostIdentityRepository(self.repository)
+            current = next((row for row in identities.current() if row["hostname"] == hostname), None)
+            if current is None or (current["host_id"], current["current_incarnation"]) != (host_id, incarnation):
+                raise ValueError("The inventory host incarnation has changed")
+            if endpoint != (current["ip"], current["ansible_user"]):
+                raise ValueError("The inventory endpoint changed. Verify the current address and SSH user.")
+            outcomes = MaintenanceOutcomeRepository()
+            pending = self._pending_outcomes(current, identities, outcomes)
+            if not any((row["plan_id"], row["host"]) == (plan_id, plan_host) for row in pending):
+                raise ValueError("No unreconciled maintenance outcome matched the plan and host.")
+            if not outcomes.reconcile(plan_id, plan_host, note):
+                raise ValueError("No unreconciled maintenance outcome matched the plan and host.")
 
     def record_verified_rebuild(self, hostname, host_id, expected_incarnation, *, endpoint=None):
         return self._verify_host_binding(hostname, host_id, expected_incarnation, endpoint, rebuild=True)

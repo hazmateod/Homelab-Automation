@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 
 import logging
 import subprocess
+from socket import gethostname
 import time
 
 from fastapi import Depends, FastAPI, HTTPException
@@ -1062,8 +1063,10 @@ def automation_execution_details(
         )
     )
 
-    context = dashboard_context()
-    context["execution"] = execution
+    context = {
+        "dashboard": {"system": {"hostname": gethostname(), "version": app.version}},
+        "execution": execution,
+    }
 
     workflow_navigation = {
         "origin_workflow_id": None,

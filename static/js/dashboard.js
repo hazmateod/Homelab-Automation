@@ -5,6 +5,7 @@ document.addEventListener("DOMContentLoaded", () => {
     initializePluginButtons();
     initializeRestartButton();
     initializeUpdateButtons();
+    refreshMaintenanceReadiness();
 
 });
 
@@ -158,6 +159,136 @@ function initializeRestartButton() {
 }
 
 
+const updateBlockerMessages = {
+    prior_mutation_unverified: "A prior maintenance run needs reconciliation.",
+    endpoint_review_required: "The inventory endpoint needs review.",
+    maintenance_readiness_pending: "Verify the Ansible connection in Edit Host.",
+    inventory_busy_after_dispatch: "Inventory became busy during this update.",
+    target_plan_changed: "The inventory changed before dispatch.",
+    run_timeout: "The update timed out before this host started.",
+};
+
+function inventoryRequestError(payload, status) {
+    return payload.detail?.error ||
+        (typeof payload.detail === "string" ? payload.detail : `Request failed (HTTP ${status}).`);
+}
+
+async function refreshMaintenanceReadiness() {
+    const containers = document.querySelectorAll(".maintenance-readiness");
+    if (!containers.length) return;
+
+    try {
+        const response = await fetch("/api/inventory/maintenance-readiness");
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        const hosts = new Map(Object.entries(await response.json()));
+        for (const container of containers) {
+            renderMaintenanceReadiness(container, hosts.get(container.dataset.hostname));
+        }
+    } catch (error) {
+        for (const container of containers) {
+            container.textContent = `Maintenance readiness unavailable (${error.message}).`;
+        }
+    }
+}
+
+function renderMaintenanceReadiness(container, readiness) {
+    const hostname = container.dataset.hostname;
+    const updateButton = container.parentElement.querySelector(".update-target");
+    container.replaceChildren();
+    if (!readiness) {
+        updateButton.disabled = updateButton.dataset.updating === "true";
+        return;
+    }
+    updateButton.disabled = true;
+    const list = document.createElement("ul");
+    list.className = "mt-1 mb-1 ps-3";
+    container.append(list);
+    const row = (message) => {
+        const item = document.createElement("li");
+        item.textContent = message;
+        list.append(item);
+        return item;
+    };
+    const identity = {
+        host_id: readiness.host_id,
+        expected_incarnation: readiness.incarnation,
+        expected_ip: readiness.ip,
+        expected_user: readiness.user,
+    };
+    const status = document.createElement("p");
+    status.className = "mb-1";
+    status.setAttribute("role", "status");
+    container.append(status);
+
+    function action(item, label, path, payload) {
+        const button = document.createElement("button");
+        button.type = "button";
+        button.className = "btn btn-sm btn-outline-light ms-1";
+        button.textContent = label;
+        item.append(" ", button);
+        button.addEventListener("click", async () => {
+            const body = payload();
+            if (!body) return;
+            button.disabled = true;
+            status.textContent = "Saving verification…";
+            try {
+                const response = await fetch(`/api/inventory/hosts/${encodeURIComponent(hostname)}/${path}`, {
+                    method: "POST",
+                    headers: {"Content-Type": "application/json"},
+                    body: JSON.stringify({...identity, ...body}),
+                });
+                const result = await response.json();
+                if (!response.ok) throw new Error(inventoryRequestError(result, response.status));
+                await refreshMaintenanceReadiness();
+            } catch (error) {
+                status.textContent = error.message;
+                button.disabled = false;
+            }
+        });
+    }
+
+    if (readiness.readiness_pending) {
+        row("Connection not verified. Open Edit and choose Verify and Save Changes.");
+    }
+    if (readiness.endpoint_review) {
+        const item = row(`Review the endpoint ${readiness.user}@${readiness.ip}.`);
+        for (const change of readiness.endpoint_changes || []) {
+            const field = change.field === "ip" ? "Address" : "SSH user";
+            const current = change.field === "ip" ? readiness.ip : readiness.user;
+            if (change.new_value === current) {
+                const detail = document.createElement("div");
+                detail.textContent = `Last recorded ${field} change: ${change.old_value ?? "unset"} → ${current}`;
+                item.append(detail);
+            }
+        }
+        if (!readiness.readiness_pending) {
+            action(item, "Confirm same host", "verified-move", () => {
+                if (!window.confirm(
+                    `Confirm that ${readiness.user}@${readiness.ip} is the same installation as ${hostname} and you verified access.`
+                )) return null;
+                return {
+                    continuity_verified: true,
+                };
+            });
+        }
+    }
+    for (const outcome of readiness.outcomes) {
+        const item = row(`Prior maintenance ${outcome.status} for ${outcome.host}.`);
+        const link = document.createElement("a");
+        link.href = `/api/automation/maintenance-plans/${encodeURIComponent(outcome.plan_id)}/outcomes`;
+        link.textContent = "View outcome";
+        item.append(" ", link);
+        action(item, "Reconcile", "reconcile-maintenance", () => {
+            if (!window.confirm(
+                `Confirm that the maintenance worker and remote operation have stopped and you verified the state of ${hostname} (${readiness.ip}).`
+            )) return null;
+            const note = window.prompt("Enter the host-state verification note.")?.trim();
+            if (!note) return null;
+            return {plan_id: outcome.plan_id, plan_host: outcome.host, note, confirm_drained: true};
+        });
+    }
+}
+
 function initializeUpdateButtons() {
 
     const buttons = document.querySelectorAll(".update-target");
@@ -180,8 +311,15 @@ function initializeUpdateButtons() {
             }
 
             const originalText = button.textContent;
+            const feedback = button.parentElement.querySelector(".update-feedback") || document.createElement("div");
+            feedback.className = "update-feedback small mt-1";
+            feedback.setAttribute("role", "status");
+            feedback.replaceChildren();
+            button.after(feedback);
+            let executionId;
 
             button.disabled = true;
+            button.dataset.updating = "true";
             button.textContent = "Updating...";
             button.classList.remove("btn-primary", "btn-success", "btn-danger");
             button.classList.add("btn-warning", "text-dark");
@@ -196,13 +334,26 @@ function initializeUpdateButtons() {
                 );
 
                 const result = await response.json();
+                if (!response.ok) throw new Error(inventoryRequestError(result, response.status));
 
-                if (!response.ok || !result.success) {
-                    throw new Error(
-                        result.detail
-                            ? JSON.stringify(result.detail)
-                            : `HTTP ${response.status}`
-                    );
+                executionId = result.id;
+                const operation = result.result ?? result;
+                if (!operation.success && !operation.skipped) {
+                    const reasons = Object.entries(operation.host_results || {})
+                        .filter(([, outcome]) => outcome.reason)
+                        .map(([name, outcome]) => `${name}: ${updateBlockerMessages[outcome.reason] || outcome.reason}`);
+                    const log = [operation.stderr, operation.stdout].filter(Boolean).join("\n");
+                    const failure = log.split("\n").find(line => /fatal:|\[ERROR\]|UNREACHABLE/i.test(line));
+                    throw new Error(reasons.join(" ") || operation.error || failure || log.slice(0, 500) || "Maintenance failed.");
+                }
+                if (operation.skipped) {
+                    button.disabled = false;
+                    delete button.dataset.updating;
+                    button.textContent = originalText;
+                    button.classList.remove("btn-warning", "text-dark");
+                    button.classList.add("btn-primary");
+                    feedback.textContent = operation.stdout || "No eligible hosts. No update ran.";
+                    return;
                 }
 
                 button.classList.remove("btn-warning", "text-dark");
@@ -215,9 +366,16 @@ function initializeUpdateButtons() {
 
             } catch (error) {
 
-                console.error(error);
+                feedback.textContent = error.message;
+                if (Number.isInteger(executionId)) {
+                    const link = document.createElement("a");
+                    link.href = `/automation/executions/${executionId}`;
+                    link.textContent = `View execution #${executionId}`;
+                    feedback.append(" ", link);
+                }
 
                 button.disabled = false;
+                delete button.dataset.updating;
                 button.classList.remove("btn-warning", "text-dark");
                 button.classList.add("btn-danger");
                 button.textContent = "Failed";
@@ -619,9 +777,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
         configure(values);
 
-        bootstrap.Modal.getOrCreateInstance(
-            modal
-        ).show();
+        const form = document.getElementById(`${source}HostModal`);
+        const formModal = bootstrap.Modal.getOrCreateInstance(form);
+        const setupModal = bootstrap.Modal.getOrCreateInstance(modal);
+        form.addEventListener("hidden.bs.modal", () => setupModal.show(), {once: true});
+        modal.addEventListener("hidden.bs.modal", () => {
+            form.dataset.returningFromSshSetup = "true";
+            formModal.show();
+            delete form.dataset.returningFromSshSetup;
+        }, {once: true});
+        formModal.hide();
     }
 
     async function copyToClipboard(
@@ -737,9 +902,9 @@ document.addEventListener("DOMContentLoaded", () => {
                     ).checked = true;
                 }
 
-                showStatus(
-                    "Recommended settings applied: Ansible User = himp-automation; Become = enabled."
-                );
+                document.getElementById(`${currentSource}HostSshSettingsStatus`).textContent =
+                    "Recommended settings applied. Verify and save to use the dedicated account.";
+                bootstrap.Modal.getOrCreateInstance(modal).hide();
             }
         );
     }
@@ -888,6 +1053,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const user = document.getElementById("addHostUser");
     const become = document.getElementById("addHostBecome");
     const saveButton = document.getElementById("saveAddHostButton");
+    const pendingButton = document.getElementById("savePendingAddHostButton");
     const error = document.getElementById("addHostError");
 
     function clearError() {
@@ -901,6 +1067,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     modal.addEventListener("show.bs.modal", () => {
+        if (modal.dataset.returningFromSshSetup === "true") return;
+        document.getElementById("addHostSshSettingsStatus").textContent = "";
         clearError();
 
         hostname.value = "";
@@ -912,10 +1080,11 @@ document.addEventListener("DOMContentLoaded", () => {
         saveButton.disabled = false;
         saveButton.classList.remove("btn-success");
         saveButton.classList.add("btn-primary");
-        saveButton.textContent = "Add Host";
+        saveButton.textContent = "Verify and Add Host";
     });
 
-    saveButton.addEventListener("click", async () => {
+    async function saveHost(event) {
+        const savePending = event.currentTarget === pendingButton;
         clearError();
 
         if (
@@ -936,12 +1105,14 @@ document.addEventListener("DOMContentLoaded", () => {
             ip: ip.value.trim(),
             user: user.value.trim(),
             become: become.checked,
+            readiness: savePending ? "pending" : "verify",
         };
 
         const originalText = saveButton.textContent;
 
         saveButton.disabled = true;
-        saveButton.textContent = "Adding...";
+        if (pendingButton) pendingButton.disabled = true;
+        saveButton.textContent = savePending ? "Saving…" : "Verifying…";
 
         try {
             const response = await fetch(
@@ -978,9 +1149,12 @@ document.addEventListener("DOMContentLoaded", () => {
             showError(err.message);
 
             saveButton.disabled = false;
+            if (pendingButton) pendingButton.disabled = false;
             saveButton.textContent = originalText;
         }
-    });
+    }
+    saveButton.addEventListener("click", saveHost);
+    pendingButton?.addEventListener("click", saveHost);
 });
 
 /*
@@ -1250,6 +1424,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const saveButton = document.getElementById(
         "saveEditHostButton"
     );
+    const pendingButton = document.getElementById("savePendingEditHostButton");
     const error = document.getElementById(
         "editHostError"
     );
@@ -1275,6 +1450,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 return;
             }
 
+            document.getElementById("editHostSshSettingsStatus").textContent = "";
             hostname.value = button.dataset.hostname || "";
             group.value = button.dataset.group || "";
             ip.value = button.dataset.ip || "";
@@ -1289,84 +1465,87 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     );
 
-    saveButton.addEventListener(
-        "click",
-        async () => {
-            clearError();
+    async function saveHost(event) {
+        const savePending = event.currentTarget === pendingButton;
+        clearError();
 
-            if (
-                !group.value.trim() ||
-                !ip.value.trim() ||
-                !user.value.trim()
-            ) {
-                showError(
-                    "Group, IP address, and Ansible user are required."
-                );
-                return;
-            }
-
-            const payload = {
-                group: group.value.trim(),
-                ip: ip.value.trim(),
-                user: user.value.trim(),
-                become: become.checked,
-            };
-
-            const originalText =
-                saveButton.textContent;
-
-            saveButton.disabled = true;
-            saveButton.textContent = "Saving...";
-
-            try {
-                const response = await fetch(
-                    `/api/inventory/hosts/${encodeURIComponent(
-                        hostname.value
-                    )}`,
-                    {
-                        method: "PUT",
-                        headers: {
-                            "Content-Type":
-                                "application/json",
-                        },
-                        body: JSON.stringify(payload),
-                    }
-                );
-
-                const result = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(
-                        result.detail?.error ||
-                        result.detail ||
-                        `HTTP ${response.status}`
-                    );
-                }
-
-                saveButton.classList.remove(
-                    "btn-primary"
-                );
-                saveButton.classList.add(
-                    "btn-success"
-                );
-                saveButton.textContent =
-                    "Saved";
-
-                setTimeout(() => {
-                    window.location.reload();
-                }, 800);
-
-            } catch (err) {
-                console.error(err);
-
-                showError(err.message);
-
-                saveButton.disabled = false;
-                saveButton.textContent =
-                    originalText;
-            }
+        if (
+            !group.value.trim() ||
+            !ip.value.trim() ||
+            !user.value.trim()
+        ) {
+            showError(
+                "Group, IP address, and Ansible user are required."
+            );
+            return;
         }
-    );
+
+        const payload = {
+            group: group.value.trim(),
+            ip: ip.value.trim(),
+            user: user.value.trim(),
+            become: become.checked,
+            readiness: savePending ? "pending" : "verify",
+        };
+
+        const originalText =
+            saveButton.textContent;
+
+        saveButton.disabled = true;
+        if (pendingButton) pendingButton.disabled = true;
+        saveButton.textContent = savePending ? "Saving…" : "Verifying…";
+
+        try {
+            const response = await fetch(
+                `/api/inventory/hosts/${encodeURIComponent(
+                    hostname.value
+                )}`,
+                {
+                    method: "PUT",
+                    headers: {
+                        "Content-Type":
+                            "application/json",
+                    },
+                    body: JSON.stringify(payload),
+                }
+            );
+
+            const result = await response.json();
+
+            if (!response.ok) {
+                throw new Error(
+                    result.detail?.error ||
+                    result.detail ||
+                    `HTTP ${response.status}`
+                );
+            }
+
+            saveButton.classList.remove(
+                "btn-primary"
+            );
+            saveButton.classList.add(
+                "btn-success"
+            );
+            saveButton.textContent =
+                "Saved";
+
+            setTimeout(() => {
+                window.location.reload();
+            }, 800);
+
+        } catch (err) {
+            console.error(err);
+
+            showError(err.message);
+
+            saveButton.disabled = false;
+            if (pendingButton) pendingButton.disabled = false;
+            saveButton.textContent =
+                originalText;
+        }
+    }
+    saveButton.addEventListener("click", saveHost);
+    pendingButton?.addEventListener("click", saveHost);
 });
 
 

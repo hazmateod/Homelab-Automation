@@ -45,30 +45,18 @@ def run(args):
 
 
 def reconcile(args):
-    from uuid import uuid4
-
-    from himp.database.automation_locks import AutomationLockRepository
     from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
-    from himp.services.automation import MAINTENANCE_RESOURCE
+    from himp.services.maintenance_reconciliation import maintenance_reconciliation
 
     if not args.confirm_drained:
         error("Verify the worker and remote mutation have stopped before reconciliation.")
         raise SystemExit(1)
 
-    locks = AutomationLockRepository()
-    token = str(uuid4())
-    if not locks.acquire(MAINTENANCE_RESOURCE, lease_seconds=60, execution_token=token):
-        error("Maintenance is still active.")
-        raise SystemExit(1)
-
     try:
-        reconciled = MaintenanceOutcomeRepository().reconcile(
-            args.plan_id, args.host, args.note,
-        )
-    finally:
-        locks.release(MAINTENANCE_RESOURCE, execution_token=token)
-
-    if not reconciled:
-        error("No unreconciled maintenance outcome matched the plan and host.")
-        raise SystemExit(1)
+        with maintenance_reconciliation():
+            if not MaintenanceOutcomeRepository().reconcile(args.plan_id, args.host, args.note):
+                raise ValueError("No unreconciled maintenance outcome matched the plan and host.")
+    except ValueError as exc:
+        error(str(exc))
+        raise SystemExit(1) from exc
     success("Reconciliation recorded. No maintenance was dispatched.")

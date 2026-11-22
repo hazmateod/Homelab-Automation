@@ -11,6 +11,8 @@ Describe the purpose of the Inventory API.
 | Method | Path | Description |
 |---------|------|-------------|
 | GET | /inventory | Retrieve Inventory information |
+| GET | /api/inventory/maintenance-readiness | List pending Ansible checks, endpoint reviews, and unreconciled outcomes for active hosts. Administrator access required. |
+| POST | /api/inventory/hosts/{hostname}/reconcile-maintenance | Record an operator's verification for an unresolved plan outcome. Administrator access required. |
 | POST | /api/inventory/sync | Synchronize inventory. Administrator access required. |
 | GET | /api/inventory/identity/current | Compare active inventory with verified identities, plugin health, and report generation times |
 | POST | /api/inventory/hosts/{hostname}/rename | Rename an active host with `new_hostname`. Administrator access required. |
@@ -50,3 +52,16 @@ incarnation. Historical Markdown and JSON for a known host are available at
 `GET /api/reports/host/{hostname}/history/{incarnation}`, with `?format=json`
 for JSON. Older Markdown without identity metadata remains in the file inventory
 and in writer backups after replacement.
+
+
+Inventory Add/Edit can send `readiness: "verify"` to run bounded Ansible
+fact gathering before publishing or `readiness: "pending"` to save a host
+and prevent maintenance until verification succeeds. The UI sends one of
+these modes on every save. An update rechecks the persisted hold at dispatch.
+
+Reconciliation requires `host_id`, `expected_incarnation`, `expected_ip`,
+`expected_user`, `plan_id`,
+`plan_host` (the hostname recorded in the outcome), `note`, and
+`confirm_drained: true`. Confirm the worker and remote operation have stopped
+and verify the host state before submitting. The action preserves the original
+outcome, uses the maintenance lock, and does not dispatch an update.

@@ -76,6 +76,14 @@ class InventoryRepository:
             """
         )
 
+        self.database.execute(
+            """
+            CREATE TABLE IF NOT EXISTS inventory_readiness_pending (
+                inventory_id BIGINT PRIMARY KEY REFERENCES inventory_hosts(id)
+            )
+            """
+        )
+
         columns = self.database.table_columns(
             "inventory_hosts"
         )
@@ -181,6 +189,18 @@ class InventoryRepository:
                     datetime.now(timezone.utc).replace(tzinfo=None),
                 ),
             )
+
+            if host.get("readiness_pending") is True:
+                execute(connection, """
+                    INSERT INTO inventory_readiness_pending (inventory_id)
+                    SELECT id FROM inventory_hosts WHERE hostname=?
+                    ON CONFLICT (inventory_id) DO NOTHING
+                """, (host["hostname"],))
+            elif host.get("readiness_pending") is False:
+                execute(connection, """
+                    DELETE FROM inventory_readiness_pending
+                    WHERE inventory_id=(SELECT id FROM inventory_hosts WHERE hostname=?)
+                """, (host["hostname"],))
 
     def rename_group(self, group, new_group):
         if group == new_group:
@@ -437,6 +457,20 @@ class InventoryRepository:
         )
 
         return row[0]["total"]
+
+    def latest_endpoint_changes(self, hostname):
+        return self.database.query(
+            """
+            SELECT field, old_value, new_value FROM (
+                SELECT field, old_value, new_value,
+                       ROW_NUMBER() OVER (PARTITION BY field ORDER BY id DESC) AS position
+                FROM inventory_changes
+                WHERE hostname=? AND change_type='UPDATED' AND field IN ('ip', 'ansible_user')
+            ) AS endpoint_changes
+            WHERE position=1 ORDER BY field
+            """,
+            (hostname,),
+        )
 
     def changes(
         self,

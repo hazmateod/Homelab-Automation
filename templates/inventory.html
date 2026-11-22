@@ -623,6 +623,11 @@
                             Update
                         </button>
 
+                        {% if automation_policy_admin %}
+                        <div class="maintenance-readiness small mt-1"
+                             data-hostname="{{ host.hostname|e }}" aria-live="polite"></div>
+                        {% endif %}
+
                         <button
                             type="button"
                             class="btn btn-sm btn-outline-primary edit-host-button"
@@ -1041,6 +1046,8 @@ document.addEventListener(
 
             <div class="modal-body">
 
+                <p id="addHostSshSettingsStatus" class="small text-info" role="status"></p>
+
                 <div
                     id="addHostError"
                     class="alert alert-danger d-none"
@@ -1156,12 +1163,16 @@ document.addEventListener(
                     SSH Setup
                 </button>
 
+                <button type="button" class="btn btn-outline-light" id="savePendingAddHostButton">
+                    Save as Pending
+                </button>
+
                 <button
                     type="button"
                     class="btn btn-primary"
                     id="saveAddHostButton"
                 >
-                    Add Host
+                    Verify and Add Host
                 </button>
 
             </div>
@@ -1781,6 +1792,8 @@ document.addEventListener(
 
             <div class="modal-body">
 
+                <p id="editHostSshSettingsStatus" class="small text-info" role="status"></p>
+
                 <div
                     id="editHostError"
                     class="alert alert-danger d-none"
@@ -1886,12 +1899,16 @@ document.addEventListener(
                     SSH Setup
                 </button>
 
+                <button type="button" class="btn btn-outline-light" id="savePendingEditHostButton">
+                    Save as Pending
+                </button>
+
                 <button
                     type="button"
                     class="btn btn-primary"
                     id="saveEditHostButton"
                 >
-                    Save Changes
+                    Verify and Save Changes
                 </button>
 
             </div>

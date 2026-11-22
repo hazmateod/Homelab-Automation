@@ -198,6 +198,10 @@ class HostIdentityRepository:
                    inventory_hosts.hostname, inventory_hosts.group_name, inventory_hosts.ip,
                    inventory_hosts.ansible_user,
                    EXISTS (
+                       SELECT 1 FROM inventory_readiness_pending
+                       WHERE inventory_id=inventory_hosts.id
+                   ) AS readiness_pending,
+                   EXISTS (
                        SELECT 1 FROM inventory_endpoint_reviews
                        WHERE inventory_endpoint_reviews.inventory_id=inventory_hosts.id
                    ) AS endpoint_review_required
