@@ -3,6 +3,7 @@ Plugin Health Engine.
 """
 
 import json
+import os
 from pathlib import Path
 import subprocess
 import time
@@ -15,6 +16,12 @@ from himp.health.attempts import HealthAttempts
 from himp.health.parser import HealthArtifactParser
 from himp.models.execution import Execution
 from himp.plugins.loader import PluginLoader
+
+
+TECHNITIUM_SSH_OPTIONS = (
+    "-o StrictHostKeyChecking=yes -o UpdateHostKeys=no "
+    "-o ControlMaster=no -o ControlPath=none -o BatchMode=yes"
+)
 
 
 class PluginHealthRunner:
@@ -95,7 +102,16 @@ class PluginHealthRunner:
             command.extend(["-e", json.dumps({"himp_health_output": str(artifact)})])
             failure = None
             try:
-                process = subprocess.run(command, check=False, timeout=timeout)
+                options = {}
+                if plugin.id == "technitium":
+                    command.extend(["-e", json.dumps({
+                        "ansible_host_key_checking": True,
+                        "ansible_ssh_host_key_checking": True,
+                        "ansible_ssh_args": TECHNITIUM_SSH_OPTIONS,
+                        "himp_require_technitium_ssh": True,
+                    })])
+                    options["env"] = {**os.environ, "LC_ALL": "C"}
+                process = subprocess.run(command, check=False, timeout=timeout, **options)
                 result.return_code = process.returncode
                 if process.returncode:
                     failure = "execution_failed"

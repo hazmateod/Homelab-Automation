@@ -31,7 +31,13 @@ def test_health_history_only_records_the_current_successful_attempt(monkeypatch,
         "hosts": [{"hostname": "resolver", "health": {"status": "PASS", "earned": 10, "possible": 10}}],
     }))
 
-    def run(command, *, check, timeout):
+    def run(command, *, check, timeout, env):
+        policy = next(json.loads(arg) for arg in command
+                      if arg.startswith('{"ansible_host_key_checking"'))
+        assert policy["ansible_ssh_host_key_checking"] is True
+        assert policy["himp_require_technitium_ssh"] is True
+        assert "StrictHostKeyChecking=yes" in policy["ansible_ssh_args"]
+        assert env["LC_ALL"] == "C"
         if outcome == "timeout":
             raise subprocess.TimeoutExpired(command, timeout)
         staged = next(json.loads(arg)["himp_health_output"] for arg in command

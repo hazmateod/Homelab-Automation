@@ -25,6 +25,13 @@
           - inventory_group | length > 0
         fail_msg: Plugin or inventory_group parameter was not supplied.
 
+    - name: Require OpenSSH transport for scheduled Technitium checks
+      ansible.builtin.assert:
+        that:
+          - (ansible_connection | default('ssh')) in ['ssh', 'ansible.builtin.ssh']
+        fail_msg: Technitium monitoring requires OpenSSH transport
+      when: himp_require_technitium_ssh | default(false) | bool
+
     - name: Gather host facts and preserve unreachable targets for reporting
       ansible.builtin.setup:
       register: health_setup
@@ -43,7 +50,12 @@
             status: UNKNOWN
             issues: ["Host health collection did not start"]
           report:
-            collection_status: "{{ 'unreachable' if health_setup.unreachable | default(false) else 'unknown' }}"
+            collection_status: >-
+              {{
+                'ssh_identity_failed' if (health_setup.msg | default('')) is search(
+                  'Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED'
+                ) else 'unreachable' if health_setup.unreachable | default(false) else 'unknown'
+              }}
       when: health_setup is failed or health_setup.unreachable | default(false)
 
     - name: Collect health from reachable targets
