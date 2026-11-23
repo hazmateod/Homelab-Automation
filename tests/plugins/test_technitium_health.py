@@ -64,14 +64,35 @@ def test_dns_response_status(status, expected):
         "stdout": f";; ->>HEADER<<- opcode: QUERY, status: {status}, id: 1\n"
                   "probe.example. 10 IN A 192.0.2.1",
     }
-    assert technitium_dns_result(result, "192.0.2.1") == expected
+    assert technitium_dns_result(result, "probe.example", "192.0.2.1") == expected
 
 
-def test_dns_timeout_missing_tool_and_missing_expected_answer():
-    assert technitium_dns_result({"rc": 9, "stdout": "connection timed out"}, "") == "timeout"
-    assert technitium_dns_result({"rc": 2}, "") == "unknown"
-    assert technitium_dns_result({"skipped": True}, "") == "unknown"
-    assert technitium_dns_result({"rc": 0, "stdout": "status: NOERROR,"}, "") == "unexpected_answer"
+@pytest.mark.parametrize(("result", "outcome"), [
+    ({"rc": 9, "stdout": "connection timed out"}, "timeout"),
+    ({"rc": 124}, "timeout"),
+    ({"rc": 2}, "unknown"),
+    ({"skipped": True}, "unknown"),
+    ({"rc": 0, "stdout": "status: NOERROR,"}, "unknown"),
+    ({"rc": 0, "stdout": ";; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 1"}, "unexpected_answer"),
+])
+def test_dns_timeout_missing_tool_and_missing_expected_answer(result, outcome):
+    assert technitium_dns_result(result, "probe.example", "192.0.2.1") == outcome
+
+
+@pytest.mark.parametrize(("flags", "record", "outcome"), [
+    ("qr rd ra", "other.example. 10 IN A 192.0.2.1", "unexpected_answer"),
+    ("qr rd ra", "probe.example. 10 IN A 192.0.2.2", "unexpected_answer"),
+    ("qr tc rd ra", "probe.example. 10 IN A 192.0.2.1", "truncated"),
+    ("qr rd ra", "PROBE.example. 10 IN A 192.0.2.1", "ok"),
+])
+def test_dns_requires_the_canary_owner_and_untruncated_answer(flags, record, outcome):
+    output = (
+        ";; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 1\n"
+        f";; flags: {flags}; QUERY: 1, ANSWER: 1\n{record}"
+    )
+    assert technitium_dns_result(
+        {"rc": 0, "stdout": output}, "probe.example.", "192.0.2.1"
+    ) == outcome
 
 
 def test_restart_trend_rejects_replaced_and_stale_hosts():
@@ -105,6 +126,71 @@ def test_restart_trend_rejects_replaced_and_stale_hosts():
         )
 
 
+def test_health_playbook_rejects_unrelated_dns_answer(tmp_path):
+    import json
+    import os
+    from pathlib import Path
+    import shutil
+    import subprocess
+
+    ansible = shutil.which("ansible-playbook")
+    if ansible is None:
+        pytest.skip("ansible-playbook is required for the local integration test")
+
+    repo = Path(__file__).resolve().parents[2]
+    playbooks = tmp_path / "playbooks"
+    shutil.copytree(repo / "playbooks" / "filter_plugins", playbooks / "filter_plugins")
+    shutil.copy(repo / "playbooks" / "run_health.yml", playbooks)
+    shutil.copytree(repo / "plugins" / "technitium", tmp_path / "plugins" / "technitium")
+    commands = tmp_path / "bin"
+    commands.mkdir()
+    fake_systemctl = commands / "systemctl"
+    fake_systemctl.write_text(
+        "#!/bin/sh\n"
+        "for name do :; done\n"
+        "if [ \"$name\" != dns.service ]; then echo LoadState=not-found; exit 1; fi\n"
+        "cat <<'UNIT'\n" + unit("dns.service")["stdout"] + "\nUNIT\n"
+    )
+    fake_dig = commands / "dig"
+    fake_dig.write_text(
+        "#!/bin/sh\n"
+        '[ "$1" = -r ] || exit 2\n'
+        "printf '%s\\n' ';; ->>HEADER<<- opcode: QUERY, status: NOERROR, id: 1' "
+        "'wrong.example. 10 IN A 192.0.2.1'\n"
+    )
+    for command in (fake_systemctl, fake_dig):
+        command.chmod(0o755)
+
+    inventory = tmp_path / "inventory"
+    inventory.write_text(
+        "[technitium]\n"
+        "fixture ansible_host=127.0.0.1 ansible_connection=local ansible_become=false\n"
+    )
+    process = subprocess.run(
+        [
+            ansible, "-i", str(inventory), str(playbooks / "run_health.yml"),
+            "-e", json.dumps({
+                "plugin": "technitium",
+                "inventory_group": "technitium",
+                "technitium_probe_name": "probe.example",
+                "technitium_probe_address": "192.0.2.1",
+            }),
+        ],
+        cwd=tmp_path,
+        env={**os.environ, "PATH": f"{commands}:{os.environ['PATH']}"},
+        capture_output=True,
+        text=True,
+        timeout=90,
+    )
+    assert process.returncode == 0, process.stdout + process.stderr
+    artifact = tmp_path / "reports" / "health" / "technitium.json"
+    host, = json.loads(artifact.read_text())["hosts"]
+    assert host["report"]["service"] == "dns.service"
+    assert host["report"]["dns"] == dict.fromkeys(
+        ("local_udp", "local_tcp", "remote_udp", "remote_tcp"), "unexpected_answer"
+    )
+    assert host["health"]["status"] == "CRITICAL"
+    assert "wrong.example" not in artifact.read_text()
 @pytest.mark.parametrize(("percent", "severity"), [
     (79, "healthy"), (80, "warning"), (89, "warning"), (90, "critical"),
 ])

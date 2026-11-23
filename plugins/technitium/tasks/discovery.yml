@@ -42,10 +42,13 @@
 - name: Query the configured internal DNS record over UDP and TCP
   ansible.builtin.command:
     argv:
+      - timeout
+      - "5"
       - dig
+      - -r
       - "@{{ item.target }}"
       - -q
-      - "{{ technitium_probe_name }}"
+      - "{{ technitium_probe_name.rstrip('.') ~ '.' }}"
       - -t
       - A
       - +time=2
@@ -74,7 +77,7 @@
 
 - name: Record DNS probe outcomes
   ansible.builtin.set_fact:
-    technitium_dns_outcomes: "{{ technitium_dns_outcomes | default({}) | combine({item.item.label: (item | technitium_dns_result(technitium_probe_address | default('')))}) }}"
+    technitium_dns_outcomes: "{{ technitium_dns_outcomes | default({}) | combine({item.item.label: (item | technitium_dns_result(technitium_probe_name | default(''), technitium_probe_address | default('')))}) }}"
   loop: "{{ technitium_dns_queries.results }}"
   no_log: true
 

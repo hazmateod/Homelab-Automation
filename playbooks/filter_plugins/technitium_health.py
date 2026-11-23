@@ -1,6 +1,7 @@
 """Reduce Technitium probe output to allowlisted report fields."""
 
 from datetime import datetime
+from ipaddress import IPv4Address
 import json
 import re
 
@@ -52,21 +53,43 @@ def _count(value):
     return int(value) if value and re.fullmatch(r"[0-9]{1,20}", value) else None
 
 
-def technitium_dns_result(result, expected):
+def technitium_dns_result(result, name, expected):
+    """Verify a direct A answer for the configured canary."""
     if result.get("skipped"):
         return "unknown"
+    try:
+        expected = str(IPv4Address(expected))
+    except ValueError:
+        return "unknown"
+
     output = result.get("stdout", "")
-    status = re.search(r"status: ([A-Z]+),", output)
-    if status and status[1] in {"SERVFAIL", "REFUSED", "NXDOMAIN"}:
-        return status[1].lower()
+    if result.get("rc") == 124 or (
+        result.get("rc") != 0
+        and re.search(r"timed out|no servers could be reached", output, re.I)
+    ):
+        return "timeout"
     if result.get("rc") != 0:
-        if re.search(r"timed out|no servers could be reached", output, re.I):
-            return "timeout"
         return "unknown"
-    if not status or status[1] != "NOERROR":
+
+    status = re.findall(
+        r"^;; ->>HEADER<<- opcode: QUERY, status: ([A-Z]+),", output, re.M
+    )
+    if len(status) != 1:
         return "unknown"
+    if status[0] in {"SERVFAIL", "REFUSED", "NXDOMAIN"}:
+        return status[0].lower()
+    if status[0] != "NOERROR":
+        return "unknown"
+    if any("tc" in flags.split() for flags in re.findall(r"^;; flags: ([^;]*);", output, re.M)):
+        return "truncated"
+
+    owner = name.rstrip(".").lower() + "."
     return "ok" if any(
-        len(fields) == 5 and fields[2:4] == ["IN", "A"] and fields[4] == expected
+        len(fields) == 5
+        and fields[0].lower() == owner
+        and fields[1].isdigit()
+        and fields[2:4] == ["IN", "A"]
+        and fields[4] == expected
         for fields in (line.split() for line in output.splitlines())
     ) else "unexpected_answer"
 
