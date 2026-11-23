@@ -1,8 +1,18 @@
 ---
 - name: Execute HIMP Plugin Health
   hosts: "{{ inventory_group }}"
-  gather_facts: true
+  gather_facts: false
   become: true
+
+  vars:
+    health_binding: "{{ (himp_host_bindings | default({})).get(inventory_hostname, {}) }}"
+    health_identity: >-
+      {{
+        {'host_id': health_binding.host_id, 'incarnation': health_binding.incarnation}
+        if health_binding and health_binding.ip == (ansible_host | default(''))
+        and health_binding.user == (ansible_user | default(''))
+        else none
+      }}
 
   tasks:
 
@@ -15,38 +25,54 @@
           - inventory_group | length > 0
         fail_msg: Plugin or inventory_group parameter was not supplied.
 
-    - name: Initialize HIMP runtime
-      ansible.builtin.set_fact:
-        homelab_report: {}
-        homelab_health: {}
-        health_contributors: []
-        homelab_plugin: "{{ plugin }}"
+    - name: Gather host facts and preserve unreachable targets for reporting
+      ansible.builtin.setup:
+      register: health_setup
+      ignore_unreachable: true
+      ignore_errors: true
+      no_log: true
 
-    - name: Execute plugin discovery
-      ansible.builtin.include_tasks:
-        file: "../plugins/{{ plugin }}/tasks/discovery.yml"
-
-    - name: Execute plugin health
-      ansible.builtin.include_tasks:
-        file: "../plugins/{{ plugin }}/tasks/health.yml"
-
-    - name: Save host health result
-      vars:
-        binding: "{{ (himp_host_bindings | default({})).get(inventory_hostname, {}) }}"
+    - name: Record current attempt when host facts are unavailable
       ansible.builtin.set_fact:
         host_health_result:
           hostname: "{{ inventory_hostname }}"
-          host_identity: >-
-            {{
-              {'host_id': binding.host_id, 'incarnation': binding.incarnation}
-              if binding and binding.ip == (ansible_host | default(''))
-              and binding.user == (ansible_user | default(''))
-              else none
-            }}
+          host_identity: "{{ health_identity }}"
           health:
-            "{{ health_contributors[0] if (health_contributors | length) > 0 else {} }}"
+            earned: 0
+            possible: 10
+            status: UNKNOWN
+            issues: ["Host health collection did not start"]
           report:
-            "{{ homelab_report.plugins[plugin] if plugin in homelab_report.plugins else {} }}"
+            collection_status: "{{ 'unreachable' if health_setup.unreachable | default(false) else 'unknown' }}"
+      when: health_setup is failed or health_setup.unreachable | default(false)
+
+    - name: Collect health from reachable targets
+      when: health_setup is succeeded and not (health_setup.unreachable | default(false))
+      block:
+        - name: Initialize HIMP runtime
+          ansible.builtin.set_fact:
+            homelab_report: {}
+            homelab_health: {}
+            health_contributors: []
+            homelab_plugin: "{{ plugin }}"
+
+        - name: Execute plugin discovery
+          ansible.builtin.include_tasks:
+            file: "../plugins/{{ plugin }}/tasks/discovery.yml"
+
+        - name: Execute plugin health
+          ansible.builtin.include_tasks:
+            file: "../plugins/{{ plugin }}/tasks/health.yml"
+
+        - name: Save host health result
+          ansible.builtin.set_fact:
+            host_health_result:
+              hostname: "{{ inventory_hostname }}"
+              host_identity: "{{ health_identity }}"
+              health:
+                "{{ health_contributors[0] if (health_contributors | length) > 0 else {} }}"
+              report:
+                "{{ homelab_report.plugins[plugin] if plugin in homelab_report.plugins else {} }}"
 
     - name: Aggregate plugin health results
       ansible.builtin.set_fact:
