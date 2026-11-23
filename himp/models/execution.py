@@ -24,6 +24,8 @@ class Execution:
 
     artifacts: list = field(default_factory=list)
 
+    health_attempt_id: str | None = None
+
     def add_warning(self, warning):
 
         self.warnings.append(warning)
