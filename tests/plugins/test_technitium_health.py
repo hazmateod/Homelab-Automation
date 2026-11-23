@@ -126,7 +126,7 @@ def test_restart_trend_rejects_replaced_and_stale_hosts():
         )
 
 
-@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable"])
+@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable", "midrun"])
 def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     import json
     import os
@@ -168,10 +168,28 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
         "offline ansible_host=127.0.0.1 ansible_connection=ssh "
         "ansible_port=1 ansible_user=test ansible_ssh_timeout=2"
     )
+    transport = tmp_path / "connection_plugins"
+    transport.mkdir()
+    (transport / "disconnect.py").write_text(
+        "from ansible.errors import AnsibleConnectionFailure\n"
+        "from ansible.plugins.connection.local import Connection as LocalConnection\n"
+        "DOCUMENTATION = 'name: disconnect\\nshort_description: Local test transport'\n"
+        "class Connection(LocalConnection):\n"
+        "    transport = 'disconnect'\n"
+        "    def exec_command(self, cmd, *args, **kwargs):\n"
+        "        if 'AnsiballZ_command.py' in cmd:\n"
+        "            raise AnsibleConnectionFailure('simulated disconnect after setup')\n"
+        "        return super().exec_command(cmd, *args, **kwargs)\n"
+    )
+    midrun_host = (
+        "offline ansible_host=127.0.0.1 ansible_connection=disconnect "
+        "ansible_user=test ansible_become=false"
+    )
     hosts = {
         "local": [local_host],
         "mixed": [local_host, unreachable_host],
         "unreachable": [unreachable_host],
+        "midrun": [midrun_host],
     }[targets]
     inventory.write_text("\n".join(["[technitium]", *hosts, ""]))
     artifact = tmp_path / "reports" / "health" / "technitium.json"
@@ -193,7 +211,12 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
             }),
         ],
         cwd=tmp_path,
-        env={**os.environ, "PATH": f"{commands}:{os.environ['PATH']}"},
+        env={
+            **os.environ,
+            "PATH": f"{commands}:{os.environ['PATH']}",
+            "ANSIBLE_CONNECTION_PLUGINS": str(transport),
+            "ANSIBLE_KEEP_REMOTE_FILES": "1",
+        },
         capture_output=True,
         text=True,
         timeout=90,
@@ -206,7 +229,9 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
         assert offline["host_identity"] == {"host_id": 41, "incarnation": 3}
         assert offline["health"]["status"] == "UNKNOWN"
         assert offline["report"] == {"collection_status": "unreachable"}
-    if targets == "unreachable":
+        if targets == "midrun":
+            assert offline["health"]["issues"] == ["Host health collection did not complete"]
+    if targets in {"unreachable", "midrun"}:
         return
     host = rows["fixture"]
     assert host["report"]["service"] == "dns.service"

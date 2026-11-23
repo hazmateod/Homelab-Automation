@@ -13,10 +13,16 @@
     - dns.service
     - technitium.service
   register: technitium_unit_queries
+  ignore_unreachable: true
   changed_when: false
   failed_when: false
   check_mode: false
   no_log: true
+
+- name: Stop collection when transport disappears
+  ansible.builtin.fail:
+    msg: HIMP health transport unavailable
+  when: technitium_unit_queries.unreachable | default(false)
 
 - name: Reduce systemd responses to report fields
   ansible.builtin.set_fact:
@@ -35,9 +41,15 @@
     - item.value.active
     - item.value.pid | int > 0
   register: technitium_process_users
+  ignore_unreachable: true
   changed_when: false
   failed_when: false
   check_mode: false
+
+- name: Stop collection when transport disappears
+  ansible.builtin.fail:
+    msg: HIMP health transport unavailable
+  when: technitium_process_users.unreachable | default(false)
 
 - name: Query the configured internal DNS record over UDP and TCP
   ansible.builtin.command:
@@ -70,10 +82,16 @@
     - technitium_probe_address | default('') is match('^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$')
     - item.target | length > 0
   register: technitium_dns_queries
+  ignore_unreachable: true
   changed_when: false
   failed_when: false
   check_mode: false
   no_log: true
+
+- name: Stop collection when transport disappears
+  ansible.builtin.fail:
+    msg: HIMP health transport unavailable
+  when: technitium_dns_queries.unreachable | default(false)
 
 - name: Record DNS probe outcomes
   ansible.builtin.set_fact:
@@ -85,9 +103,15 @@
   ansible.builtin.command:
     argv: [cat, /proc/sys/kernel/random/boot_id]
   register: technitium_boot
+  ignore_unreachable: true
   changed_when: false
   failed_when: false
   check_mode: false
+
+- name: Stop collection when transport disappears
+  ansible.builtin.fail:
+    msg: HIMP health transport unavailable
+  when: technitium_boot.unreachable | default(false)
 
 - name: Record Technitium discovery data
   ansible.builtin.set_fact:

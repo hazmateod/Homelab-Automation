@@ -74,6 +74,25 @@
               report:
                 "{{ homelab_report.plugins[plugin] if plugin in homelab_report.plugins else {} }}"
 
+      rescue:
+        - name: Preserve failure status for other plugin errors
+          ansible.builtin.fail:
+            msg: Plugin health collection failed
+          when: (ansible_failed_result.msg | default('')) != 'HIMP health transport unavailable'
+
+        - name: Record interrupted host health collection
+          ansible.builtin.set_fact:
+            host_health_result:
+              hostname: "{{ inventory_hostname }}"
+              host_identity: "{{ health_identity }}"
+              health:
+                earned: 0
+                possible: 10
+                status: UNKNOWN
+                issues: ["Host health collection did not complete"]
+              report:
+                collection_status: unreachable
+
     - name: Aggregate plugin health results
       ansible.builtin.set_fact:
         aggregated_health:
