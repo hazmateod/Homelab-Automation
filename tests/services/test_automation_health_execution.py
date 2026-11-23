@@ -217,3 +217,11 @@ def test_health_check_declares_daily_plugin_health_schedule():
 
     assert task["enabled"] is True
     assert task["schedule"] == "daily 04:00"
+
+
+def test_health_task_uses_configured_fleet_even_when_supplied_a_limit():
+    service = AutomationService()
+    service.health = FakeHealth([execution("technitium", True, 0)])
+    result = service._execute_task("health_check", limit="other_inventory:!technitium", timeout=15)
+    assert result["success"]
+    assert service.health.all_calls == [15]

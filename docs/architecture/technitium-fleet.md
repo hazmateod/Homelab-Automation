@@ -37,3 +37,5 @@ Use approved exports from Proxmox and HIMP and a controlled DNS record. The expe
 3. Run the read-only health check in the approved environment. Record the current attempt ID and status, each host identity, active unit, DNS UDP/TCP outcomes, and observation time. Require all expected rows and current evidence before sign-off.
 
 The restart warning currently uses a proposed default of three or more additional restarts within 900 seconds between comparable observations. Treat counter decreases and changes to boot identity or host incarnation as a new baseline.
+
+Restart comparisons also require matching canonical unit names and executable-argument fingerprints. Legacy reports and changed definitions establish a new baseline. An empty restart delta means there is no comparable evidence, while a delta of zero means the comparable counter did not increase. Replacement with an identical unit definition and no visible counter reset cannot be distinguished from continuity by these samples.

@@ -1,6 +1,7 @@
 """Reduce Technitium probe output to allowlisted report fields."""
 
 from datetime import datetime
+from hashlib import sha256
 from ipaddress import IPv4Address
 import json
 import re
@@ -35,6 +36,7 @@ def technitium_units(results):
             continue
         commands[canonical] = command[1].strip()
         units[canonical] = {
+            "definition_id": sha256(commands[canonical].encode()).hexdigest(),
             "active": values.get("ActiveState") == "active",
             "enabled": values.get("UnitFileState") in {"enabled", "enabled-runtime"},
             "restarts": _count(values.get("NRestarts")),
@@ -116,24 +118,34 @@ def technitium_restart_trend(evidence, previous_json, binding, address, user):
             datetime.fromisoformat(evidence["observed_at"])
             - datetime.fromisoformat(old["observed_at"])
         ).total_seconds()
-        if not 0 < elapsed <= 86400:
+        if not 0 < elapsed <= 900:
             return {}
         old_units = old["service_state"]["units"]
         deltas = {}
         for name, unit in evidence["service_state"]["units"].items():
             current = unit["restarts"]
-            prior = old_units.get(name, {}).get("restarts")
+            old_unit = old_units.get(name, {})
+            definition = unit.get("definition_id")
+            if not definition or definition != old_unit.get("definition_id"):
+                continue
+            prior = old_unit.get("restarts")
             if type(current) is int and type(prior) is int and current >= prior:
-                deltas[name] = {"delta": current - prior, "seconds": int(elapsed)}
+                deltas[name] = {"delta": current - prior, "seconds": elapsed}
         return deltas
     except (TypeError, AttributeError, KeyError, ValueError, RecursionError):
         return {}
+
+
+def technitium_restart_warning(deltas):
+    """Warn on three additional restarts during a comparable sample window."""
+    return any(sample["delta"] >= 3 for sample in deltas.values())
 
 
 class FilterModule:
     def filters(self):
         return {
             "technitium_units": technitium_units,
+            "technitium_restart_warning": technitium_restart_warning,
             "technitium_restart_trend": technitium_restart_trend,
             "technitium_dns_result": technitium_dns_result,
         }
