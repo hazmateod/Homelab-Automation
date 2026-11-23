@@ -110,3 +110,25 @@ def test_older_attempt_cannot_publish_after_newer_attempt(tmp_path):
     assert attempts.finish("technitium", "older", None, old, destination) == "superseded"
     assert not destination.exists()
     assert attempts.all()["technitium"]["failure_category"] == "timeout"
+
+
+def test_failed_publication_retains_previous_observation(tmp_path, monkeypatch):
+    from pathlib import Path
+    from himp.health.attempts import HealthAttempts
+
+    attempts = HealthAttempts(tmp_path)
+    destination = tmp_path / "technitium.json"
+    destination.write_text("previous")
+    staged = tmp_path / "staged.json"
+    staged.write_text("new")
+    attempts.start("technitium", "current")
+
+    def blocked_replace(self, target):
+        raise PermissionError("private path")
+
+    monkeypatch.setattr(Path, "replace", blocked_replace)
+    assert attempts.finish("technitium", "current", None, staged, destination) == "publication_failed"
+    assert destination.read_text() == "previous"
+    attempt = attempts.all()["technitium"]
+    assert attempt["status"] == "failed"
+    assert attempt["failure_category"] == "publication_failed"
