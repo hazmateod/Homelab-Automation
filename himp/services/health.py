@@ -27,7 +27,7 @@ class HealthService:
 
         execution = self.runner.health(name)
 
-        if execution.success and execution.health_attempt_id:
+        if execution.success and getattr(execution, "health_attempt_id", None):
             report = self.repository.plugin(name)
             if (
                 report is not None
@@ -54,21 +54,22 @@ class HealthService:
 
         summary = HealthSummary()
 
-        reports = {
-            report.summary.plugin: report
-            for report in self.repository.plugins()
-        }
-
-        for plugin_id, report in reports.items():
+        for name, report, attempt, freshness in self.repository.observations():
+            current = report is not None and freshness != "stale"
+            status = report.summary.status if current else HealthStatus.UNKNOWN
+            details = dict(report.metadata.data) if current else {}
+            details.update(latest_attempt=attempt, evidence_freshness=freshness)
+            if not current and report is not None:
+                details["last_observation_status"] = report.summary.status.value
 
             summary.plugins.append(
                 HealthCheckResult(
-                    plugin=report.summary.plugin,
+                    plugin=name,
                     check="health",
-                    status=report.summary.status,
-                    message=report.summary.status.value,
-                    duration_ms=report.summary.elapsed_ms,
-                    details=report.metadata.data,
+                    status=status,
+                    message="Latest attempt has no current evidence" if not current else status.value,
+                    duration_ms=report.summary.elapsed_ms if current else 0.0,
+                    details=details,
                 )
             )
 

@@ -6,10 +6,13 @@ import json
 from pathlib import Path
 import subprocess
 import time
+from tempfile import TemporaryDirectory
 from uuid import uuid4
 
 from himp.config import config
 from himp.database.host_identity import HostIdentityRepository
+from himp.health.attempts import HealthAttempts
+from himp.health.parser import HealthArtifactParser
 from himp.models.execution import Execution
 from himp.plugins.loader import PluginLoader
 
@@ -84,28 +87,49 @@ class PluginHealthRunner:
 
             command.extend(["--limit", exclusions])
 
-        try:
-            process = subprocess.run(command, check=False, timeout=timeout)
-        except subprocess.TimeoutExpired:
-            result.return_code = 124
-            result.add_warning("Health collection timed out.")
-        else:
-            result.return_code = process.returncode
-            result.success = process.returncode == 0
-        result.elapsed = round(time.perf_counter() - start, 3)
-
-        if result.success:
-            report = self.REPORT_DIR / f"{plugin.id}.json"
+        attempts = HealthAttempts(self.REPORT_DIR)
+        attempts.start(plugin.id, result.health_attempt_id)
+        destination = self.REPORT_DIR / f"{plugin.id}.json"
+        with TemporaryDirectory(dir=self.REPORT_DIR) as directory:
+            artifact = Path(directory).resolve() / destination.name
+            command.extend(["-e", json.dumps({"himp_health_output": str(artifact)})])
+            failure = None
             try:
-                document = json.loads(report.read_text(encoding="utf-8"))
-            except (OSError, ValueError, RecursionError):
-                document = None
-            if isinstance(document, dict) and document.get("attempt_id") == result.health_attempt_id:
-                result.add_artifact(str(report))
-            else:
-                result.success = False
-                result.return_code = 1
-                result.add_warning("Health collection did not publish a report for this attempt.")
+                process = subprocess.run(command, check=False, timeout=timeout)
+                result.return_code = process.returncode
+                if process.returncode:
+                    failure = "execution_failed"
+            except subprocess.TimeoutExpired:
+                result.return_code = 124
+                failure = "timeout"
+            except OSError:
+                failure = "runner_unavailable"
+
+            if failure is None:
+                if not artifact.is_file():
+                    failure = "artifact_missing"
+                else:
+                    try:
+                        report = HealthArtifactParser().parse(artifact)
+                        if (
+                            report is None or report.summary.plugin != plugin.id
+                            or report.metadata.data.get("attempt_id") != result.health_attempt_id
+                        ):
+                            failure = "artifact_invalid"
+                    except (OSError, ValueError, TypeError, AttributeError, RecursionError):
+                        failure = "artifact_invalid"
+
+            failure = attempts.finish(
+                plugin.id, result.health_attempt_id, failure,
+                None if failure else artifact, destination,
+            )
+        result.elapsed = round(time.perf_counter() - start, 3)
+        result.success = failure is None
+        if result.success:
+            result.add_artifact(str(destination))
+        else:
+            result.return_code = result.return_code or 1
+            result.add_warning(f"Health collection failed: {failure}.")
 
         return result
 
