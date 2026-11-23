@@ -27,3 +27,13 @@ The health API and dashboard distinguish the newest collection attempt from the 
 The repository currently sets `host_key_checking = False`. Production deployment requires verified host keys in the controller service account's known-hosts file and strict checking enabled in the effective SSH configuration. Obtain fingerprints through an authenticated management channel and verify the effective settings for both deployment types in staging. Treat unknown or changed keys as a collection failure pending operator review. Verify Proxmox scope, node and CTID before associating backup evidence. A CTID or inventory hostname alone does not authenticate a host.
 
 The HIMP Technitium runner applies strict OpenSSH verification even when the shared Ansible default is permissive. It disables multiplexing and automatic host-key updates for health collection. Enroll the verified endpoint key in the controller account's operator-managed known-hosts file before enabling the schedule. A replacement or reassigned IP requires an independently verified replacement fingerprint and inventory incarnation review before updating the trust entry. Never use automatic acceptance for enrollment. The runner reports initial host-key verification failures as `ssh_identity_failed` with UNKNOWN health. Direct standalone playbook invocation is a development interface and must use independently configured SSH trust.
+
+## Read-only acceptance checklist
+
+Use approved exports from Proxmox and HIMP and a controlled DNS record. The expected maintenance mappings are BlackWatch pve01 CT 310/311 and pve02 CT 312/313 with dns.service, standalone pve CT 800/801 and standalone prox CT 600/601 with technitium.service. Treat these as expected values until verified.
+
+1. Record each management endpoint's independently authenticated environment identity. Join node and CTID inside that scope, then verify the container hostname and management IP against the current HIMP host ID and incarnation. Reject missing or ambiguous joins.
+2. Verify controller SSH trust against the authenticated endpoint fingerprint. Validate the intended primary unit and document any inactive alternate. Confirm the canary's owner and expected A record are authorized for the test.
+3. Run the read-only health check in the approved environment. Record the current attempt ID and status, each host identity, active unit, DNS UDP/TCP outcomes, and observation time. Require all expected rows and current evidence before sign-off.
+
+The restart warning currently uses a proposed default of three or more additional restarts within 900 seconds between comparable observations. Treat counter decreases and changes to boot identity or host incarnation as a new baseline.
