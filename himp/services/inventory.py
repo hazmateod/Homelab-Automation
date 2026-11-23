@@ -368,7 +368,7 @@ class InventoryService:
     def _health_lookup(self):
         lookup = {}
 
-        for execution in self.health_repository.plugins():
+        for execution in self.health_repository.current_plugins():
             inventory_group = execution.metadata.data.get(
                 "inventory_group",
                 "",

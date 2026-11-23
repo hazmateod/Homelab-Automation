@@ -93,6 +93,9 @@ def test_host_health_dashboard_declares_connectivity_source():
 
 
 class FakeHealthRepository:
+    def observations(self):
+        yield "infrastructure", self.plugins()[0], None, "untracked"
+
     def plugins(self):
         return [
             SimpleNamespace(

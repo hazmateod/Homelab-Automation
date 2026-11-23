@@ -19,3 +19,9 @@ Inventory contains eight Technitium targets. The incident provides hypervisor an
 - Read views inherit HIMP authentication and show observation age, failure reason and recommended diagnostic. Alert events must deduplicate by host incarnation and condition, respect maintenance suppression and preserve operator acknowledgment.
 - Guided maintenance is read-only. Before any future authorized mutation, require exact identity, healthy alternate resolver, validated preconditions, backup evidence where applicable, rollback and individual admin approval.
 - Validate locally with fixtures and simulated command failures. Release acceptance additionally requires all eight authoritative bindings, isolated restore and non-root migration testing, and a monitored soak. Use unreachable for transport failure, no_permission for explicit denial, not_installed for confirmed absence, and unknown for insufficient evidence.
+
+## Attempt status and SSH trust
+
+The health API and dashboard distinguish the newest collection attempt from the last admitted report. A failed or running attempt makes earlier evidence stale. The last report stays available for historical analysis. Direct API execution requires an administrator session, consistent with the existing automation and workflow execution routes. The server chooses the configured plugin inventory group. API query parameters cannot expand it.
+
+The repository currently sets `host_key_checking = False`. Production deployment requires verified host keys in the controller service account's known-hosts file and strict checking enabled in the effective SSH configuration. Obtain fingerprints through an authenticated management channel and verify the effective settings for both deployment types in staging. Treat unknown or changed keys as a collection failure pending operator review. Verify Proxmox scope, node and CTID before associating backup evidence. A CTID or inventory hostname alone does not authenticate a host.

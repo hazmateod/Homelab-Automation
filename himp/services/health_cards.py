@@ -15,18 +15,20 @@ class HealthCardsService:
 
         cards = []
 
-        for execution in self.repository.plugins():
+        for name, execution, attempt, freshness in self.repository.observations():
 
-            summary = execution.summary
+            summary = execution.summary if execution is not None else None
+            current = summary is not None and freshness != "stale"
 
             cards.append(
                 {
                     "source": "PLUGIN",
-                    "plugin": summary.plugin,
-                    "status": summary.status.value,
-                    "earned": summary.score,
-                    "possible": summary.possible,
-                    "hosts": len(execution.hosts) or 1,
+                    "plugin": name,
+                    "status": summary.status.value if current else "UNKNOWN",
+                    "earned": summary.score if current else 0,
+                    "possible": summary.possible if summary else 0,
+                    "hosts": (len(execution.hosts) or 1) if current else 0,
+                    **({"latest_attempt": attempt, "evidence_freshness": freshness} if attempt else {}),
                 }
             )
 
