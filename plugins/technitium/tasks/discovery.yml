@@ -1,51 +1,107 @@
 ---
-###############################################################################
-# Technitium Discovery
-###############################################################################
-
-- name: Check Technitium service status
-  ansible.builtin.systemd:
-    name: technitium
-  register: technitium_service
+- name: Read candidate Technitium systemd units
+  ansible.builtin.command:
+    argv:
+      - timeout
+      - "5"
+      - systemctl
+      - show
+      - --no-pager
+      - --property=Id,LoadState,ActiveState,UnitFileState,ExecStart,NRestarts,MainPID,DynamicUser
+      - "{{ item }}"
+  loop:
+    - dns.service
+    - technitium.service
+  register: technitium_unit_queries
   changed_when: false
   failed_when: false
+  check_mode: false
+  no_log: true
 
-
-- name: Check Technitium binary
-  ansible.builtin.stat:
-    path: /opt/technitium/dns/DnsServerApp.dll
-  register: technitium_binary
-
-
-- name: Check Technitium listeners
-  ansible.builtin.shell:
-    cmd: ss -tulpn | grep -E ':(53|5380)'
-  register: technitium_ports
-  changed_when: false
-  failed_when: false
-
-
-- name: Build Technitium plugin data
+- name: Reduce systemd responses to report fields
   ansible.builtin.set_fact:
-    technitium_plugin:
-      installed: "{{ technitium_binary.stat.exists | default(false) }}"
-      service: technitium.service
-      status: "{{ technitium_service.status.ActiveState | default('unknown') }}"
-      install_path: /opt/technitium/dns
-      ports:
-        listening: "{{ technitium_ports.stdout_lines | default([]) }}"
-      metadata:
-        build_time: "{{ technitium_binary.stat.mtime | default(0) }}"
+    technitium_unit_state: "{{ technitium_unit_queries.results | technitium_units }}"
+  no_log: true
 
+- name: Identify active Technitium units
+  ansible.builtin.set_fact:
+    technitium_active_units: "{{ technitium_unit_state.units | dict2items | selectattr('value.active') | map(attribute='key') | list }}"
 
-- name: Store Technitium discovery data
+- name: Read effective UID of each running Technitium process
+  ansible.builtin.command:
+    argv: [ps, "-p", "{{ item.value.pid }}", "-o", "euid="]
+  loop: "{{ technitium_unit_state.units | dict2items }}"
+  when:
+    - item.value.active
+    - item.value.pid | int > 0
+  register: technitium_process_users
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Query the configured internal DNS record over UDP and TCP
+  ansible.builtin.command:
+    argv:
+      - dig
+      - "@{{ item.target }}"
+      - -q
+      - "{{ technitium_probe_name }}"
+      - -t
+      - A
+      - +time=2
+      - +tries=1
+      - +noall
+      - +comments
+      - +answer
+      - +ignore
+      - "{{ item.transport }}"
+  loop:
+    - {label: local_udp, target: "127.0.0.1", transport: "+notcp"}
+    - {label: local_tcp, target: "127.0.0.1", transport: "+tcp"}
+    - {label: remote_udp, target: "{{ ansible_host | default('') }}", transport: "+notcp"}
+    - {label: remote_tcp, target: "{{ ansible_host | default('') }}", transport: "+tcp"}
+  delegate_to: "{{ 'localhost' if item.label.startswith('remote_') else inventory_hostname }}"
+  become: false
+  when:
+    - technitium_probe_name | default('') is match('^[a-zA-Z0-9][a-zA-Z0-9.-]{0,252}$')
+    - technitium_probe_address | default('') is match('^[0-9]+\\.[0-9]+\\.[0-9]+\\.[0-9]+$')
+    - item.target | length > 0
+  register: technitium_dns_queries
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Record DNS probe outcomes
+  ansible.builtin.set_fact:
+    technitium_dns_outcomes: "{{ technitium_dns_outcomes | default({}) | combine({item.item.label: (item | technitium_dns_result(technitium_probe_address | default('')))}) }}"
+  loop: "{{ technitium_dns_queries.results }}"
+  no_log: true
+
+- name: Read kernel boot identity
+  ansible.builtin.command:
+    argv: [cat, /proc/sys/kernel/random/boot_id]
+  register: technitium_boot
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Record Technitium discovery data
   ansible.builtin.set_fact:
     homelab_report: >-
       {{
-        homelab_report |
-        combine({
-          'plugins': {
-            'technitium': technitium_plugin
-          }
-        }, recursive=True)
+        homelab_report | combine({'plugins': {'technitium': {
+          'installed': (technitium_unit_state.units | length > 0),
+          'service': technitium_active_units | first | default('unknown'),
+          'status': 'active' if technitium_active_units else 'unknown',
+          'observed_at': now(utc=true, fmt='%Y-%m-%dT%H:%M:%SZ'),
+          'service_state': technitium_unit_state,
+          'boot_id': (technitium_boot.stdout | trim) if technitium_boot.rc == 0 else '',
+          'effective_uids': dict(technitium_uid_results | map(attribute='item.key') | zip(
+            technitium_uid_results | map(attribute='stdout') | map('trim'))),
+          'dns': technitium_dns_outcomes,
+          'ports': {'listening': []}
+        }}}, recursive=true)
       }}
+  vars:
+    technitium_uid_results: "{{ technitium_process_users.results | selectattr('rc', 'defined') | selectattr('rc', 'equalto', 0) | list }}"
