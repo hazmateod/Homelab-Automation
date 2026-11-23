@@ -1,4 +1,7 @@
 ---
+- name: Read Technitium capacity and retention evidence
+  ansible.builtin.include_tasks: capacity.yml
+
 - name: Compare restart counters with the last identity-bound sample
   vars:
     binding: "{{ (himp_host_bindings | default({})).get(inventory_hostname, {}) }}"
@@ -13,6 +16,7 @@
 
 - name: Classify Technitium health evidence
   vars:
+    disk_severity: "{{ technitium_capacity.root.severity | default('unknown') }}"
     evidence: "{{ homelab_report.plugins.technitium }}"
     outcomes: "{{ evidence.dns.values() | list }}"
     restart_loop: "{{ technitium_restart_deltas.values() | selectattr('delta', 'ge', 3) | selectattr('seconds', 'le', 900) | list | length > 0 }}"
@@ -20,12 +24,12 @@
   ansible.builtin.set_fact:
     technitium_health:
       name: Technitium
-      earned: "{{ 10 if 'ok' in outcomes and not failures and 'unknown' not in outcomes and technitium_active_units and not evidence.service_state.duplicate_enabled and not evidence.service_state.errors and not restart_loop else 0 }}"
+      earned: "{{ 10 if 'ok' in outcomes and not failures and 'unknown' not in outcomes and technitium_active_units and not evidence.service_state.duplicate_enabled and not evidence.service_state.errors and not restart_loop and disk_severity == 'healthy' else 0 }}"
       possible: 10
       status: >-
         {{
-          'CRITICAL' if failures or (not technitium_active_units and evidence.installed)
-          else 'WARNING' if restart_loop or evidence.service_state.duplicate_enabled or evidence.service_state.errors or 'unknown' in outcomes
+          'CRITICAL' if disk_severity == 'critical' or failures or (not technitium_active_units and evidence.installed)
+          else 'WARNING' if disk_severity != 'healthy' or restart_loop or evidence.service_state.duplicate_enabled or evidence.service_state.errors or 'unknown' in outcomes
           else 'HEALTHY' if technitium_active_units and 'ok' in outcomes
           else 'WARNING'
         }}
@@ -36,10 +40,11 @@
           + (['One or more DNS probes failed'] if failures else [])
           + (['DNS probe evidence unavailable'] if 'unknown' in outcomes else [])
           + (['At least three restarts in fifteen minutes'] if restart_loop else [])
+          + (['Root filesystem usage: ' ~ disk_severity] if disk_severity != 'healthy' else [])
           + (['Systemd evidence incomplete'] if evidence.service_state.errors else [])
         }}
 
 - name: Publish Technitium health result
   ansible.builtin.set_fact:
     health_contributors: "{{ health_contributors | default([]) + [technitium_health] }}"
-    homelab_report: "{{ homelab_report | combine({'plugins': {'technitium': {'health': technitium_health, 'restart_deltas': technitium_restart_deltas}}}, recursive=true) }}"
+    homelab_report: "{{ homelab_report | combine({'plugins': {'technitium': {'health': technitium_health, 'capacity': technitium_capacity, 'restart_deltas': technitium_restart_deltas}}}, recursive=true) }}"

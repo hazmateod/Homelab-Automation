@@ -107,10 +107,74 @@ def technitium_restart_trend(evidence, previous_json, binding, address, user):
         return {}
 
 
+def technitium_capacity_report(disk, directories, ages, job, observed_at):
+    """Keep capacity and eligibility facts without filenames or log contents."""
+    report = {
+        "root": {},
+        "query_log_bytes": None,
+        "local_backup_bytes": None,
+        "oldest_log_age_days": None,
+        "eligible_logs": None,
+        "retention_job_executable": None,
+        "last_successful_retention": None,
+        "pbs_backup": "unknown",
+        "restore_verification": "unknown",
+    }
+    if disk.get("rc") == 0:
+        rows = disk.get("stdout", "").splitlines()
+        fields = rows[-1].split() if len(rows) == 2 else []
+        if len(fields) == 6:
+            size, available, percent, inodes, free_inodes, inode_percent = (
+                _count(value.removesuffix("%")) for value in fields
+            )
+            report["root"] = {
+                "total_bytes": size * 1024 if size is not None else None,
+                "available_bytes": available * 1024 if available is not None else None,
+                "used_percent": percent,
+                "total_inodes": inodes,
+                "available_inodes": free_inodes,
+                "used_inode_percent": inode_percent,
+                "severity": _capacity_severity(percent),
+            }
+    labels = {
+        "/var/log/technitium/dns": "query_log_bytes",
+        "/root/backups": "local_backup_bytes",
+    }
+    for directory in directories:
+        label = labels.get(directory.get("item"))
+        size, separator, _ = directory.get("stdout", "").partition("\t")
+        if label and directory.get("rc") == 0 and separator:
+            report[label] = _count(size)
+    if ages.get("rc") == 0:
+        timestamps = ages.get("stdout", "").splitlines()
+        if all(re.fullmatch(r"[0-9]{1,20}(?:\.[0-9]{1,20})?", value) for value in timestamps):
+            observation = datetime.fromisoformat(observed_at).timestamp()
+            oldest_days = [
+                max(0, int((observation - float(value)) // 86400))
+                for value in timestamps
+            ]
+            report["oldest_log_age_days"] = max(oldest_days, default=None)
+            report["eligible_logs"] = sum(days >= 90 for days in oldest_days)
+    if "exists" in job:
+        report["retention_job_executable"] = bool(job.get("isreg") and job.get("executable"))
+    return report
+
+
+def _capacity_severity(percent):
+    if percent is None:
+        return "unknown"
+    if percent >= 90:
+        return "critical"
+    if percent >= 80:
+        return "warning"
+    return "healthy"
+
+
 class FilterModule:
     def filters(self):
         return {
             "technitium_units": technitium_units,
             "technitium_restart_trend": technitium_restart_trend,
+            "technitium_capacity_report": technitium_capacity_report,
             "technitium_dns_result": technitium_dns_result,
         }

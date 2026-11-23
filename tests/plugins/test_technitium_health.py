@@ -103,3 +103,29 @@ def test_restart_trend_rejects_replaced_and_stale_hosts():
         assert not technitium_restart_trend(
             {**sample, **change}, previous, binding, binding["ip"], "observer"
         )
+
+
+@pytest.mark.parametrize(("percent", "severity"), [
+    (79, "healthy"), (80, "warning"), (89, "warning"), (90, "critical"),
+])
+def test_capacity_boundaries_and_retention_evidence(percent, severity):
+    from playbooks.filter_plugins.technitium_health import technitium_capacity_report
+
+    report = technitium_capacity_report(
+        {"rc": 0, "stdout": f"blocks free usage inodes free used\n5000 300 {percent}% 2000 500 75%"},
+        [
+            {"item": "/root/backups", "rc": 0, "stdout": "600\t/root/backups"},
+            {"item": "/var/log/technitium/dns", "rc": 1, "stdout": "100\tpartial"},
+        ],
+        {"rc": 0, "stdout": "86400.000\n950400.000"},
+        {"exists": True, "isreg": True, "executable": True},
+        "1970-04-02T00:00:00Z",
+    )
+    assert report["root"]["severity"] == severity
+    assert report["root"]["available_bytes"] == 307200
+    assert report["local_backup_bytes"] == 600
+    assert report["query_log_bytes"] is None
+    assert report["eligible_logs"] == 1
+    assert report["last_successful_retention"] is None
+    assert report["pbs_backup"] == "unknown"
+    assert report["restore_verification"] == "unknown"
