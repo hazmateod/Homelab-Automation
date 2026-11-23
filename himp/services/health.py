@@ -27,7 +27,7 @@ class HealthService:
 
         execution = self.runner.health(name)
 
-        if execution.success and execution.health_attempt_id:
+        if execution.success and getattr(execution, "health_attempt_id", None):
             report = self.repository.plugin(name)
             if (
                 report is not None
