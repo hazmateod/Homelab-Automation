@@ -341,3 +341,44 @@ def test_verified_rebuild_requires_the_current_host_identity(inventory_service):
     }
     with pytest.raises(ValueError, match="incarnation has changed"):
         service.record_verified_rebuild("existing", host_id, 1)
+
+
+def test_onboarding_keeps_failed_verification_pending_until_facts_succeed(
+    inventory_service, monkeypatch,
+):
+    import json
+    from pathlib import Path
+
+    failures = [True, False]
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command[0])
+        if command[0] == "ansible-inventory":
+            return subprocess.CompletedProcess(command, 0, stdout=json.dumps({
+                "ansible_host": "192.0.2.2", "ansible_user": "himp-automation",
+                "ansible_become": True,
+            }))
+        assert command[3:] == [
+            "all", "--become", "-m", "ansible.builtin.setup",
+            "-a", "filter=ansible_distribution",
+        ]
+        candidate = json.loads(Path(command[2]).read_text())
+        assert list(candidate["all"]["hosts"]) == ["new-host"]
+        assert kwargs["timeout"] == 30
+        if failures.pop(0):
+            return subprocess.CompletedProcess(command, 2, stdout="Missing sudo password", stderr="")
+        return subprocess.CompletedProcess(command, 0, stdout="", stderr="")
+
+    monkeypatch.setattr("himp.services.inventory.subprocess.run", run)
+    settings = ("new-host", "infrastructure", "192.0.2.2", "himp-automation", True)
+    inventory_service.add_host(*settings, readiness="pending")
+    assert calls == ["ansible-inventory"]
+    assert inventory_service.maintenance_readiness()["new-host"]["readiness_pending"]
+
+    with pytest.raises(ValueError, match="Missing sudo password"):
+        inventory_service.update_host(*settings, readiness="verify")
+    assert inventory_service.maintenance_readiness()["new-host"]["readiness_pending"]
+
+    inventory_service.update_host(*settings, readiness="verify")
+    assert "new-host" not in inventory_service.maintenance_readiness()

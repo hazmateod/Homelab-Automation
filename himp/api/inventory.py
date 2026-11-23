@@ -9,7 +9,7 @@ from __future__ import annotations
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from himp.api.dependencies import require_admin
 from himp.database.host_identity import HostIdentityRepository
@@ -17,6 +17,7 @@ from himp.database.inventory import InventoryRepository
 from himp.health.repository import HealthRepository
 from himp.services.host_health import HostHealthService
 from himp.services.inventory import InventoryService
+from himp.services.inventory_publication import InventoryBusyError
 from himp.services.reports import ReportService
 from himp.services.ssh import SSHService
 from himp.services.storage_capacity import StorageCapacityService
@@ -28,6 +29,7 @@ class InventoryHostCreate(BaseModel):
     ip: str
     user: str
     become: bool = False
+    readiness: Literal["verify", "pending"] | None = None
 
 
 class InventoryHostUpdate(BaseModel):
@@ -35,6 +37,7 @@ class InventoryHostUpdate(BaseModel):
     ip: str
     user: str
     become: bool = False
+    readiness: Literal["verify", "pending"] | None = None
 
 
 class InventoryGroupUpdate(BaseModel):
@@ -59,6 +62,17 @@ class VerifiedHostMove(BaseModel):
     expected_ip: str
     expected_user: str
     continuity_verified: Literal[True]
+
+
+class MaintenanceReconciliation(BaseModel):
+    host_id: str
+    expected_incarnation: int
+    expected_ip: str
+    expected_user: str
+    plan_id: str
+    plan_host: str
+    note: str = Field(min_length=1, max_length=2000)
+    confirm_drained: Literal[True]
 
 
 router = APIRouter(
@@ -103,6 +117,24 @@ async def inventory_hosts():
         "count": repository.count(),
         "hosts": repository.all_hosts(),
     }
+
+
+@router.get("/maintenance-readiness", dependencies=[Depends(require_admin)])
+def inventory_maintenance_readiness():
+    return service.maintenance_readiness()
+
+
+@router.post("/hosts/{hostname}/reconcile-maintenance", dependencies=[Depends(require_admin)])
+def reconcile_host_maintenance(hostname: str, request: MaintenanceReconciliation):
+    try:
+        service.reconcile_maintenance(
+            hostname, request.host_id, request.expected_incarnation,
+            request.plan_id, request.plan_host, request.note,
+            endpoint=(request.expected_ip, request.expected_user),
+        )
+    except (ValueError, InventoryBusyError) as exc:
+        raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
+    return {"message": "Reconciliation recorded. No maintenance was dispatched."}
 
 
 @router.get("/identity/current")
@@ -177,7 +209,7 @@ async def update_inventory_group(
 
 
 @router.post("/hosts", dependencies=[Depends(require_admin)])
-async def create_inventory_host(
+def create_inventory_host(
     request: InventoryHostCreate,
 ):
     try:
@@ -187,8 +219,11 @@ async def create_inventory_host(
             ip=request.ip,
             user=request.user,
             become=request.become,
+            **({"readiness": request.readiness} if request.readiness else {}),
         )
 
+    except InventoryBusyError as exc:
+        raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
     except ValueError as exc:
         raise HTTPException(
             status_code=409,
@@ -205,7 +240,7 @@ async def create_inventory_host(
 
 
 @router.put("/hosts/{hostname}", dependencies=[Depends(require_admin)])
-async def update_inventory_host(
+def update_inventory_host(
     hostname: str,
     request: InventoryHostUpdate,
 ):
@@ -216,8 +251,11 @@ async def update_inventory_host(
             ip=request.ip,
             user=request.user,
             become=request.become,
+            **({"readiness": request.readiness} if request.readiness else {}),
         )
 
+    except InventoryBusyError as exc:
+        raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
     except ValueError as exc:
         message = str(exc)
 
@@ -293,13 +331,13 @@ async def record_verified_host_rebuild(hostname: str, request: VerifiedHostRebui
 
 
 @router.post("/hosts/{hostname}/verified-move", dependencies=[Depends(require_admin)])
-async def record_verified_host_move(hostname: str, request: VerifiedHostMove):
+def record_verified_host_move(hostname: str, request: VerifiedHostMove):
     try:
         return service.record_verified_move(
             hostname, request.host_id, request.expected_incarnation,
             endpoint=(request.expected_ip, request.expected_user),
         )
-    except ValueError as exc:
+    except (ValueError, InventoryBusyError) as exc:
         raise HTTPException(status_code=409, detail={"error": str(exc)}) from exc
 
 

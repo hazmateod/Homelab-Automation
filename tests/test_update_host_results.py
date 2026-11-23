@@ -481,3 +481,71 @@ def test_contention_after_dispatch_preserves_partial_outcomes(monkeypatch, tmp_p
     for host in hosts[1:]:
         assert result["host_results"][host]["reason"] == "inventory_busy_after_dispatch"
     assert MaintenanceOutcomeRepository().find(result["target_plan_id"]) == result["host_results"]
+
+
+def test_inventory_resolves_both_onboarding_blockers_and_dispatches(
+    monkeypatch, tmp_path,
+):
+    from himp.database.automation_locks import AutomationLockRepository
+    from himp.database.host_identity import HostIdentityRepository
+    from himp.database.maintenance_outcomes import MaintenanceOutcomeRepository
+    from himp.services.automation import MAINTENANCE_RESOURCE
+    from himp.services.inventory import InventoryService
+
+    monkeypatch.setenv("HIMP_DATABASE_PATH", str(tmp_path / "inventory.db"))
+    path = tmp_path / "hosts.yml"
+    path.write_text("all: {}\n")
+    monkeypatch.setattr(update_module.config, "inventory", str(path))
+    inventory = InventoryService()
+    hostname = "debiandesktop"
+    host = {"hostname": hostname, "group": "test", "ip": "192.0.2.1", "user": "lou", "become": False}
+    inventory.repository.save_host(host)
+    identities = HostIdentityRepository(inventory.repository)
+    identities.backfill()
+    host_id = identities.current()[0]["host_id"]
+    outcomes = MaintenanceOutcomeRepository()
+    outcome = {"status": "failed", "changed": 0, "host_id": host_id}
+    outcomes.record("previous-plan", hostname, outcome)
+    inventory.repository.save_host({**host, "user": "himp-automation", "become": True})
+
+    readiness = inventory.maintenance_readiness()[hostname]
+    assert readiness["endpoint_review"]
+    assert readiness["outcomes"] == [
+        {"plan_id": "previous-plan", "host": hostname, "status": "failed", "changed": 0},
+    ]
+
+    service = update_module.UpdateService(eligibility=FakeEligibility([hostname]))
+    assert service.update("maintenance")["host_results"][hostname]["reason"] == "prior_mutation_unverified"
+
+    args = (hostname, host_id, 1, "previous-plan", hostname, "Verified package state")
+    locks = AutomationLockRepository()
+    assert locks.acquire(MAINTENANCE_RESOURCE, lease_seconds=60, execution_token="test-token")
+    try:
+        with pytest.raises(ValueError, match="Maintenance is still active"):
+            inventory.reconcile_maintenance(*args, endpoint=("192.0.2.1", "himp-automation"))
+    finally:
+        locks.release(MAINTENANCE_RESOURCE, execution_token="test-token")
+
+    with pytest.raises(ValueError, match="inventory endpoint changed"):
+        inventory.reconcile_maintenance(*args, endpoint=("192.0.2.1", "lou"))
+    inventory.reconcile_maintenance(*args, endpoint=("192.0.2.1", "himp-automation"))
+    assert service.update("maintenance")["host_results"][hostname]["reason"] == "endpoint_review_required"
+    with pytest.raises(ValueError, match="Verify the current inventory"):
+        inventory.record_verified_move(hostname, host_id, 1, endpoint=("192.0.2.1", "lou"))
+    assert inventory.record_verified_move(
+        hostname, host_id, 1, endpoint=("192.0.2.1", "himp-automation"),
+    ) == {"host_id": host_id, "incarnation": 1}
+
+    inventory.repository.save_host({**host, "user": "himp-automation", "become": True, "readiness_pending": True})
+    assert service.update("maintenance")["host_results"][hostname]["reason"] == "maintenance_readiness_pending"
+    inventory.repository.save_host({**host, "user": "himp-automation", "become": True, "readiness_pending": False})
+
+    monkeypatch.setattr(update_module, "run_playbook", lambda *args, **kwargs: SimpleNamespace(
+        success=True, return_code=0, elapsed=0.1, stderr="",
+        stdout=f"PLAY RECAP\n{hostname} : ok=1 changed=0 unreachable=0 failed=0",
+    ))
+    assert service.update("maintenance")["host_results"][hostname]["status"] == "succeeded"
+    assert inventory.maintenance_readiness() == {}
+    recorded = outcomes.find("previous-plan")[hostname]
+    assert {key: recorded[key] for key in outcome} == outcome
+    assert recorded["reconciliation"]["note"] == "Verified package state"

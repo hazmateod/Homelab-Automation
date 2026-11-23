@@ -189,6 +189,10 @@ class UpdateService:
                     results[host] = {"host": host, "status": "unstarted",
                                      "reason": "endpoint_review_required"}
                     continue
+                if identity and identity["readiness_pending"]:
+                    results[host] = {"host": host, "status": "unstarted",
+                                     "reason": "maintenance_readiness_pending"}
+                    continue
                 remaining = timeout
                 if deadline is not None and index:
                     remaining = deadline - monotonic()
