@@ -105,12 +105,12 @@ def test_restart_trend_rejects_replaced_and_stale_hosts():
     sample = {
         "boot_id": "boot",
         "observed_at": "2026-11-23T01:03:00Z",
-        "service_state": {"units": {"dns.service": {"restarts": 226000}}},
+        "service_state": {"units": {"dns.service": {"restarts": 226000, "definition_id": "original"}}},
     }
     old = {
         **sample,
         "observed_at": "2026-11-23T01:00:00Z",
-        "service_state": {"units": {"dns.service": {"restarts": 225997}}},
+        "service_state": {"units": {"dns.service": {"restarts": 225997, "definition_id": "original"}}},
     }
     previous = json.dumps({"hosts": [{"host_identity": identity, "report": old}]})
     assert technitium_restart_trend(sample, previous, binding, binding["ip"], "observer") == {
@@ -124,6 +124,51 @@ def test_restart_trend_rejects_replaced_and_stale_hosts():
         assert not technitium_restart_trend(
             {**sample, **change}, previous, binding, binding["ip"], "observer"
         )
+
+
+@pytest.mark.parametrize(("count", "definition", "minutes", "expected"), [
+    (10, "original", 15, 0),
+    (11, "original", 15, 1),
+    (12, "original", 15, 2),
+    (13, "original", 15, 3),
+    (14, "original", 15, 4),
+    (14, "original", 16, None),
+    (1, "original", 1, None),
+    (14, "replacement", 1, None),
+    (14, None, 1, None),
+    (None, "original", 1, None),
+])
+def test_restart_evidence_boundaries(count, definition, minutes, expected):
+    import json
+
+    from playbooks.filter_plugins.technitium_health import technitium_restart_trend
+
+    identity = {"host_id": 41, "incarnation": 3}
+    binding = {**identity, "ip": "192.0.2.1", "user": "observer"}
+    current = {
+        "boot_id": "boot",
+        "observed_at": f"2026-11-23T01:{minutes:02d}:00Z",
+        "service_state": {"units": {"dns.service": {
+            "restarts": count, "definition_id": definition,
+        }}},
+    }
+    old = {
+        **current, "observed_at": "2026-11-23T01:00:00Z",
+        "service_state": {"units": {"dns.service": {
+            "restarts": 10, "definition_id": "original",
+        }}},
+    }
+    previous = json.dumps({"hosts": [
+        {"host_identity": {"host_id": 42, "incarnation": 3}, "report": current},
+        {"host_identity": identity, "report": old},
+    ]})
+    from playbooks.filter_plugins.technitium_health import technitium_restart_warning
+
+    result = technitium_restart_trend(current, previous, binding, binding["ip"], "observer")
+    assert result == (
+        {} if expected is None else {"dns.service": {"delta": expected, "seconds": minutes * 60}}
+    )
+    assert technitium_restart_warning(result) is (expected is not None and expected >= 3)
 
 
 @pytest.mark.parametrize("targets", ["local", "mixed", "unreachable", "midrun", "uid", "dns", "boot", "filesystem", "backup", "retention"])

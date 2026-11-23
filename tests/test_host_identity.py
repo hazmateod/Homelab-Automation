@@ -176,3 +176,35 @@ def test_endpoint_change_hides_old_evidence_until_review(monkeypatch, tmp_path):
         "fixture", host_id, 1, endpoint=("192.0.2.3", "synthetic")
     ) == {"host_id": host_id, "incarnation": 2}
     assert identities.current_hostnames() == {(host_id, 2): "fixture"}
+
+
+def test_health_projects_only_verified_incarnations_across_reused_container_ids():
+    from himp.health.models import HostHealthResult
+    from himp.health.repository import HealthRepository
+    from types import SimpleNamespace
+
+    current = {}
+    rows = []
+    for ctid in (600, 601, 800, 801):
+        for scope in ("blackwatch", "standalone"):
+            host_id = f"{scope}-identity-{ctid}"
+            current[(host_id, 2)] = f"{scope}-renamed-{ctid}"
+            rows.append(HostHealthResult(
+                hostname=f"{scope}-old-{ctid}", results=[],
+                host_identity={"host_id": host_id, "incarnation": 2},
+            ))
+            rows.append(HostHealthResult(
+                hostname=f"{scope}-stale-{ctid}", results=[],
+                host_identity={"host_id": host_id, "incarnation": 1},
+            ))
+    rows += [
+        HostHealthResult(hostname="retired", results=[], host_identity={"host_id": "retired", "incarnation": 2}),
+        HostHealthResult(hostname="unverified", results=[], host_identity={"ctid": 600}),
+    ]
+    repository = HealthRepository()
+    repository.current_plugins = lambda: [SimpleNamespace(
+        hosts=rows, summary=SimpleNamespace(plugin="technitium"),
+    )]
+    projected = list(repository.current_hosts(current))
+    assert {host.hostname for _, host in projected} == set(current.values())
+    assert len(projected) == 8

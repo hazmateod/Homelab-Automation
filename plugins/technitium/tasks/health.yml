@@ -19,7 +19,7 @@
     disk_severity: "{{ technitium_capacity.root.severity | default('unknown') }}"
     evidence: "{{ homelab_report.plugins.technitium }}"
     outcomes: "{{ evidence.dns.values() | list }}"
-    restart_loop: "{{ technitium_restart_deltas.values() | selectattr('delta', 'ge', 3) | selectattr('seconds', 'le', 900) | list | length > 0 }}"
+    restart_loop: "{{ technitium_restart_deltas | technitium_restart_warning }}"
     failures: "{{ outcomes | difference(['ok', 'unknown']) }}"
   ansible.builtin.set_fact:
     technitium_health:
