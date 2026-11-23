@@ -126,7 +126,7 @@ def test_restart_trend_rejects_replaced_and_stale_hosts():
         )
 
 
-@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable", "midrun"])
+@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable", "midrun", "uid", "dns", "boot"])
 def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     import json
     import os
@@ -171,6 +171,7 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     transport = tmp_path / "connection_plugins"
     transport.mkdir()
     (transport / "disconnect.py").write_text(
+        "from pathlib import Path\n"
         "from ansible.errors import AnsibleConnectionFailure\n"
         "from ansible.plugins.connection.local import Connection as LocalConnection\n"
         "DOCUMENTATION = 'name: disconnect\\nshort_description: Local test transport'\n"
@@ -178,7 +179,11 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
         "    transport = 'disconnect'\n"
         "    def exec_command(self, cmd, *args, **kwargs):\n"
         "        if 'AnsiballZ_command.py' in cmd:\n"
-        "            raise AnsibleConnectionFailure('simulated disconnect after setup')\n"
+        f"            counter = Path({str(tmp_path / 'commands')!r})\n"
+        "            count = int(counter.read_text()) + 1 if counter.exists() else 1\n"
+        "            counter.write_text(str(count))\n"
+        f"            if count == {{'midrun': 1, 'uid': 3, 'dns': 4, 'boot': 6}}.get({targets!r}):\n"
+        "                raise AnsibleConnectionFailure('simulated disconnect after setup')\n"
         "        return super().exec_command(cmd, *args, **kwargs)\n"
     )
     midrun_host = (
@@ -189,7 +194,7 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
         "local": [local_host],
         "mixed": [local_host, unreachable_host],
         "unreachable": [unreachable_host],
-        "midrun": [midrun_host],
+        **dict.fromkeys(("midrun", "uid", "dns", "boot"), [midrun_host]),
     }[targets]
     inventory.write_text("\n".join(["[technitium]", *hosts, ""]))
     artifact = tmp_path / "reports" / "health" / "technitium.json"
@@ -229,9 +234,9 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
         assert offline["host_identity"] == {"host_id": 41, "incarnation": 3}
         assert offline["health"]["status"] == "UNKNOWN"
         assert offline["report"] == {"collection_status": "unreachable"}
-        if targets == "midrun":
+        if targets in {"midrun", "uid", "dns", "boot"}:
             assert offline["health"]["issues"] == ["Host health collection did not complete"]
-    if targets in {"unreachable", "midrun"}:
+    if targets not in {"local", "mixed"}:
         return
     host = rows["fixture"]
     assert host["report"]["service"] == "dns.service"
