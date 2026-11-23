@@ -27,13 +27,13 @@ class HealthService:
 
         execution = self.runner.health(name)
 
-        report = self.repository.plugin(name)
-
-        if report is not None:
-
-            self.history.record(
-                report
-            )
+        if execution.success and execution.health_attempt_id:
+            report = self.repository.plugin(name)
+            if (
+                report is not None
+                and report.metadata.data.get("attempt_id") == execution.health_attempt_id
+            ):
+                self.history.record(report)
 
         return execution
 

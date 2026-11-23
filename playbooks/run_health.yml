@@ -79,6 +79,7 @@
         aggregated_health:
           plugin: "{{ plugin }}"
           inventory_group: "{{ inventory_group }}"
+          attempt_id: "{{ himp_health_attempt_id | default(none) }}"
           hosts: >-
             {{
               ansible_play_hosts_all

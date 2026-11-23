@@ -6,6 +6,7 @@ import json
 from pathlib import Path
 import subprocess
 import time
+from uuid import uuid4
 
 from himp.config import config
 from himp.database.host_identity import HostIdentityRepository
@@ -40,6 +41,7 @@ class PluginHealthRunner:
 
         result = Execution(plugin=plugin.id)
 
+        result.health_attempt_id = uuid4().hex
         start = time.perf_counter()
         bindings = HostIdentityRepository().execution_bindings()
         identity_options = (
@@ -63,6 +65,8 @@ class PluginHealthRunner:
             f"plugin={plugin.id}",
             "-e",
             f"inventory_group={plugin.inventory_group}",
+            "-e",
+            f"himp_health_attempt_id={result.health_attempt_id}",
             *identity_options,
         ]
 
@@ -80,24 +84,28 @@ class PluginHealthRunner:
 
             command.extend(["--limit", exclusions])
 
-        process = subprocess.run(
-            command,
-            check=False,
-            timeout=timeout,
-        )
+        try:
+            process = subprocess.run(command, check=False, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            result.return_code = 124
+            result.add_warning("Health collection timed out.")
+        else:
+            result.return_code = process.returncode
+            result.success = process.returncode == 0
+        result.elapsed = round(time.perf_counter() - start, 3)
 
-        result.elapsed = round(
-            time.perf_counter() - start,
-            3,
-        )
-
-        result.return_code = process.returncode
-        result.success = process.returncode == 0
-
-        report = self.REPORT_DIR / f"{plugin.id}.json"
-
-        if report.exists():
-            result.add_artifact(str(report))
+        if result.success:
+            report = self.REPORT_DIR / f"{plugin.id}.json"
+            try:
+                document = json.loads(report.read_text(encoding="utf-8"))
+            except (OSError, ValueError, RecursionError):
+                document = None
+            if isinstance(document, dict) and document.get("attempt_id") == result.health_attempt_id:
+                result.add_artifact(str(report))
+            else:
+                result.success = False
+                result.return_code = 1
+                result.add_warning("Health collection did not publish a report for this attempt.")
 
         return result
 
