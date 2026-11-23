@@ -126,7 +126,8 @@ def test_restart_trend_rejects_replaced_and_stale_hosts():
         )
 
 
-def test_health_playbook_rejects_unrelated_dns_answer(tmp_path):
+@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable"])
+def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     import json
     import os
     from pathlib import Path
@@ -162,10 +163,22 @@ def test_health_playbook_rejects_unrelated_dns_answer(tmp_path):
         command.chmod(0o755)
 
     inventory = tmp_path / "inventory"
-    inventory.write_text(
-        "[technitium]\n"
-        "fixture ansible_host=127.0.0.1 ansible_connection=local ansible_become=false\n"
+    local_host = "fixture ansible_host=127.0.0.1 ansible_connection=local ansible_become=false"
+    unreachable_host = (
+        "offline ansible_host=127.0.0.1 ansible_connection=ssh "
+        "ansible_port=1 ansible_user=test ansible_ssh_timeout=2"
     )
+    hosts = {
+        "local": [local_host],
+        "mixed": [local_host, unreachable_host],
+        "unreachable": [unreachable_host],
+    }[targets]
+    inventory.write_text("\n".join(["[technitium]", *hosts, ""]))
+    artifact = tmp_path / "reports" / "health" / "technitium.json"
+    artifact.parent.mkdir(parents=True)
+    artifact.write_text(json.dumps({"hosts": [{"hostname": "retired", "health": {
+        "status": "HEALTHY", "earned": 10, "possible": 10,
+    }}]}))
     process = subprocess.run(
         [
             ansible, "-i", str(inventory), str(playbooks / "run_health.yml"),
@@ -174,6 +187,9 @@ def test_health_playbook_rejects_unrelated_dns_answer(tmp_path):
                 "inventory_group": "technitium",
                 "technitium_probe_name": "probe.example",
                 "technitium_probe_address": "192.0.2.1",
+                "himp_host_bindings": {"offline": {
+                    "host_id": 41, "incarnation": 3, "ip": "127.0.0.1", "user": "test",
+                }},
             }),
         ],
         cwd=tmp_path,
@@ -183,8 +199,16 @@ def test_health_playbook_rejects_unrelated_dns_answer(tmp_path):
         timeout=90,
     )
     assert process.returncode == 0, process.stdout + process.stderr
-    artifact = tmp_path / "reports" / "health" / "technitium.json"
-    host, = json.loads(artifact.read_text())["hosts"]
+    rows = {row["hostname"]: row for row in json.loads(artifact.read_text())["hosts"]}
+    assert set(rows) == {host.split()[0] for host in hosts}
+    if targets != "local":
+        offline = rows["offline"]
+        assert offline["host_identity"] == {"host_id": 41, "incarnation": 3}
+        assert offline["health"]["status"] == "UNKNOWN"
+        assert offline["report"] == {"collection_status": "unreachable"}
+    if targets == "unreachable":
+        return
+    host = rows["fixture"]
     assert host["report"]["service"] == "dns.service"
     assert host["report"]["dns"] == dict.fromkeys(
         ("local_udp", "local_tcp", "remote_udp", "remote_tcp"), "unexpected_answer"
