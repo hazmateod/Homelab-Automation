@@ -171,7 +171,7 @@ def test_restart_evidence_boundaries(count, definition, minutes, expected):
     assert technitium_restart_warning(result) is (expected is not None and expected >= 3)
 
 
-@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable", "midrun", "uid", "dns", "boot", "filesystem", "backup", "retention"])
+@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable", "midrun", "uid", "dns", "boot", "filesystem", "backup", "retention", "blocked"])
 def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     import json
     import os
@@ -237,6 +237,7 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     )
     hosts = {
         "local": [local_host],
+        "blocked": [local_host, unreachable_host],
         "mixed": [local_host, unreachable_host],
         "unreachable": [unreachable_host],
         **dict.fromkeys(("midrun", "uid", "dns", "boot", "filesystem", "backup", "retention"), [midrun_host]),
@@ -255,6 +256,8 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
                 "inventory_group": "technitium",
                 "technitium_probe_name": "probe.example",
                 "technitium_probe_address": "192.0.2.1",
+                "himp_require_technitium_ssh": targets == "blocked",
+                "himp_health_disabled_hosts": ["offline"] if targets == "blocked" else [],
                 "himp_host_bindings": {"offline": {
                     "host_id": 41, "incarnation": 3, "ip": "127.0.0.1", "user": "test",
                 }},
@@ -274,6 +277,12 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     assert process.returncode == 0, process.stdout + process.stderr
     rows = {row["hostname"]: row for row in json.loads(artifact.read_text())["hosts"]}
     assert set(rows) == {host.split()[0] for host in hosts}
+    if targets == "blocked":
+        assert rows["fixture"]["report"]["collection_status"] == "unverified"
+        assert rows["offline"]["report"]["collection_status"] == "disabled"
+        assert all(row["health"]["status"] == "UNKNOWN" for row in rows.values())
+        assert "Read candidate Technitium systemd units" not in process.stdout
+        return
     if targets != "local":
         offline = rows["offline"]
         assert offline["host_identity"] == {"host_id": 41, "incarnation": 3}

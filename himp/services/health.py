@@ -60,7 +60,11 @@ class HealthService:
             details = dict(report.metadata.data) if current else {}
             details.update(latest_attempt=attempt, evidence_freshness=freshness)
             if not current and report is not None:
-                details["last_observation_status"] = report.summary.status.value
+                details["last_observation_status"] = report.metadata.data.get(
+                    "last_observation_status", report.summary.status.value
+                )
+                if "fleet_membership" in report.metadata.data:
+                    details["fleet_membership"] = report.metadata.data["fleet_membership"]
 
             summary.plugins.append(
                 HealthCheckResult(

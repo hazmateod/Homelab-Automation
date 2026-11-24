@@ -7,6 +7,7 @@ from pathlib import Path
 from himp.database.host_identity import HostIdentityRepository
 from himp.health.attempts import HealthAttempts, current_evidence
 from himp.health.parser import HealthArtifactParser
+from himp.health.technitium_fleet import project_fleet
 
 
 class HealthRepository:
@@ -55,7 +56,16 @@ class HealthRepository:
         attempts = HealthAttempts(self.REPORT_DIR).all()
         for name in sorted(reports.keys() | attempts.keys()):
             report, attempt = reports.get(name), attempts.get(name)
-            yield name, report, attempt, current_evidence(attempt, report)
+            freshness = current_evidence(attempt, report)
+            if name == "technitium" and report is not None:
+                from himp.database.host_automation_policies import HostAutomationPolicyRepository
+
+                identities = HostIdentityRepository()
+                report = project_fleet(
+                    report, identities.current(),
+                    HostAutomationPolicyRepository().disabled_hosts(), freshness, identities.report_bindings(),
+                )
+            yield name, report, attempt, freshness
 
     def current_plugins(self):
         for _, report, _, freshness in self.observations():
