@@ -1,0 +1,81 @@
+---
+- name: Read root filesystem block and inode usage
+  ansible.builtin.command:
+    argv: [timeout, "5", df, -k, "--output=size,avail,pcent,itotal,iavail,ipcent", /]
+  environment:
+    LC_ALL: C
+  register: technitium_disk
+  ignore_unreachable: true
+  changed_when: false
+  failed_when: false
+  check_mode: false
+
+- name: Stop capacity collection when transport disappears
+  ansible.builtin.fail:
+    msg: HIMP health transport unavailable
+  when: technitium_disk.unreachable | default(false)
+
+- name: Measure Technitium log and backup directories on their own filesystems
+  ansible.builtin.command:
+    argv: [timeout, "15", du, -sxB1, --, "{{ item }}"]
+  loop:
+    - /var/log/technitium/dns
+    - /root/backups
+  register: technitium_directory_sizes
+  ignore_unreachable: true
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Stop capacity collection when transport disappears
+  ansible.builtin.fail:
+    msg: HIMP health transport unavailable
+  when: technitium_directory_sizes.unreachable | default(false)
+
+- name: Read dated query log metadata
+  ansible.builtin.command:
+    argv:
+      - timeout
+      - "10"
+      - find
+      - /var/log/technitium/dns
+      - -maxdepth
+      - "1"
+      - -type
+      - f
+      - -name
+      - "[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9].log"
+      - -printf
+      - '%T@\n'
+  register: technitium_log_ages
+  ignore_unreachable: true
+  changed_when: false
+  failed_when: false
+  check_mode: false
+  no_log: true
+
+- name: Stop capacity collection when transport disappears
+  ansible.builtin.fail:
+    msg: HIMP health transport unavailable
+  when: technitium_log_ages.unreachable | default(false)
+
+- name: Check whether the expected retention job exists and is executable
+  ansible.builtin.stat:
+    path: /etc/cron.daily/technitium-log-retention
+    get_checksum: false
+    get_mime: false
+    get_attributes: false
+  register: technitium_retention_job
+  ignore_unreachable: true
+  failed_when: false
+
+- name: Stop capacity collection when transport disappears
+  ansible.builtin.fail:
+    msg: HIMP health transport unavailable
+  when: technitium_retention_job.unreachable | default(false)
+
+- name: Record aggregate capacity evidence
+  ansible.builtin.set_fact:
+    technitium_capacity: "{{ technitium_disk | technitium_capacity_report(technitium_directory_sizes.results, technitium_log_ages, technitium_retention_job.stat | default({}), homelab_report.plugins.technitium.observed_at) }}"
+  no_log: true

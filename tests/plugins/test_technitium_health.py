@@ -171,7 +171,7 @@ def test_restart_evidence_boundaries(count, definition, minutes, expected):
     assert technitium_restart_warning(result) is (expected is not None and expected >= 3)
 
 
-@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable", "midrun", "uid", "dns", "boot", "blocked"])
+@pytest.mark.parametrize("targets", ["local", "mixed", "unreachable", "midrun", "uid", "dns", "boot", "filesystem", "backup", "retention", "blocked"])
 def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     import json
     import os
@@ -227,7 +227,7 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
         f"            counter = Path({str(tmp_path / 'commands')!r})\n"
         "            count = int(counter.read_text()) + 1 if counter.exists() else 1\n"
         "            counter.write_text(str(count))\n"
-        f"            if count == {{'midrun': 1, 'uid': 3, 'dns': 4, 'boot': 6}}.get({targets!r}):\n"
+        f"            if count == {{'midrun': 1, 'uid': 3, 'dns': 4, 'boot': 6, 'filesystem': 7, 'backup': 9, 'retention': 10}}.get({targets!r}):\n"
         "                raise AnsibleConnectionFailure('simulated disconnect after setup')\n"
         "        return super().exec_command(cmd, *args, **kwargs)\n"
     )
@@ -240,7 +240,7 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
         "blocked": [local_host, unreachable_host],
         "mixed": [local_host, unreachable_host],
         "unreachable": [unreachable_host],
-        **dict.fromkeys(("midrun", "uid", "dns", "boot"), [midrun_host]),
+        **dict.fromkeys(("midrun", "uid", "dns", "boot", "filesystem", "backup", "retention"), [midrun_host]),
     }[targets]
     inventory.write_text("\n".join(["[technitium]", *hosts, ""]))
     artifact = tmp_path / "reports" / "health" / "technitium.json"
@@ -288,7 +288,7 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
         assert offline["host_identity"] == {"host_id": 41, "incarnation": 3}
         assert offline["health"]["status"] == "UNKNOWN"
         assert offline["report"] == {"collection_status": "unreachable"}
-        if targets in {"midrun", "uid", "dns", "boot"}:
+        if targets in {"midrun", "uid", "dns", "boot", "filesystem", "backup", "retention"}:
             assert offline["health"]["issues"] == ["Host health collection did not complete"]
     if targets not in {"local", "mixed"}:
         return
@@ -299,3 +299,27 @@ def test_health_playbook_records_current_host_outcomes(tmp_path, targets):
     )
     assert host["health"]["status"] == "CRITICAL"
     assert "wrong.example" not in artifact.read_text()
+@pytest.mark.parametrize(("percent", "severity"), [
+    (79, "healthy"), (80, "warning"), (89, "warning"), (90, "critical"),
+])
+def test_capacity_boundaries_and_retention_evidence(percent, severity):
+    from playbooks.filter_plugins.technitium_health import technitium_capacity_report
+
+    report = technitium_capacity_report(
+        {"rc": 0, "stdout": f"blocks free usage inodes free used\n5000 300 {percent}% 2000 500 75%"},
+        [
+            {"item": "/root/backups", "rc": 0, "stdout": "600\t/root/backups"},
+            {"item": "/var/log/technitium/dns", "rc": 1, "stdout": "100\tpartial"},
+        ],
+        {"rc": 0, "stdout": "86400.000\n950400.000"},
+        {"exists": True, "isreg": True, "executable": True},
+        "1970-04-02T00:00:00Z",
+    )
+    assert report["root"]["severity"] == severity
+    assert report["root"]["available_bytes"] == 307200
+    assert report["local_backup_bytes"] == 600
+    assert report["query_log_bytes"] is None
+    assert report["eligible_logs"] == 1
+    assert report["last_successful_retention"] is None
+    assert report["pbs_backup"] == "unknown"
+    assert report["restore_verification"] == "unknown"
