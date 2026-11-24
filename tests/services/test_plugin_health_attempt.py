@@ -18,9 +18,18 @@ def test_health_history_only_records_the_current_successful_attempt(monkeypatch,
         id=name, inventory_group=name,
     ))
     runner.REPORT_DIR = tmp_path
-    monkeypatch.setattr(health, "HostIdentityRepository", Mock(
-        return_value=SimpleNamespace(execution_bindings=lambda: {}),
-    ))
+    identity = {"host_id": "resolver-id", "incarnation": 1}
+    identities = Mock(
+        return_value=SimpleNamespace(
+            execution_bindings=lambda: {"resolver": {**identity, "ip": "192.0.2.1", "user": "test"}},
+            current=lambda: [{"hostname": "resolver", "group_name": "technitium",
+                              "host_id": "resolver-id", "current_incarnation": 1,
+                              "endpoint_review_required": False}],
+            report_bindings=lambda: {"resolver": identity},
+        ),
+    )
+    monkeypatch.setattr(health, "HostIdentityRepository", identities)
+    monkeypatch.setattr("himp.health.repository.HostIdentityRepository", identities)
     monkeypatch.setattr(
         "himp.database.host_automation_policies.HostAutomationPolicyRepository",
         Mock(return_value=SimpleNamespace(disabled_hosts=lambda: [])),
@@ -28,7 +37,7 @@ def test_health_history_only_records_the_current_successful_attempt(monkeypatch,
     artifact = tmp_path / "technitium.json"
     artifact.write_text(json.dumps({
         "attempt_id": "old", "plugin": "technitium",
-        "hosts": [{"hostname": "resolver", "health": {"status": "PASS", "earned": 10, "possible": 10}}],
+        "hosts": [{"hostname": "resolver", "host_identity": identity, "health": {"status": "PASS", "earned": 10, "possible": 10}}],
     }))
 
     def run(command, *, check, timeout, env):
@@ -132,3 +141,35 @@ def test_failed_publication_retains_previous_observation(tmp_path, monkeypatch):
     attempt = attempts.all()["technitium"]
     assert attempt["status"] == "failed"
     assert attempt["failure_category"] == "publication_failed"
+
+
+def test_fleet_score_keeps_missing_unverified_retired_and_disabled_targets(tmp_path):
+    from himp.health.parser import HealthArtifactParser
+    from himp.health.technitium_fleet import project_fleet
+
+    def member(name):
+        return {"hostname": name, "group_name": "technitium", "host_id": name,
+                "current_incarnation": 2, "endpoint_review_required": False}
+
+    def observation(name, incarnation=2):
+        return {"hostname": name, "host_identity": {"host_id": name, "incarnation": incarnation},
+                "health": {"status": "PASS", "earned": 10, "possible": 10}}
+
+    path = tmp_path / "technitium.json"
+    path.write_text(json.dumps({"plugin": "technitium", "hosts": [
+        observation("healthy"), observation("retired"), observation("disabled"),
+        observation("replaced", 1), observation("outside"),
+        observation("ambiguous"), observation("ambiguous"),
+    ]}))
+    report = HealthArtifactParser().parse(path)
+    projected = project_fleet(
+        report, [member(name) for name in ("healthy", "missing", "disabled", "replaced", "ambiguous")],
+        {"disabled"}, "current", {"retired": None},
+    )
+    assert projected.summary.score == 10
+    assert projected.summary.possible == 70
+    assert projected.metadata.data["fleet_membership"] == {
+        "healthy": 1, "unknown": 1, "unverified": 3, "retired": 1, "disabled": 1,
+    }
+    assert [host.hostname for host in projected.hosts if host.passed] == ["healthy"]
+    assert report.summary.score == 70

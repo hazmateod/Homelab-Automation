@@ -53,10 +53,17 @@ class PluginHealthRunner:
 
         result.health_attempt_id = uuid4().hex
         start = time.perf_counter()
-        bindings = HostIdentityRepository().execution_bindings()
+        identity_repository = HostIdentityRepository()
+        bindings = identity_repository.execution_bindings()
+        if plugin.id == "technitium":
+            fleet = {
+                row["hostname"] for row in identity_repository.current()
+                if row["group_name"] == plugin.inventory_group
+            }
+            bindings = {name: binding for name, binding in bindings.items() if name in fleet}
         identity_options = (
             ["--extra-vars", json.dumps({"himp_host_bindings": bindings})]
-            if bindings else []
+            if bindings or plugin.id == "technitium" else []
         )
 
         from himp.database.host_automation_policies import (
@@ -80,7 +87,7 @@ class PluginHealthRunner:
             *identity_options,
         ]
 
-        if disabled:
+        if disabled and plugin.id != "technitium":
             for hostname in disabled:
                 if not re.fullmatch(r"[A-Za-z0-9_.-]+", hostname):
                     raise ValueError(
@@ -109,6 +116,7 @@ class PluginHealthRunner:
                         "ansible_ssh_host_key_checking": True,
                         "ansible_ssh_args": TECHNITIUM_SSH_OPTIONS,
                         "himp_require_technitium_ssh": True,
+                        "himp_health_disabled_hosts": sorted(disabled),
                     })])
                     options["env"] = {**os.environ, "LC_ALL": "C"}
                 process = subprocess.run(command, check=False, timeout=timeout, **options)

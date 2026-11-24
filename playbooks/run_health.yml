@@ -14,6 +14,12 @@
         else none
       }}
 
+    health_target_blocked: >-
+      {{
+        (himp_require_technitium_ssh | default(false) | bool)
+        and (not health_identity or inventory_hostname in (himp_health_disabled_hosts | default([])))
+      }}
+
   tasks:
 
     - name: Validate plugin parameter
@@ -25,15 +31,30 @@
           - inventory_group | length > 0
         fail_msg: Plugin or inventory_group parameter was not supplied.
 
+    - name: Record targets excluded from managed monitoring
+      ansible.builtin.set_fact:
+        host_health_result:
+          hostname: "{{ inventory_hostname }}"
+          host_identity: null
+          health:
+            earned: 0
+            possible: 10
+            status: UNKNOWN
+            issues: ["Target is disabled or lacks a verified fleet binding"]
+          report:
+            collection_status: "{{ 'disabled' if inventory_hostname in (himp_health_disabled_hosts | default([])) else 'unverified' }}"
+      when: health_target_blocked | bool
+
     - name: Require OpenSSH transport for scheduled Technitium checks
       ansible.builtin.assert:
         that:
           - (ansible_connection | default('ssh')) in ['ssh', 'ansible.builtin.ssh']
         fail_msg: Technitium monitoring requires OpenSSH transport
-      when: himp_require_technitium_ssh | default(false) | bool
+      when: (himp_require_technitium_ssh | default(false) | bool) and not (health_target_blocked | bool)
 
     - name: Gather host facts and preserve unreachable targets for reporting
       ansible.builtin.setup:
+      when: not (health_target_blocked | bool)
       register: health_setup
       ignore_unreachable: true
       ignore_errors: true
@@ -59,7 +80,7 @@
       when: health_setup is failed or health_setup.unreachable | default(false)
 
     - name: Collect health from reachable targets
-      when: health_setup is succeeded and not (health_setup.unreachable | default(false))
+      when: not (health_target_blocked | bool) and health_setup is succeeded and not (health_setup.unreachable | default(false))
       block:
         - name: Initialize HIMP runtime
           ansible.builtin.set_fact:
