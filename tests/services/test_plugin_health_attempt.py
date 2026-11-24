@@ -173,3 +173,83 @@ def test_fleet_score_keeps_missing_unverified_retired_and_disabled_targets(tmp_p
     }
     assert [host.hostname for host in projected.hosts if host.passed] == ["healthy"]
     assert report.summary.score == 70
+
+
+@pytest.mark.parametrize("entrypoint", ["workflow", "scheduler"])
+def test_health_dispatch_keeps_server_selected_fleet(entrypoint, monkeypatch, tmp_path):
+    from pathlib import Path
+    from himp.commands import scheduler_run
+    from himp.services.automation import AutomationService
+    from himp.services.workflow_execution import WorkflowExecutionService
+
+    runner = health.PluginHealthRunner()
+    runner.loader = SimpleNamespace(plugins=lambda: [SimpleNamespace(
+        id="technitium", inventory_group="technitium", supports_health=lambda: True,
+    )])
+    runner.loader.find = lambda name: runner.loader.plugins()[0]
+    runner.REPORT_DIR = tmp_path
+    bindings = {
+        name: {"host_id": f"{name}-id", "incarnation": 1, "ip": "192.0.2.1", "user": "test"}
+        for name in ("resolver", "disabled", "unrelated")
+    }
+    monkeypatch.setattr(health, "HostIdentityRepository", lambda: SimpleNamespace(
+        execution_bindings=lambda: bindings,
+        current=lambda: [{"hostname": name, "group_name": group} for name, group in (
+            ("resolver", "technitium"), ("disabled", "technitium"), ("unrelated", "pbs"),
+        )],
+    ))
+    monkeypatch.setattr(
+        "himp.database.host_automation_policies.HostAutomationPolicyRepository",
+        lambda: SimpleNamespace(disabled_hosts=lambda: {"disabled"}),
+    )
+    calls = []
+
+    def run(command, **kwargs):
+        calls.append(command)
+        extra = [json.loads(arg) for arg in command if arg.startswith("{")]
+        options = {key: value for entry in extra for key, value in entry.items()}
+        attempt = next(arg.split("=", 1)[1] for arg in command if arg.startswith("himp_health_attempt_id="))
+        Path(options["himp_health_output"]).write_text(json.dumps({
+            "plugin": "technitium", "attempt_id": attempt, "hosts": [],
+        }))
+        assert "inventory_group=technitium" in command
+        assert set(options["himp_host_bindings"]) == {"resolver", "disabled"}
+        assert options["himp_health_disabled_hosts"] == ["disabled"]
+        assert "--limit" not in command and not any("forged" in arg for arg in command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr(health.subprocess, "run", run)
+    service = HealthService()
+    service.runner = runner
+    automation = AutomationService()
+    automation.health = service
+    automation.lock_repository = Mock()
+    automation.execution_repository = Mock()
+    automation.execution_repository.save.return_value = 1
+    monkeypatch.setattr(automation, "validate_execution_policy", lambda *args, **kwargs: {
+        "timeout_seconds": 10, "retry_attempts": 1, "retry_delay_seconds": 0,
+    })
+    if entrypoint == "workflow":
+        workflow = WorkflowExecutionService(
+            workflow_service=SimpleNamespace(
+                get_workflow=lambda _: {"id": 17},
+                validate_workflow=lambda _: {"valid": True},
+                repository=SimpleNamespace(
+                    list_tasks=lambda _: [{"task_id": "health_check"}],
+                    list_dependencies=lambda _: [],
+                ),
+            ),
+            automation_service=automation,
+            workflow_execution_repository=Mock(),
+        )
+        assert workflow.execute(17, limit="forged:pbs")["success"]
+    else:
+        monkeypatch.setattr(scheduler_run, "_run_vulnerability_ingest", lambda: None)
+        monkeypatch.setattr(scheduler_run, "HIMP", lambda: SimpleNamespace(automation=automation))
+        monkeypatch.setattr(scheduler_run, "SchedulerService", lambda: SimpleNamespace(
+            due_tasks=lambda now: [{"task_id": "health_check"}], record_run=Mock(),
+        ))
+        monkeypatch.setattr(scheduler_run, "RemediationSchedulingService",
+                            lambda: SimpleNamespace(due=lambda **kwargs: []))
+        assert scheduler_run.run(SimpleNamespace(at=None)) == 0
+    assert len(calls) == 1
