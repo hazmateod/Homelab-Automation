@@ -4,7 +4,9 @@ Health API.
 Provides current health status and plugin health execution.
 """
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
+
+from himp.api.dependencies import require_admin
 
 from himp.services.health import HealthService
 
@@ -45,13 +47,13 @@ async def health_summary():
     }
 
 
-@router.get("/all")
+@router.get("/all", dependencies=[Depends(require_admin)])
 async def health_all():
 
     return service.all()
 
 
-@router.get("/{plugin}")
+@router.get("/{plugin}", dependencies=[Depends(require_admin)])
 async def health_plugin(
     plugin: str,
 ):

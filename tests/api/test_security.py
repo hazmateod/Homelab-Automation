@@ -143,3 +143,43 @@ def test_admin_can_reach_restart_endpoint_without_executing_restart(
         "sleep 1 && systemctl restart himp",
     ]
     assert calls[0]["kwargs"]["start_new_session"] is True
+
+
+def test_health_execution_requires_admin_and_uses_server_selected_group(monkeypatch):
+    from himp.api import dependencies, health
+
+    calls = []
+    monkeypatch.setattr(health.service, "plugin", lambda name: calls.append(name) or {"plugin": name})
+    path = "/api/health/technitium"
+    with TestClient(server.app) as client:
+        assert client.get(path).status_code == 401
+
+        for role, status in (("viewer", 403), ("admin", 200)):
+            monkeypatch.setattr(
+                dependencies.session_service, "authenticate_session",
+                lambda token: authenticated_session(role=role),
+            )
+            response = client.get(path, params={"inventory_group": "other", "hosts": "outside"})
+            assert response.status_code == status
+
+    assert calls == ["technitium"]
+
+
+def test_workflow_execution_requires_administrator_session(monkeypatch):
+    from himp.api import dependencies, workflows
+
+    calls = []
+    monkeypatch.setattr(
+        workflows.workflow_execution_service, "execute",
+        lambda workflow_id, **kwargs: calls.append((workflow_id, kwargs)) or {"success": True},
+    )
+    with TestClient(server.app) as client:
+        path = "/api/workflows/17/execute"
+        assert client.post(path).status_code == 401
+        for role, status in (("viewer", 403), ("operator", 403), ("admin", 200)):
+            monkeypatch.setattr(
+                dependencies.session_service, "authenticate_session",
+                lambda token: authenticated_session(role=role),
+            )
+            assert client.post(path, json={"confirmed": True}).status_code == status
+    assert calls == [(17, {"limit": None, "confirmed": True})]

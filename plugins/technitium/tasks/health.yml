@@ -1,108 +1,45 @@
 ---
-###############################################################################
-# Technitium Health
-###############################################################################
+- name: Compare restart counters with the last identity-bound sample
+  vars:
+    binding: "{{ (himp_host_bindings | default({})).get(inventory_hostname, {}) }}"
+    previous: "{{ lookup('ansible.builtin.file', playbook_dir ~ '/../reports/health/technitium.json', errors='ignore') | default('', true) }}"
+  ansible.builtin.set_fact:
+    technitium_restart_deltas: >-
+      {{
+        homelab_report.plugins.technitium | technitium_restart_trend(
+          previous, binding, ansible_host | default(''), ansible_user | default(''))
+      }}
+  no_log: true
 
-- name: Initialize Technitium health result
+- name: Classify Technitium health evidence
+  vars:
+    evidence: "{{ homelab_report.plugins.technitium }}"
+    outcomes: "{{ evidence.dns.values() | list }}"
+    restart_loop: "{{ technitium_restart_deltas | technitium_restart_warning }}"
+    failures: "{{ outcomes | difference(['ok', 'unknown']) }}"
   ansible.builtin.set_fact:
     technitium_health:
       name: Technitium
-      earned: 0
+      earned: "{{ 10 if 'ok' in outcomes and not failures and 'unknown' not in outcomes and technitium_active_units and not evidence.service_state.duplicate_enabled and not evidence.service_state.errors and not restart_loop else 0 }}"
       possible: 10
-      status: CRITICAL
-      issues: []
+      status: >-
+        {{
+          'CRITICAL' if failures or (not technitium_active_units and evidence.installed)
+          else 'WARNING' if restart_loop or evidence.service_state.duplicate_enabled or evidence.service_state.errors or 'unknown' in outcomes
+          else 'HEALTHY' if technitium_active_units and 'ok' in outcomes
+          else 'WARNING'
+        }}
+      issues: >-
+        {{
+          (['No verified active Technitium unit'] if not technitium_active_units else [])
+          + (['Equivalent enabled Technitium units'] if evidence.service_state.duplicate_enabled else [])
+          + (['One or more DNS probes failed'] if failures else [])
+          + (['DNS probe evidence unavailable'] if 'unknown' in outcomes else [])
+          + (['At least three restarts in fifteen minutes'] if restart_loop else [])
+          + (['Systemd evidence incomplete'] if evidence.service_state.errors else [])
+        }}
 
-
-- name: Add installation health
+- name: Publish Technitium health result
   ansible.builtin.set_fact:
-    technitium_health: >-
-      {{
-        technitium_health |
-        combine({
-          'earned': technitium_health.earned + 3
-        })
-      }}
-  when:
-    - homelab_report.plugins.technitium.installed | default(false)
-
-
-- name: Add service health
-  ansible.builtin.set_fact:
-    technitium_health: >-
-      {{
-        technitium_health |
-        combine({
-          'earned': technitium_health.earned + 3
-        })
-      }}
-  when:
-    - homelab_report.plugins.technitium.status | default('unknown') == 'active'
-
-
-- name: Add DNS listener health
-  ansible.builtin.set_fact:
-    technitium_health: >-
-      {{
-        technitium_health |
-        combine({
-          'earned': technitium_health.earned + 3
-        })
-      }}
-  when:
-    - "' :53 ' not in []"
-    - homelab_report.plugins.technitium.ports.listening | length > 0
-
-
-- name: Add web console health
-  ansible.builtin.set_fact:
-    technitium_health: >-
-      {{
-        technitium_health |
-        combine({
-          'earned': technitium_health.earned + 1
-        })
-      }}
-  when:
-    - homelab_report.plugins.technitium.ports.listening | join(' ') is search('5380')
-
-
-- name: Calculate Technitium health status
-  ansible.builtin.set_fact:
-    technitium_health: >-
-      {{
-        technitium_health |
-        combine({
-          'status':
-            'HEALTHY'
-            if technitium_health.earned >= 8
-            else
-            'WARNING'
-        })
-      }}
-
-
-- name: Store Technitium health
-  ansible.builtin.set_fact:
-    homelab_report: >-
-      {{
-        homelab_report |
-        combine({
-          'plugins': {
-            'technitium': (
-              homelab_report.plugins.technitium |
-              combine({
-                'health': technitium_health
-              })
-            )
-          }
-        }, recursive=True)
-      }}
-
-
-- name: Add Technitium health contributor
-  ansible.builtin.set_fact:
-    health_contributors: >-
-      {{
-        health_contributors | default([]) +
-        [ technitium_health ]
-      }}
+    health_contributors: "{{ health_contributors | default([]) + [technitium_health] }}"
+    homelab_report: "{{ homelab_report | combine({'plugins': {'technitium': {'health': technitium_health, 'restart_deltas': technitium_restart_deltas}}}, recursive=true) }}"

@@ -1,8 +1,24 @@
 ---
 - name: Execute HIMP Plugin Health
   hosts: "{{ inventory_group }}"
-  gather_facts: true
+  gather_facts: false
   become: true
+
+  vars:
+    health_binding: "{{ (himp_host_bindings | default({})).get(inventory_hostname, {}) }}"
+    health_identity: >-
+      {{
+        {'host_id': health_binding.host_id, 'incarnation': health_binding.incarnation}
+        if health_binding and health_binding.ip == (ansible_host | default(''))
+        and health_binding.user == (ansible_user | default(''))
+        else none
+      }}
+
+    health_target_blocked: >-
+      {{
+        (himp_require_technitium_ssh | default(false) | bool)
+        and (not health_identity or inventory_hostname in (himp_health_disabled_hosts | default([])))
+      }}
 
   tasks:
 
@@ -15,44 +31,107 @@
           - inventory_group | length > 0
         fail_msg: Plugin or inventory_group parameter was not supplied.
 
-    - name: Initialize HIMP runtime
-      ansible.builtin.set_fact:
-        homelab_report: {}
-        homelab_health: {}
-        health_contributors: []
-        homelab_plugin: "{{ plugin }}"
-
-    - name: Execute plugin discovery
-      ansible.builtin.include_tasks:
-        file: "../plugins/{{ plugin }}/tasks/discovery.yml"
-
-    - name: Execute plugin health
-      ansible.builtin.include_tasks:
-        file: "../plugins/{{ plugin }}/tasks/health.yml"
-
-    - name: Save host health result
-      vars:
-        binding: "{{ (himp_host_bindings | default({})).get(inventory_hostname, {}) }}"
+    - name: Record targets excluded from managed monitoring
       ansible.builtin.set_fact:
         host_health_result:
           hostname: "{{ inventory_hostname }}"
-          host_identity: >-
-            {{
-              {'host_id': binding.host_id, 'incarnation': binding.incarnation}
-              if binding and binding.ip == (ansible_host | default(''))
-              and binding.user == (ansible_user | default(''))
-              else none
-            }}
+          host_identity: null
           health:
-            "{{ health_contributors[0] if (health_contributors | length) > 0 else {} }}"
+            earned: 0
+            possible: 10
+            status: UNKNOWN
+            issues: ["Target is disabled or lacks a verified fleet binding"]
           report:
-            "{{ homelab_report.plugins[plugin] if plugin in homelab_report.plugins else {} }}"
+            collection_status: "{{ 'disabled' if inventory_hostname in (himp_health_disabled_hosts | default([])) else 'unverified' }}"
+      when: health_target_blocked | bool
+
+    - name: Require OpenSSH transport for scheduled Technitium checks
+      ansible.builtin.assert:
+        that:
+          - (ansible_connection | default('ssh')) in ['ssh', 'ansible.builtin.ssh']
+        fail_msg: Technitium monitoring requires OpenSSH transport
+      when: (himp_require_technitium_ssh | default(false) | bool) and not (health_target_blocked | bool)
+
+    - name: Gather host facts and preserve unreachable targets for reporting
+      ansible.builtin.setup:
+      when: not (health_target_blocked | bool)
+      register: health_setup
+      ignore_unreachable: true
+      ignore_errors: true
+      no_log: true
+
+    - name: Record current attempt when host facts are unavailable
+      ansible.builtin.set_fact:
+        host_health_result:
+          hostname: "{{ inventory_hostname }}"
+          host_identity: "{{ health_identity }}"
+          health:
+            earned: 0
+            possible: 10
+            status: UNKNOWN
+            issues: ["Host health collection did not start"]
+          report:
+            collection_status: >-
+              {{
+                'ssh_identity_failed' if (health_setup.msg | default('')) is search(
+                  'Host key verification failed|REMOTE HOST IDENTIFICATION HAS CHANGED'
+                ) else 'unreachable' if health_setup.unreachable | default(false) else 'unknown'
+              }}
+      when: health_setup is failed or health_setup.unreachable | default(false)
+
+    - name: Collect health from reachable targets
+      when: not (health_target_blocked | bool) and health_setup is succeeded and not (health_setup.unreachable | default(false))
+      block:
+        - name: Initialize HIMP runtime
+          ansible.builtin.set_fact:
+            homelab_report: {}
+            homelab_health: {}
+            health_contributors: []
+            homelab_plugin: "{{ plugin }}"
+
+        - name: Execute plugin discovery
+          ansible.builtin.include_tasks:
+            file: "../plugins/{{ plugin }}/tasks/discovery.yml"
+
+        - name: Execute plugin health
+          ansible.builtin.include_tasks:
+            file: "../plugins/{{ plugin }}/tasks/health.yml"
+
+        - name: Save host health result
+          ansible.builtin.set_fact:
+            host_health_result:
+              hostname: "{{ inventory_hostname }}"
+              host_identity: "{{ health_identity }}"
+              health:
+                "{{ health_contributors[0] if (health_contributors | length) > 0 else {} }}"
+              report:
+                "{{ homelab_report.plugins[plugin] if plugin in homelab_report.plugins else {} }}"
+
+      rescue:
+        - name: Preserve failure status for other plugin errors
+          ansible.builtin.fail:
+            msg: Plugin health collection failed
+          when: (ansible_failed_result.msg | default('')) != 'HIMP health transport unavailable'
+
+        - name: Record interrupted host health collection
+          ansible.builtin.set_fact:
+            host_health_result:
+              hostname: "{{ inventory_hostname }}"
+              host_identity: "{{ health_identity }}"
+              health:
+                earned: 0
+                possible: 10
+                status: UNKNOWN
+                issues: ["Host health collection did not complete"]
+              report:
+                collection_status: unreachable
 
     - name: Aggregate plugin health results
       ansible.builtin.set_fact:
         aggregated_health:
           plugin: "{{ plugin }}"
           inventory_group: "{{ inventory_group }}"
+          attempt_id: "{{ himp_health_attempt_id | default(none) }}"
           hosts: >-
             {{
               ansible_play_hosts_all
@@ -75,7 +154,7 @@
 
     - name: Write normalized health document
       ansible.builtin.copy:
-        dest: "{{ playbook_dir }}/../reports/health/{{ plugin }}.json"
+        dest: "{{ himp_health_output | default(playbook_dir ~ '/../reports/health/' ~ plugin ~ '.json') }}"
         content: "{{ aggregated_health | to_nice_json }}"
         mode: "0644"
       delegate_to: localhost
